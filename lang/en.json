@@ -1,0 +1,82 @@
+{
+    "General":{
+        "Global":"Global",
+        "Enable":"Enable",
+        "Disable":"Disable",
+        "SetDefault":"Set Default",
+        "Default": "Default",
+        "Info": "Info",
+        "Error": "Error",
+        "Plugin_New": "New Plugin is found【{1}】, will load it automatically.",
+        "Plugin_Load": "Load Plugin: 【{1}】 error",
+        "Function_NotExist": "Function don't exist!",
+        "Key_MapError": "Map Key 【{1}】 to Action 【{2}】 error",
+        "Key_MapError2": "{1}\n{2}\n map error",
+        "Edit_Function": "Edit Function",
+        "Inside": "Vimd.ini Inside",
+        "Outside": "Outside"
+    },
+    "TrayMenu": {
+        "Manager": "&E) HotKey Manager",
+        "Setting": "&S) Settings",
+        "EditCustom": "&C) Edit Custom",
+        "Reload": "&R) Reload",
+        "Exit": "&X) Eixt",
+        "Default": "&E) HotKey Manager"
+    },
+    "Manager": {
+        "ListView": {
+            "ListView1": {
+                "Col1Width": 60,
+                "Col2Width": 115
+            },
+            "ListView2": {
+                "Col1Width": 60,
+                "Col2Width": 115
+            },
+            "ListView3": {
+                "Col1Width": 80,
+                "Col2Width": 100,
+                "Col3Width": 230,
+                "Col4Width": 150,
+                "Col5Width": 460
+            }
+        },
+        "Gui": {
+            "Title": "VimDesktop Manager",
+            "GroupBox1": "Plugins(ContextMenu)",
+            "ListView1Columns": [
+                "Status",
+                "Plugin Name"
+            ],
+            "GroupBox2": "Modes(ContextMenu)",
+            "ListView2Columns": [
+                "Default",
+                "Mode Name"
+            ],
+            "GroupBox3": "Plugin Info",
+            "PluginName": "Name:",
+            "Author": "Author:",
+            "Version": "Version:",
+            "PluginType": "Type:",
+            "Comment": "Comment:",
+            "GroupBox4": "KeyMap (Left: DoubleClick to Modify ContextMenu: Edit Function)    (Comment: Hotkey which is started With * will be disabled)",
+            "Group": "Group",
+            "GroupList": [
+                "Group",
+                "HotKey",
+                "Action",
+                "Parameter",
+                "Comment"
+            ],
+            "Search": "Filter",
+            "ListView3Columns": [
+                "Group",
+                "HotKey",
+                "Action",
+                "Parameter",
+                "Comment"
+            ]
+        }
+    }
+}

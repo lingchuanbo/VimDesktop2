@@ -1,0 +1,82 @@
+{
+    "General":{
+        "Global":"全局",
+        "Enable": "启用",
+        "Disable": "禁用",
+        "SetDefault": "设为默认",
+        "Default": "默认",
+        "Info": "提示",
+        "Error": "错误",
+        "Plugin_New": "发现新插件【{1}】，将自动加载该插件",
+        "Plugin_Load": "加载插件：【{1}】错误",
+        "Function_NotExist": "函数不存在！",
+        "Key_MapError": "映射按键【{1}】到功能【{2}】错误",
+        "Key_MapError2": "{1}\n{2}\n映射错误",
+        "Edit_Function": "编辑函数",
+        "Inside": "Vimd.ini内置",
+        "Outside": "外置"
+    },
+    "TrayMenu": {
+        "Manager": "&E) 热键管理器",
+        "Setting": "&S) 配置",
+        "EditCustom": "&C) 编辑Custom",
+        "Reload": "&R) 重启",
+        "Exit": "&X) 退出",
+        "Default": "&E) 热键管理器"
+    },
+    "Manager": {
+        "ListView": {
+            "ListView1": {
+                "Col1Width": 40,
+                "Col2Width": 135
+            },
+            "ListView2": {
+                "Col1Width": 40,
+                "Col2Width": 135
+            },
+            "ListView3": {
+                "Col1Width": 80,
+                "Col2Width": 100,
+                "Col3Width": 230,
+                "Col4Width": 150,
+                "Col5Width": 460
+            }
+        },
+        "Gui": {
+            "Title": "VimDesktop管理器",
+            "GroupBox1": "插件(右键菜单：启用/禁用)",
+            "ListView1Columns": [
+                "状态",
+                "插件名称"
+            ],
+            "GroupBox2": "模式(右键菜单：设置默认)",
+            "ListView2Columns": [
+                "默认",
+                "模式名称"
+            ],
+            "GroupBox3": "插件信息",
+            "PluginName": "名称：",
+            "Author": "作者：",
+            "Version": "版本：",
+            "PluginType": "类型：",
+            "Comment": "说明：",
+            "GroupBox4": "映射(左键：双击改键，右键菜单：编辑函数)    (特别说明：首字母为【*】星号的快捷键为禁用项)",
+            "Group": "查找组",
+            "GroupList": [
+                "分组",
+                "热键",
+                "动作",
+                "参数",
+                "描述"
+            ],
+            "Search": "查找值",
+            "ListView3Columns": [
+                "分组",
+                "热键",
+                "动作",
+                "参数",
+                "描述"
+            ]
+        }
+    }
+}
