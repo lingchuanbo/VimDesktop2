@@ -14,6 +14,8 @@
 
 [如何写插件](https://github.com/kawvin/vimdesktop2/wiki/%E5%A6%82%E4%BD%95%E5%86%99%E6%8F%92%E4%BB%B6)
 
+[如何写配置文件](https://github.com/kawvin/vimdesktop2/wiki/%E5%A6%82%E4%BD%95%E5%86%99%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6)
+
 [更新历史](https://github.com/kawvin/vimdesktop2/wiki/HISTORY)
 
 ### VimDesktop 历史
