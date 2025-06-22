@@ -26,6 +26,10 @@ enable_log=0
 ; 打印调试日志
 enable_debug=0
 ; 打开调试窗口
+tooltip_bg_color=Green
+; 提示框背景颜色，支持颜色名称或RGB值如0xFF0000
+tooltip_text_color=White
+; 提示框文字颜色，支持颜色名称或RGB值如0x000000
 
 [exclude]
 ;排除窗体

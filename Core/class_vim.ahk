@@ -164,8 +164,10 @@ ShowInfo(){
     ToolTipOptions.Init()
     ; ToolTipOptions.SetFont("s48 underline italic", "Consolas")
     ; ToolTipOptions.SetMargins(12, 12, 12, 12)
-    ; 配置背景颜色和字体颜色
-    ToolTipOptions.SetColors("Green", "White")
+    ; 从配置文件读取颜色设置，如果没有则使用默认值
+    bgColor := INIObject.config.HasOwnProp("tooltip_bg_color") ? INIObject.config.tooltip_bg_color : "Green"
+    txtColor := INIObject.config.HasOwnProp("tooltip_text_color") ? INIObject.config.tooltip_text_color : "White"
+    ToolTipOptions.SetColors(bgColor, txtColor)
     ToolTip(np)        ; show a ToolTip
 
 }
