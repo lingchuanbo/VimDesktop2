@@ -1,7 +1,7 @@
 ﻿#requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent true
-
+SetCapsLockState "AlwaysOff"
 CoordMode "Tooltip", "Screen"
 CoordMode "Mouse", "Screen"
 CoordMode "Menu", "Window"
@@ -68,6 +68,8 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\core\VimDConfig.ahk
 #Include .\Lib\class_Json.ahk
 #Include .\lib\class_EasyINI.ahk
+#Include .\lib\ToolTipEx.ahk
+; #Include .\lib\Run.ahk
 ; #Include .\lib\class_Everything.ahk
 ; #Include .\lib\UIA.ahk
 ; #Include .\lib\Gdip_All.ahk

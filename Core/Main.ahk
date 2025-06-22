@@ -125,6 +125,9 @@ CheckHotKey(LoadAll:=0){
             continue
         }
 
+        if (this_key="enabled"){ 
+            continue
+        }
         this_mode := "normal"
         if RegExMatch(Trim(this_action), "\[\=(.*?)\]", &mode){
             this_mode := mode[1]
@@ -184,12 +187,14 @@ CheckHotKey(LoadAll:=0){
         _enabled:=0
         for m, n in Key.OwnProps()
         {
-            if RegExMatch(m, "i)(set_class)|(set_file)|(set_time_out)|(set_max_count)|(enable_show_info)|(EasyIni_KeyComment)")
+            if RegExMatch(m, "i)(set_class)|(set_file)|(set_time_out)|(set_max_count)|(enable_show_info)|(EasyIni_KeyComment)|(enabled)")
                 continue
+
             if (m="enabled"){
                 _enabled:=n
                 Break
             }
+            
         }
 
         ;不加载全部 + 不启用则跳过
@@ -206,7 +211,8 @@ CheckHotKey(LoadAll:=0){
         _default_Mode:="normal"
         for m, n in Key.OwnProps()
         {
-            if RegExMatch(m, "i)(set_class)|(set_file)|(set_time_out)|(set_max_count)|(enable_show_info)|(EasyIni_KeyComment)")
+            ;if RegExMatch(m, "i)(set_class)|(set_file)|(set_time_out)|(set_max_count)|(enable_show_info)|(EasyIni_KeyComment)")
+            if RegExMatch(m, "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$")
                 continue
 
             if (m="default_Mode"){
@@ -240,10 +246,12 @@ CheckHotKey(LoadAll:=0){
                             this_Comment:= ""
                     }
                 } else {
-                    this_action:= tArr[1]
+                    ;this_action:= tArr[1]
+                    ;this_action:= this_action  ; 直接使用 this_action 自身
                     this_Param:= ""
                     this_Comment:= ""
                 }
+                ;MsgBox "正在处理: " PluginName "`n键 (Key): " m "`n值 (Action): " this_action
                 vim.map(m, PluginName, this_mode, this_action, this_Param, Group:="", this_Comment)
             }
         }

@@ -158,7 +158,9 @@ ShowInfo(){
     MouseGetPos &posX, &posY
     posX += 40
     posY += 40
-    Tooltip np, posX, posY
+    ; Tooltip np, posX, posY
+    ; 使用 ToolTipEx第三方库提示
+    ToolTipEx(np,  5)
 }
 
 /* HideInfo【隐藏热键信息】
