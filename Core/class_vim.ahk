@@ -155,12 +155,19 @@ ShowInfo(){
             np .= "=====================`n" 
         }
     }
-    MouseGetPos &posX, &posY
-    posX += 40
-    posY += 40
+    ; MouseGetPos &posX, &posY
+    ; posX += 40
+    ; posY += 40
     ; Tooltip np, posX, posY
     ; 使用 ToolTipEx第三方库提示
-    ToolTipEx(np,  5)
+    ; ToolTipEx(np,  5)
+    ToolTipOptions.Init()
+    ; ToolTipOptions.SetFont("s48 underline italic", "Consolas")
+    ; ToolTipOptions.SetMargins(12, 12, 12, 12)
+    ; 配置背景颜色和字体颜色
+    ToolTipOptions.SetColors("Green", "White")
+    ToolTip(np)        ; show a ToolTip
+
 }
 
 /* HideInfo【隐藏热键信息】

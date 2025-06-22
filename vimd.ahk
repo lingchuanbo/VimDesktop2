@@ -68,7 +68,7 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\core\VimDConfig.ahk
 #Include .\Lib\class_Json.ahk
 #Include .\lib\class_EasyINI.ahk
-#Include .\lib\ToolTipEx.ahk
+#Include .\lib\ToolTipOptions.ahk
 ; #Include .\lib\Run.ahk
 ; #Include .\lib\class_Everything.ahk
 ; #Include .\lib\UIA.ahk
