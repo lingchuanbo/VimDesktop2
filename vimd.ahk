@@ -69,6 +69,7 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\Lib\class_Json.ahk
 #Include .\lib\class_EasyINI.ahk
 #Include .\lib\DynamicFileMenu.ahk
+#Include .\lib\SingleDoubleLongPress.ahk
 ; #Include .\lib\ToolTipEx.ahk
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\Run.ahk

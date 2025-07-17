@@ -21,6 +21,10 @@ Everything() {
     KeyArray.push({ Key: "A", Mode: "VIM模式", Group: "控制", Func: "Everything_显示程序", Param: "", Comment: "显示程序" })
     KeyArray.push({ Key: "ab", Mode: "VIM模式", Group: "控制", Func: "Everything_Msg", Param: "", Comment: "MsgBox" })
 
+    KeyArray.push({ Key: "<f1>", Mode: "VIM模式", Group: "控制", Func: "Everything_SingleDoubleLongPress", Param: "", Comment: "测试单双长按-提示" })
+    KeyArray.push({ Key: "<f3>", Mode: "VIM模式", Group: "控制", Func: "Everything_SingleDoubleLongPress2", Param: "", Comment: "测试单双长按" })
+
+    
     ;注册窗体,请务必保证 PluginName 和文件名一致，以避免名称混乱影响使用
     ;如果 class 和 exe 同时填写，以 exe 为准
     ;vim.SetWin("PluginName", "ahk_class名")
@@ -74,4 +78,48 @@ Everything_Run(*) {
     dynamicTitle := "Everything - 搜索 (" . A_YYYY . "-" . A_MM . "-" . A_DD . ")"
     ; 使用转换后的函数
     LaunchOrShow(EverythingPath, "EVERYTHING", dynamicTitle)
+}
+
+
+; 测试单双长按函数
+
+Everything_SingleDoubleLongPress(*) {
+
+    F1Action := CreateClickHandler(SingleClick, DoubleClick, LongPress)
+    Hotkey "$F1", F1Action
+
+    SingleClick()
+    {
+        MsgBox "F1单击动作"
+    }
+
+    DoubleClick()
+    {
+        MsgBox "F1双击动作"
+    }
+
+    LongPress()
+    {
+        MsgBox "F1长按动作"
+    }
+
+}
+Everything_SingleDoubleLongPress2(*) {
+    F3Action := CreateClickHandler(SingleClick, DoubleClick, LongPress, 500, 300, false)
+    Hotkey "$F3", F3Action
+    ; 示例3：不显示提示的热键
+    SingleClick()
+    {
+        MsgBox "F3单击动作"
+    }
+
+    DoubleClick()
+    {
+        MsgBox "F3双击动作"
+    }
+
+    LongPress()
+    {
+        MsgBox "F3长按动作"
+    }
 }
