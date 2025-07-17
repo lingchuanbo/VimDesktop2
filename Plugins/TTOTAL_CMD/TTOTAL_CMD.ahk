@@ -9,12 +9,23 @@ Comment=Total Commander
 */
 
 global TC_Global:=object()
-TC_Global.TcPath:="d:\KawvinApps\totalcmd\TOTALCMD64.EXE"
-TC_Global.TcINI:="d:\KawvinApps\totalcmd\WinCMD.ini"
-TC_Global.TcExe:="TOTALCMD64.EXE"
-TC_Global.LastView:=""  ;最后视图
 
-if RegExMatch(TC_Global.TcPath, "i)totalcmd64\.exe$") {
+; 从配置文件读取TC路径设置
+try {
+    TC_Global.TcPath := INIObject.TTOTAL_CMD.tc_path
+    TC_Global.TCDirPath := INIObject.TTOTAL_CMD.tc_dir_path  
+    TC_Global.TcINI := INIObject.TTOTAL_CMD.tc_ini_path
+} catch {
+    ; 如果配置文件中没有设置，使用默认值
+    TC_Global.TcPath := "D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
+    TC_Global.TCDirPath := "D:\BoBO\WorkFlow\tools\TotalCMD"
+    TC_Global.TcINI := "D:\BoBO\WorkFlow\tools\TotalCMD\WinCMD.ini"
+}
+
+TC_Global.TcExe := "TOTALCMD.EXE"
+TC_Global.LastView := ""  ;最后视图
+
+if RegExMatch(TC_Global.TcPath, "i)totalcmd\.exe$") {
     TC_Global.TCListBox := "LCLListBox"
     TC_Global.TCEdit := "Edit2"
     TC_Global.TInEdit := "TInEdit1"
@@ -2067,6 +2078,22 @@ TC_OtherPanel_GotoNextDir(){
     Send "{Tab}"
     TC_SendPos(571)
     Send "{Tab}"
+}
+
+/* TC_LaunchOrShow 激活/显示/隐藏_TC】
+    函数:  TC_LaunchOrShow
+    作用:  激活/显示/隐藏_TC
+    参数:  
+    返回:  
+    作者:  BoBO
+    版本:  0.1
+    AHK版本: 2.0.18
+    */
+
+TC_LaunchOrShow(*) {
+    dynamicTitle := "Everything - 搜索 (" . A_YYYY . "-" . A_MM . "-" . A_DD . ")"
+    ; 使用转换后的函数
+    LaunchOrShow(TC_Global.TcPath, "TTOTAL_CMD", dynamicTitle)
 }
 
 /* TC_ToggleMenu【显示/隐藏_菜单栏】

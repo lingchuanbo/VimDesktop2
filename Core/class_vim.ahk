@@ -51,6 +51,8 @@ vim_TimeOut(){
 VIMD_清除输入键(){
     vim.clear()
     HideInfo()
+    ; 确保CapsLock状态被关闭，防止卡在大写状态
+    SetCapsLockState "AlwaysOff"
 }
 
 /* VIMD_重复上次热键【重复上次热键】

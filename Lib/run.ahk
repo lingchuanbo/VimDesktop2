@@ -8,29 +8,65 @@
 ;   - exePath:       要运行的程序的可执行文件路径。
 ;   - newTitle:      (可选) 一个新的窗口标题。如果留空或不提供此参数，则不修改标题。
 ; =================================================================================
-LaunchOrShow(winIdentifier, exePath, newTitle := "") {
-    ; 使用 WinExist 检查窗口是否存在
-    if WinExist(winIdentifier) {
-        ; --- 窗口已存在 ---
-        WinActivate(winIdentifier) ; 激活窗口
+; 将V1版本的函数转换为V2版本，并增强错误处理
+LaunchOrShow(ExePath, tClass, NewTitle) {
+    ; 检查窗口是否存在
+    if WinExist("ahk_class " . tClass) {
+        try {
+            ; 获取窗口状态（最小化、最大化等）
+            minMax := WinGetMinMax("ahk_class " . tClass)
 
-        ; 检查是否需要修改标题
-        if (newTitle != "") {
-            ; 使用 WinSetTitle 修改标题
-            WinSetTitle(winIdentifier, newTitle)
-        }
-    } else {
-        ; --- 窗口不存在 ---
-        Run(exePath) ; 启动程序
-
-        ; 检查是否需要修改标题 (程序启动后需要一点时间来创建窗口)
-        if (newTitle != "") {
-            ; 等待窗口出现，最多等待2秒
-            WinWait(winIdentifier, , 2)
-            if WinExist(winIdentifier) { ; 再次确认窗口已存在
-                WinSetTitle(winIdentifier, newTitle)
+            ; 如果窗口最小化
+            if (minMax == -1) {
+                WinActivate("ahk_class " . tClass)
+                try WinSetTitle(NewTitle, "ahk_class " . tClass)
             }
+            ; 如果窗口未激活
+            else if !WinActive("ahk_class " . tClass) {
+                WinActivate("ahk_class " . tClass)
+                try WinSetTitle(NewTitle, "ahk_class " . tClass)
+            }
+            ; 如果窗口已激活
+            else {
+                WinMinimize("ahk_class " . tClass)
+                try WinSetTitle(NewTitle, "ahk_class " . tClass)
+            }
+        } catch Error as e {
+            ; 忽略错误，继续执行
         }
+    }
+    ; 如果窗口不存在，运行程序
+    else {
+        try {
+            Run(ExePath)
+
+            ; 等待窗口出现，最多等待5秒
+            startTime := A_TickCount
+            while (!WinExist("ahk_class " . tClass) && A_TickCount - startTime < 5000) {
+                Sleep(100)
+            }
+
+            ; 如果窗口出现了，尝试激活它
+            if WinExist("ahk_class " . tClass) {
+                try {
+                    WinActivate("ahk_class " . tClass)
+                    Sleep(200) ; 给窗口一点时间来响应
+                    try WinSetTitle(NewTitle, "ahk_class " . tClass)
+                } catch Error as e {
+                    ; 忽略错误，继续执行
+                }
+            }
+        } catch Error as e {
+            ; 忽略错误，继续执行
+        }
+    }
+
+    ; 最后一次尝试设置标题
+    try {
+        if WinExist("ahk_class " . tClass)
+            WinSetTitle(NewTitle, "ahk_class " . tClass)
+    } catch Error as e {
+        ; 忽略错误
     }
 }
 
@@ -41,7 +77,6 @@ LaunchOrShow(winIdentifier, exePath, newTitle := "") {
 ;     LaunchOrShow("ahk_exe notepad.exe", "notepad.exe")
 ; }
 
-
 ; ; --- 示例 2: 启动/显示记事本，并将其标题改为 "我的工作笔记" ---
 ; ; 按下 F2，会启动或显示记事本，并确保它的标题被设置为 "我的工作笔记"。
 ; ; 你可以手动把标题改掉，再按F2，会看到标题又被改回来了。
@@ -51,15 +86,14 @@ LaunchOrShow(winIdentifier, exePath, newTitle := "") {
 ;     LaunchOrShow("ahk_exe notepad.exe", "notepad.exe", "我的工作笔记")
 ; }
 
-
 ; ; --- 示例 3: 启动/显示 VS Code，并动态设置标题 ---
 ; ; 按下 F3，会启动或显示 VS Code，并把当前日期加入标题。
 ; ; 这展示了 newTitle 参数可以是动态生成的字符串。
 ; F3:: {
-;     MsgBox("即将启动或显示【VS Code】，并动态修改标题")
-;     vscodePath := A_Programs "\Microsoft VS Code\Code.exe" 
-;     dynamicTitle := "VS Code - 项目进行中 (" . A_YYYY . "-" . A_MM . "-" . A_DD . ")"
-;     LaunchOrShow("ahk_exe Code.exe", vscodePath, dynamicTitle)
+;     ; MsgBox("即将启动或显示【VS Code】，并动态修改标题")
+;     vscodePath := "D:\BoBO\WorkFlow\tools\TotalCMD\Tools\Everything\Everything.exe" 
+;     dynamicTitle := "Everything - 搜索 (" . A_YYYY . "-" . A_MM . "-" . A_DD . ")"
+;     LaunchOrShow("ahk_exe Everything.exe", vscodePath, dynamicTitle)
 ; }
 
 ; =================================================================================
