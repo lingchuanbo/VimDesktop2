@@ -202,10 +202,16 @@ CheckHotKey(LoadAll:=0){
             continue
         
         ;设置窗体
-        win := vim.SetWin(PluginName, Key.set_class, Key.set_file)
-        vim.SetTimeOut(Key.set_time_out, PluginName)
-        vim.SetMaxCount(Key.set_max_count, PluginName)
-        if (Key.enable_show_info = 1){
+        ; Check if properties exist before accessing them
+        set_class := Key.HasOwnProp("set_class") ? Key.set_class : ""
+        set_file := Key.HasOwnProp("set_file") ? Key.set_file : ""
+        set_time_out := Key.HasOwnProp("set_time_out") ? Key.set_time_out : 800
+        set_max_count := Key.HasOwnProp("set_max_count") ? Key.set_max_count : 100
+        
+        win := vim.SetWin(PluginName, set_class, set_file)
+        vim.SetTimeOut(set_time_out, PluginName)
+        vim.SetMaxCount(set_max_count, PluginName)
+        if (Key.HasOwnProp("enable_show_info") && Key.enable_show_info = 1){
             win.SetInfo(true)
         }
         _default_Mode:="normal"
@@ -304,4 +310,5 @@ ReceiveWMCopyData(wParam, lParam, msg, hwnd){
     }
 }
 
+#Include .\HasValue.ahk
 #Include .\class_vim.ahk

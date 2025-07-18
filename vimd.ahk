@@ -75,6 +75,8 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\lib\Script.ahk
 #Include .\lib\Logger.ahk
 #Include .\lib\vimd_API.ahk
+#Include .\lib\ShowAllKeys.ahk
 #Include .\plugins\plugins.ahk
 ; 用户自定义配置
 #Include *i .\custom\custom.ahk
+

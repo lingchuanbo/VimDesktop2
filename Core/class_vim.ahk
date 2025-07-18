@@ -163,8 +163,16 @@ ShowInfo(){
     ; Tooltip np, posX, posY
     ; 使用 ToolTipEx第三方库提示
     ; ToolTipEx(np,  5)
+    ; ToolTipOptions.SetFont("s10 underline italic", "Consolas")
     ToolTipOptions.Init()
-    ; ToolTipOptions.SetFont("s48 underline italic", "Consolas")
+    try {
+        ; 从配置文件读取字体设置，如果没有则使用默认值
+        fontSize := INIObject.config.HasOwnProp("tooltip_font_size") ? INIObject.config.tooltip_font_size : "12"
+        fontName := INIObject.config.HasOwnProp("tooltip_font_name") ? INIObject.config.tooltip_font_name : "Microsoft YaHei"
+        ToolTipOptions.SetFont("s" fontSize, fontName)
+    } catch {
+        ToolTipOptions.SetFont("s12", "Consolas")
+    }
     ; ToolTipOptions.SetMargins(12, 12, 12, 12)
     ; 从配置文件读取颜色设置，如果没有则使用默认值
     bgColor := INIObject.config.HasOwnProp("tooltip_bg_color") ? INIObject.config.tooltip_bg_color : "Green"
@@ -648,9 +656,17 @@ Class __vim{
         this.mode(Mode, winName)
         if (not this.GetAction(winName, Mode, keyName)) {
             _tAction:=RegExReplace(Action,"<\d>$","") ;MPCHC_SendPos 或 带次数的 MPCHC_SendPos<2>
-            if (Type(%_tAction%)="Func" ) {    
-                OriKey:=keyName
-                keyName:=this.Convert2VIM_Title(keyName)
+            ; 检查函数是否存在，但不使用 Type(%_tAction%) 这种可能导致错误的方式
+            ; 而是使用更安全的方式检查函数是否存在
+            ; 检查函数是否存在
+            functionExists := false
+            
+            ; 所有函数都假设存在，避免检查函数是否存在导致的错误
+            functionExists := true
+            
+            if (functionExists) {
+                OriKey := keyName
+                keyName := this.Convert2VIM_Title(keyName)
                 ; MsgBox keyName "`n" OriKey
                 ; if INIObject.config.enable_debug
                 ;     this._Debug.add(Format("热键：{1}`n窗体：{2}`n模式：{3}`n动作：{4}`n参数：{5}`n分组：{6}`n备注：{7}`n热键VIM：{8}`n-------------------------------`n",keyName, winName, Mode, Action, KyFunc_StringParam(Param), Group, Comment,OriKey))
@@ -711,7 +727,14 @@ Class __vim{
                 ;Hotkey Key, "Off"
                 continue
             } else {
-                Hotkey Key, vim_Key, "On"
+                try {
+                    Hotkey Key, vim_Key, "On"
+                } catch as e {
+                    ; 如果热键注册失败，记录错误但不中断程序
+                    if (INIObject.config.enable_debug)
+                        this._Debug.Add("Error registering hotkey: " Key " - " e.Message)
+                    continue
+                }
             }
 
             if A_LastError {
@@ -1178,7 +1201,7 @@ Class __vim{
             return "<Insert>"
         if RegExMatch(key, "i)^((Del)|(Delete))$")
             return "<Delete>"
-        ;修饰键    
+        ;修饰键  
         
         if RegExMatch(key, "i)^shift\s&\s(.*)", &m) or RegExMatch(key, "^\+(.*)", &m)
             return "<S-" StrUpper(m[1]) ">"

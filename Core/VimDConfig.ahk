@@ -105,19 +105,41 @@ VimDConfig_Manager_LoadWinList(){
     vim := class_vim()
     CheckPlugin(loadAll:=1)
     CheckHotKey(loadAll:=1)
-    ; msgbox vim.GetWin("").status "`n" vim.GetWin("global").status
+    
     LV1:=VimDConfig_Manager["LV1"]
     LV1.Delete()
     for k, v in vim.WinList{
-        if (k="vim")
+        ; 跳过特殊项
+        if (k="vim" || RegExMatch(k, "i)^(EasyIni_)"))
             continue
+            
+        ; 直接从INI文件读取状态，而不是依赖vim对象的缓存状态
+        isEnabled := false
         if (k="global") {
-            LV1.Add("", v.status ? Lang["General"]["Enable"] : Lang["General"]["Disable"], Lang["General"]["Global"])
+            try {
+                isEnabled := INIObject.global.enabled = 1
+            } catch {
+                isEnabled := false
+            }
+            LV1.Add("", isEnabled ? Lang["General"]["Enable"] : Lang["General"]["Disable"], Lang["General"]["Global"])
         } else {
-            LV1.Add("", v.status ? Lang["General"]["Enable"] : Lang["General"]["Disable"], k)
+            ; 检查是否是内部插件
+            if (v.Inside) {
+                try {
+                    isEnabled := INIObject.%k%.enabled = 1
+                } catch {
+                    isEnabled := false
+                }
+            } else {
+                try {
+                    isEnabled := INIObject.plugins.%k% = 1
+                } catch {
+                    isEnabled := false
+                }
+            }
+            LV1.Add("", isEnabled ? Lang["General"]["Enable"] : Lang["General"]["Disable"], k)
         }
     }
-
 }
 
 LV1_Click(GuiCtrlObj, Info){
