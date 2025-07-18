@@ -1202,7 +1202,6 @@ Class __vim{
         if RegExMatch(key, "i)^((Del)|(Delete))$")
             return "<Delete>"
         ;修饰键  
-        
         if RegExMatch(key, "i)^shift\s&\s(.*)", &m) or RegExMatch(key, "^\+(.*)", &m)
             return "<S-" StrUpper(m[1]) ">"
         if RegExMatch(key, "i)^lshift\s&\s(.*)", &m) or RegExMatch(key, "^<\+(.*)", &m)
@@ -1233,6 +1232,20 @@ Class __vim{
             return "<Shift>"
         if RegExMatch(key, "i)^lwin$")
             return "<Win>"
+        if RegExMatch(key, "i)^~LButton\s&\s(.*)", &m)  
+           return "<LB-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^~MButton\s&\s(.*)", &m)  
+           return "<MB-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^~RButton\s&\s(.*)", &m)  
+           return "<RB-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^~XButton1\s&\s(.*)", &m)  
+           return "<XB1-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^~XButton2\s&\s(.*)", &m)  
+           return "<XB2-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^CapsLock\s&\s(.*)", &m)
+            return "<Caps-" StrUpper(m[1]) ">"
+        if RegExMatch(key, "i)^~Tab\s&\s(.*)", &m)
+            return "<Tab-" StrUpper(m[1]) ">"
         ;特殊键
         if RegExMatch(key, "i)^AppsKey$")
             return "<" key ">"
@@ -1359,6 +1372,20 @@ Class __vim{
                 return ToSend ? "#" this.CheckToSend(m[1]) : "#" m[1]
             if RegExMatch(key, "i)^SP\-(.*)", &m)
                 return ToSend ? "{space}" this.CheckToSend(m[1]) : "space & " m[1]
+            if RegExMatch(key, "i)^LB\-(.*)", &m)
+                return ToSend ? "{~LButton}" this.CheckToSend(m[1]) : "~LButton & " m[1] 
+            if RegExMatch(key, "i)^MB\-(.*)", &m)
+                return ToSend ? "{~MButton}" this.CheckToSend(m[1]) : "~MButton & " m[1]
+            if RegExMatch(key, "i)^RB\-(.*)", &m)
+                return ToSend ? "{~RButton}" this.CheckToSend(m[1]) : "~RButton & " m[1]
+            if RegExMatch(key, "i)^RB1\-(.*)", &m)
+                return ToSend ? "{~XButton1}" this.CheckToSend(m[1]) : "~XButton1 & " m[1]
+            if RegExMatch(key, "i)^RB2\-(.*)", &m)
+                return ToSend ? "{~XButton2}" this.CheckToSend(m[1]) : "~XButton2 & " m[1]
+            if RegExMatch(key, "i)^Caps\-(.*)", &m)
+                return ToSend ? "{Caps}" this.CheckToSend(m[1]) : "CapsLock & " m[1]
+            if RegExMatch(key, "i)^Tab\-(.*)", &m)
+                return ToSend ? "{~Tab}" this.CheckToSend(m[1]) : "~Tab & " m[1]
             ;特殊键
             if RegExMatch(key, "i)^AppsKey$")
             return ToSend ? "{AppsKey}" : "AppsKey"
