@@ -1,9 +1,9 @@
 ﻿/*
-	[PluginInfo]
-    PluginName=AfterEffects
-    Author=BoBO
-    Version=1.0
-	Comment=AfterEffects
+[PluginInfo]
+PluginName=AfterEffects
+Author=BoBO
+Version=1.0
+Comment=AfterEffects
 */
 AfterEffects() {
     ;热键映射数组
@@ -16,19 +16,26 @@ AfterEffects() {
     ;SendKeyInput 为内置函数，用于send指定键盘输入
     ;Script_AfterEffects 为运行AE脚本函数Param里面填写 脚本文件名
 
-    KeyArray.push({ Key: "as", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "Test.jsx", Comment: "脚本测试" })
+    KeyArray.push({ Key: "as", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "Test.jsx", Comment: "脚本测试"})
     KeyArray.push({ Key: "t1", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "OrganizeProjectAssets.jsx",
         Comment: "整理" })
     KeyArray.push({ Key: "t2", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",
         Comment: "快速渲染" })
 
-    KeyArray.push({ Key: "<LButton-1>", Mode: "VIM模式", Group: "帮助", Func: "Script_AfterEffects", Param: "Test.jsx", Comment: "显示所有按键(ToolTip)" })
-    
-    ; 帮助
+    ; 添加效果
+    KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx", Comment:"添加 Tint"})
+    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx", Comment:"添加 RoughenEdges"})
+    KeyArray.push({ Key: "<LB-g>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Glow.jsx", Comment:"添加 Glow"})
+    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Sharpen.jsx", Comment:"添加 Sharpen"})
+    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&UnMult.jsx", Comment:"添加 UnMult"})
+    KeyArray.push({ Key: "<LB-w>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearWipe.jsx", Comment:"添加 LinearWipe"})
+    KeyArray.push({ Key: "<LB-k>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearColorKey.jsx", Comment:"添加 LinearColorKey"})
+    KeyArray.push({ Key: "<LB-i>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Invert.jsx", Comment:"添加 Invert"})
+    KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx", Comment:"添加 Curves"})
 
+    ; 帮助
     KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeys", Param: "AfterEffects", Comment: "显示所有按键(ToolTip)" })
     KeyArray.push({ Key: ":1", Mode: "VIM模式", Group: "帮助", Func: "AfterEffects_Initialization", Param: "", Comment: "初始化" })
-
     ;注册窗体,请务必保证 PluginName 和文件名一致，以避免名称混乱影响使用
     ;如果 class 和 exe 同时填写，以 exe 为准
     ;vim.SetWin("PluginName", "ahk_class名")

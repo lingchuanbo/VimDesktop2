@@ -1,12 +1,12 @@
 #Requires AutoHotkey v2.0
 
 /*
-    函数: ShowAllKeys
-    作用: 显示指定插件中定义的所有按键绑定
-    参数: pluginName - 插件名称
-    返回: 无
-    作者: BoBO
-    版本: 9.0_2025.07.18
+函数: ShowAllKeys
+作用: 显示指定插件中定义的所有按键绑定
+参数: pluginName - 插件名称
+返回: 无
+作者: BoBO
+版本: 9.0_2025.07.18
 */
 ShowAllKeys(pluginName) {
     global vim, INIObject
@@ -111,9 +111,9 @@ ShowAllKeys(pluginName) {
     ; 设置GUI背景颜色为灰色
     keyListGui.BackColor := "Silver"  ; 灰色背景
     
-    ; 添加内容编辑框，尝试使用微软雅黑字体，如果不可用则使用Consolas
+    ; 添加内容编辑框，尝试使用微软雅黑字体，如果不可用则使用Consolas Microsoft YaHei
     try {
-        keyListGui.SetFont("s10", "Microsoft YaHei")
+        keyListGui.SetFont("s10", "Consolas")
     } catch {
         keyListGui.SetFont("s10", "Consolas")
     }
@@ -191,10 +191,10 @@ ShowAllKeys(pluginName) {
 }
 
 /*
-    函数: ShowAllKeysWithMsgBox
-    作用: 使用MsgBox显示按键列表（备用方案）
-    参数: pluginName - 插件名称
-    返回: 无
+函数: ShowAllKeysWithMsgBox
+作用: 使用MsgBox显示按键列表（备用方案）
+参数: pluginName - 插件名称
+返回: 无
 */
 ShowAllKeysWithMsgBox(pluginName) {
     global vim

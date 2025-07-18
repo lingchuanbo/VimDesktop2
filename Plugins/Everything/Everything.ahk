@@ -1,9 +1,9 @@
 ﻿/*
-	[PluginInfo]
-    PluginName=Everything
-    Author=Kiro
-    Version=1.0
-	Comment=Everything搜索工具
+[PluginInfo]
+PluginName=Everything
+Author=Kiro
+Version=1.0
+Comment=Everything搜索工具
 */
 
 Everything() {
@@ -16,12 +16,12 @@ Everything() {
     KeyArray.push({ Key: "<esc>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
     
     ; 搜索功能
-    KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "搜索", Func: "Everything_Search", Param: "", Comment: "打开搜索对话框" })
-    KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "搜索", Func: "Everything_Run", Param: "", Comment: "运行Everything" })
+    ; KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "搜索", Func: "Everything_Search", Param: "", Comment: "打开搜索对话框" })
+    ; KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "搜索", Func: "Everything_Run", Param: "", Comment: "运行Everything" })
     
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeys", Param: "Everything", Comment: "显示所有按键(ToolTip)" })
-    KeyArray.push({ Key: "/", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeysWithMsgBox", Param: "Everything", Comment: "显示所有按键(MsgBox)" })
+    ; KeyArray.push({ Key: "/", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeysWithMsgBox", Param: "Everything", Comment: "显示所有按键(MsgBox)" })
     
     ; 注册窗体
     vim.SetWin("Everything", "EVERYTHING", "Everything.exe")
