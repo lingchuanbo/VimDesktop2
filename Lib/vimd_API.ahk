@@ -306,5 +306,3 @@ EscapeRegex(str) {
 MsgBoxTest(a) {
     MsgBox a
 }
-
-#Include ./Class_JSON.Ahk

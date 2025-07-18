@@ -70,12 +70,9 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\lib\class_EasyINI.ahk
 #Include .\lib\DynamicFileMenu.ahk
 #Include .\lib\SingleDoubleLongPress.ahk
-; #Include .\lib\ToolTipEx.ahk
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\Run.ahk
-; #Include .\lib\class_Everything.ahk
-; #Include .\lib\UIA.ahk
-; #Include .\lib\Gdip_All.ahk
+#Include .\lib\Script.ahk
 #Include .\lib\Logger.ahk
 #Include .\lib\vimd_API.ahk
 #Include .\plugins\plugins.ahk
