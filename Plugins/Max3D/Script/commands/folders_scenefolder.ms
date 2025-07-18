@@ -1,0 +1,1 @@
+ShellLaunch "explorer.exe" maxFilePath

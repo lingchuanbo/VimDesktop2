@@ -137,3 +137,57 @@ GetProcessPath(ProcessName) {
 	}
 	return ""
 }
+
+/**
+ * 运行Max3D脚本命令
+ * 
+ * 三种用法:
+ * 1. Script_Max3D("脚本名字.ms") - 运行指定的脚本文件
+ * 2. Script_Max3D("startObjectCreation box") - 直接运行Max命令
+ * 3. Script_Max3D("id12345") - 通过ID执行动作
+ * 
+ * @param {String} Path - 脚本路径、命令或ID
+ * @return {Void}
+ */
+Script_3DsMax(Path) {
+    ; 检查是否为脚本文件 (.ms|.mse|.py)
+    if RegExMatch(Path, "i).*\.(ms|mse|py)$") {
+        FilePath1 := A_ScriptDir . "\plugins\Max3D\Script\commands\" . Path
+        FilePath2 := A_ScriptDir . "\plugins\Max3D\Script\" . Path
+        
+        ; 检查文件是否存在并运行
+        if FileExist(FilePath2) {
+            Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . FilePath2
+            return
+        }
+        
+        if FileExist(FilePath1) {
+            Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . FilePath1
+            return
+        } else {
+            MsgBox "文件不存在: " . Path, "错误", 16
+            return
+        }
+    }
+    
+    ; 检查是否为ID模式 (id12345)
+    if RegExMatch(Path, "^id\d+$") {
+        ; 提取ID数字部分
+        IdNumber := SubStr(Path, 3)
+        cmd := 'actionMan.executeAction 0 "' . IdNumber . '"'
+        
+        ; 发送命令到Max3D
+        ControlFocus "MXS_Scintilla2"
+        ControlSetText cmd, "MXS_Scintilla2"
+        Send "+{Enter}"
+        Click
+        return
+    }
+    
+    ; 默认为直接Max命令模式
+    ControlFocus "MXS_Scintilla2"
+    ControlSetText Path, "MXS_Scintilla2"
+    Send "+{Enter}"
+    Click
+    return
+}
