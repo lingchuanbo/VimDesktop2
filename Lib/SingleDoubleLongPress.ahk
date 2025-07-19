@@ -146,6 +146,7 @@ CreateSimpleClickHandler(clickFunc, longPressFunc, longPressTime := 500, showToo
     }
 }
 
+
 ; ; 示例1：F1键的单击、双击和长按动作
 ; F1SingleClick()
 ; {
@@ -235,3 +236,62 @@ CreateSimpleClickHandler(clickFunc, longPressFunc, longPressTime := 500, showToo
 
 ; F4Action := CreateSimpleClickHandler(F4SingleClick, F4LongPress, 600)
 ; Hotkey "$F4", F4Action
+
+; ==============================================================================
+; KeyArray.push 调用 单击、双击和长按函数
+; ==============================================================================
+
+/**
+ * 处理按键功能，并设置独立热键以支持单击、双击和长按
+ * @param paramStr 参数字符串，格式为"热键|单击函数|双击函数|长按函数"
+ */
+SingleDoubleFullHandlers(paramStr) {
+    ; 解析参数字符串
+    params := StrSplit(paramStr, "|")
+    hotkeyStr := params[1]
+
+    ; 设置默认函数名称
+    singleClickFunc := "SingleClick"
+    doubleClickFunc := "DoubleClick"
+    longPressFunc := "LongPress"
+
+    ; 如果提供了自定义函数名称，则使用它们
+    if (params.Length >= 2 && params[2] != "")
+        singleClickFunc := params[2]
+    if (params.Length >= 3 && params[3] != "")
+        doubleClickFunc := params[3]
+    if (params.Length >= 4 && params[4] != "")
+        longPressFunc := params[4]
+
+    ; 将函数名称转换为函数对象
+    singleClickHandler := %singleClickFunc%
+    doubleClickHandler := %doubleClickFunc%
+    longPressHandler := %longPressFunc%
+
+    ; 创建处理函数
+    SingleDoubleFullHandler := CreateClickHandler(singleClickHandler, doubleClickHandler, longPressHandler)
+
+    ; 注册热键
+    Hotkey hotkeyStr, SingleDoubleFullHandler
+}
+
+/**
+ * F1单击功能 - 打开Everything搜索对话框
+ */
+SingleClick() {
+    MsgBox("需要你自己配置功能  这是单击")
+}
+
+/**
+ * F1双击功能 - 运行Everything程序
+ */
+DoubleClick() {
+    MsgBox("需要你自己配置功能  这是双击")
+}
+
+/**
+ * F1长按功能 - 显示帮助信息
+ */
+LongPress() {
+    MsgBox("需要你自己配置功能  这是长按")
+}
