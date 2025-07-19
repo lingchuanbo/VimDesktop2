@@ -146,11 +146,11 @@ CreateSimpleClickHandler(clickFunc, longPressFunc, longPressTime := 500, showToo
  */
 SingleDoubleFullHandlers(paramStr) {
     static handlerMap := Map()     ; 存储每个热键的处理函数
-    
+
     ; 解析参数字符串
     params := StrSplit(paramStr, "|")
     hotkeyStr := params[1]
-    
+
     ; 设置默认函数
     singleFunc := SingleClick
     doubleFunc := DoubleClick
@@ -158,30 +158,27 @@ SingleDoubleFullHandlers(paramStr) {
 
     ; 如果提供了自定义函数名称，则使用它们
     if (params.Length >= 2 && params[2] != "") {
-        try {
-            singleFunc := %params[2]%
-        } catch {
-            MsgBox "错误：函数 '" params[2] "' 未找到，使用默认单击函数"
-        }
+        ; Store the function name string
+        singleFuncName := params[2]
+        ; Create a wrapper function that resolves the reference when called
+        singleFunc := (*) => (%singleFuncName%)()
     }
     if (params.Length >= 3 && params[3] != "") {
-        try {
-            doubleFunc := %params[3]%
-        } catch {
-            MsgBox "错误：函数 '" params[3] "' 未找到，使用默认双击函数"
-        }
+        ; 存储函数名称字符串，而不是尝试立即解析函数引用
+        doubleFuncName := params[3]
+        ; 创建一个包装函数，在调用时再解析函数引用
+        doubleFunc := (*) => (%doubleFuncName%)()
     }
     if (params.Length >= 4 && params[4] != "") {
-        try {
-            longFunc := %params[4]%
-        } catch {
-            MsgBox "错误：函数 '" params[4] "' 未找到，使用默认长按函数"
-        }
+        ; 存储函数名称字符串，而不是尝试立即解析函数引用
+        longFuncName := params[4]
+        ; 创建一个包装函数，在调用时再解析函数引用
+        longFunc := (*) => (%longFuncName%)()
     }
 
     ; 创建处理程序
     handler := CreateClickHandler(singleFunc, doubleFunc, longFunc)
-    
+
     ; 存储并注册热键
     handlerMap[hotkeyStr] := handler
     Hotkey hotkeyStr, handler
@@ -209,7 +206,7 @@ LongPress() {
 }
 
 ; === 注册热键 ===
-SingleDoubleFullHandlers("1") ; 使用默认函数设置按键1
+
 
 ; 自定义函数示例（必须在调用 SingleDoubleFullHandlers 之前定义）
 MySingleFunc() {
@@ -217,4 +214,5 @@ MySingleFunc() {
 }
 
 ; 注册自定义热键
-; SingleDoubleFullHandlers("2|MySingleFunc")
+; SingleDoubleFullHandlers("1") ; 使用默认函数设置按键1
+; SingleDoubleFullHandlers("F2|MySingleFunc")

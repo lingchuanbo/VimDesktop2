@@ -18,7 +18,12 @@ Everything() {
     KeyArray.push({ Key: "<esc>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
 
     ; 搜索功能
-    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1",Comment: "运行Everything" })
+    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_1|Everything_1",
+        Comment: "单击/双击/长按 Everything" })
+    KeyArray.push({ Key: "2", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_1",
+        Comment: "单击/双击/长按 Everything" })
+    KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
+        Comment: "单击/双击/长按 Everything" })
 
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything", Comment: "显示所有按键(ToolTip)" })
@@ -32,8 +37,15 @@ Everything() {
 
     ; 注册热键
     for k, v in KeyArray {
-        if (v.Key != "")  ; 方便类似TC类全功能，仅启用部分热键的情况
-            vim.map(v.Key, "Everything", v.Mode, v.Func, v.Param, v.Group, v.Comment)
+        if (v.Key != "") {  ; 方便类似TC类全功能，仅启用部分热键的情况
+            ; 特殊处理 SingleDoubleFullHandlers 函数
+            if (v.Func = "SingleDoubleFullHandlers") {
+                ; 直接调用 SingleDoubleFullHandlers 函数
+                SingleDoubleFullHandlers(v.Param)
+            } else {
+                vim.map(v.Key, "Everything", v.Mode, v.Func, v.Param, v.Group, v.Comment)
+            }
+        }
     }
 }
 
@@ -89,3 +101,14 @@ Everything_Search(*) {
         Send "^f"  ; 聚焦到搜索框
     }
 }
+
+Everything_1() {
+    MsgBox("1")
+}
+Everything_2() {
+    MsgBox("2")
+}
+Everything_3() {
+    MsgBox("3")
+}
+
