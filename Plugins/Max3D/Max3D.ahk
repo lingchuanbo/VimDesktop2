@@ -20,7 +20,7 @@ Max3D() {
     KeyArray.push({ Key: "tr", Mode: "VIM模式", Group: "搜索", Func: "Script_3DsMax", Param: "旋转-90", Comment: "旋转-90" })
     
     ; 帮助
-    KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeys", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
+    KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
 
     ; 注册窗体
     vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")

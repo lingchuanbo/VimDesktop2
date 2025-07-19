@@ -34,7 +34,7 @@ AfterEffects() {
     KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx", Comment:"添加 Curves"})
 
     ; 帮助
-    KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeys", Param: "AfterEffects", Comment: "显示所有按键(ToolTip)" })
+    KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "AfterEffects", Comment: "显示所有按键(ToolTip)" })
     KeyArray.push({ Key: ":1", Mode: "VIM模式", Group: "帮助", Func: "AfterEffects_Initialization", Param: "", Comment: "初始化" })
     ;注册窗体,请务必保证 PluginName 和文件名一致，以避免名称混乱影响使用
     ;如果 class 和 exe 同时填写，以 exe 为准

@@ -18,6 +18,20 @@ VimDesktop_Run(){
     if (INIObject.config.enable_debug == 1) {
         vim.Debug(true)
     }
+    
+    ; 应用保存的主题设置
+    try {
+        currentTheme := INIObject.config.theme_mode
+        if (currentTheme = "light")
+            WindowsTheme.SetAppMode(false)
+        else if (currentTheme = "dark")
+            WindowsTheme.SetAppMode(true)
+        else
+            WindowsTheme.SetAppMode("Default")
+    } catch {
+        ; 默认跟随系统
+        WindowsTheme.SetAppMode("Default")
+    }
 
     CheckPlugin()
     CheckHotKey()

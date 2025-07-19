@@ -5,7 +5,22 @@
 		VimDConfig_Manager.Destroy()
 	global VimDConfig_Manager := Gui("", Lang["Manager"]["Gui"]["Title"]) ;+Resize +MaximizeBox -Caption +E0x00000080 不显示任务栏
 	VimDConfig_Manager.SetFont("s10 ", "Microsoft YaHei")
-	; VimDConfig_Manager.BackColor := 0x80FFFF
+	
+	; 应用当前主题设置
+	try {
+	    currentTheme := INIObject.config.theme_mode
+	    if (currentTheme = "light")
+	        WindowsTheme.SetWindowAttribute(VimDConfig_Manager, false)
+	    else if (currentTheme = "dark")
+	        WindowsTheme.SetWindowAttribute(VimDConfig_Manager, true)
+	    else
+	        ; 跟随系统设置
+	        WindowsTheme.SetWindowAttribute(VimDConfig_Manager, "Default")
+	} catch {
+	    ; 默认跟随系统
+	    WindowsTheme.SetWindowAttribute(VimDConfig_Manager, "Default")
+	}
+	
 	VimDConfig_Manager.OnEvent("Escape", (*) => Reload())
 	VimDConfig_Manager.OnEvent("Close", (*) => Reload())
 	VimDConfig_Manager.Add("GroupBox", "x10 y10 w200 h435", Lang["Manager"]["Gui"]["GroupBox1"])

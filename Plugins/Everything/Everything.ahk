@@ -20,8 +20,8 @@ Everything() {
     ; KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "搜索", Func: "Everything_Run", Param: "", Comment: "运行Everything" })
     
     ; 帮助
-    KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeys", Param: "Everything", Comment: "显示所有按键(ToolTip)" })
-    ; KeyArray.push({ Key: "/", Mode: "VIM模式", Group: "帮助", Func: "ShowAllKeysWithMsgBox", Param: "Everything", Comment: "显示所有按键(MsgBox)" })
+    KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything", Comment: "显示所有按键(ToolTip)" })
+    KeyArray.push({ Key: "/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(MsgBox)" })
     
     ; 注册窗体
     vim.SetWin("Everything", "EVERYTHING", "Everything.exe")

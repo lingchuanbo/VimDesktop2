@@ -2,6 +2,7 @@
 #SingleInstance Force
 Persistent true
 ; SetCapsLockState "AlwaysOff"
+SetCapsLockState "AlwaysOff"
 CoordMode "Tooltip", "Screen"
 CoordMode "Mouse", "Screen"
 CoordMode "Menu", "Window"
@@ -41,6 +42,27 @@ VimDesktop_TrayMenuCreate(){
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Manager"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Setting"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
+    
+    ; ; 添加主题子菜单
+    ; themeMenu := Menu()
+    ; themeMenu.Add("明亮模式 ⚪", VimDesktop_ThemeHandler)
+    ; themeMenu.Add("暗黑模式 ⚫", VimDesktop_ThemeHandler)
+    ; themeMenu.Add("跟随系统 🔄", VimDesktop_ThemeHandler)
+    
+    ; 根据当前设置选中对应的主题
+    ; try {
+    ;     currentTheme := INIObject.config.theme_mode
+    ;     if (currentTheme = "light")
+    ;         themeMenu.Check("明亮模式 ⚪")
+    ;     else if (currentTheme = "dark")
+    ;         themeMenu.Check("暗黑模式 ⚫")y
+    ;     else
+    ;         themeMenu.Check("跟随系统 🔄")
+    ; } catch {
+    ;     themeMenu.Check("跟随系统 🔄")
+    ; }
+    
+    ; VimDesktop_TrayMenu.Add("主题", themeMenu)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["EditCustom"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Reload"], (*)=>Reload())
@@ -49,6 +71,8 @@ VimDesktop_TrayMenuCreate(){
     VimDesktop_TrayMenu.default:=Lang["TrayMenu"]["Default"]
     A_IconTip:="VimDesktop`n版本:vII_1.0(By_Kawvin)"
 }
+
+#y::Reload()
 
 VimDesktop_TrayHandler(Item, *){
     switch Item
@@ -60,6 +84,42 @@ VimDesktop_TrayHandler(Item, *){
         case Lang["TrayMenu"]["EditCustom"]:
             try
                 run Format("{1} .\Custom\Custom.ahk", VimDesktop_Global.Editor)
+    }
+}
+
+VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
+    global VimDesktop_TrayMenu
+    
+    ; 取消所有选中状态
+    MyMenu.Uncheck("明亮模式 ⚪")
+    MyMenu.Uncheck("暗黑模式 ⚫")
+    MyMenu.Uncheck("跟随系统 🔄")
+    
+    ; 选中当前项
+    MyMenu.Check(ItemName)
+    
+    ; 根据选择设置主题
+    switch ItemName {
+        case "明亮模式 ⚪":
+            ; 设置为明亮模式
+            WindowsTheme.SetAppMode(false)
+            ; 更新配置文件
+            INIObject.config.theme_mode := "light"
+            INIObject.save()
+            
+        case "暗黑模式 ⚫":
+            ; 设置为暗黑模式
+            WindowsTheme.SetAppMode(true)
+            ; 更新配置文件
+            INIObject.config.theme_mode := "dark"
+            INIObject.save()
+            
+        case "跟随系统 🔄":
+            ; 设置为跟随系统
+            WindowsTheme.SetAppMode("Default")
+            ; 更新配置文件
+            INIObject.config.theme_mode := "system"
+            INIObject.save()
     }
 }
 
@@ -75,7 +135,7 @@ VimDesktop_TrayHandler(Item, *){
 #Include .\lib\Script.ahk
 #Include .\lib\Logger.ahk
 #Include .\lib\vimd_API.ahk
-#Include .\lib\ShowAllKeys.ahk
+#Include .\lib\WindowsTheme.ahk
 #Include .\plugins\plugins.ahk
 ; 用户自定义配置
 #Include *i .\custom\custom.ahk
