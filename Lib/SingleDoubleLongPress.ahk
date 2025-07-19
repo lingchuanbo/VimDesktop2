@@ -156,17 +156,21 @@ SingleDoubleFullHandlers(paramStr) {
         singleClickFunc := params[2]
     if (params.Length >= 3 && params[3] != "")
         doubleClickFunc := params[3]
-    if (params.Length >= 4 && params[4] != "")
+    ; 如果参数1、2、3都提供了，则不使用长按功能（设为空函数）
+    if (params.Length >= 2 && params[2] != "" && params.Length >= 3 && params[3] != "")
+        longPressFunc := ""
+    ; 否则，如果提供了参数4，则使用它
+    else if (params.Length >= 4 && params[4] != "")
         longPressFunc := params[4]
 
     ; 将函数名称转换为函数对象
     singleClickHandler := %singleClickFunc%
     doubleClickHandler := %doubleClickFunc%
-    longPressHandler := %longPressFunc%
+    longPressHandler := longPressFunc != "" ? %longPressFunc% : ""
 
     ; 创建处理函数
     SingleDoubleFullHandler := CreateClickHandler(singleClickHandler, doubleClickHandler, longPressHandler)
-
+    
     ; 注册热键
     Hotkey hotkeyStr, SingleDoubleFullHandler
 }
