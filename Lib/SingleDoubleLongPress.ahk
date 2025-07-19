@@ -74,6 +74,7 @@ CreateClickHandler(singleFunc, doubleFunc, longFunc, longPressTime := 500, doubl
 
         ; 如果不是长按，则处理单击/双击逻辑
         if !longPressActiveMap[hk] {
+            ; 增加点击计数
             pressCountMap[hk]++
 
             ; 创建处理点击的函数
@@ -89,6 +90,8 @@ CreateClickHandler(singleFunc, doubleFunc, longFunc, longPressTime := 500, doubl
 
             ; 保存计时器引用以便后续可以取消
             timerFuncMap[hk] := ProcessClicks
+
+            ; 设置计时器
             SetTimer ProcessClicks, -doubleClickTime
         }
     }
@@ -142,56 +145,76 @@ CreateSimpleClickHandler(clickFunc, longPressFunc, longPressTime := 500, showToo
  * @param paramStr 参数字符串，格式为"热键|单击函数|双击函数|长按函数"
  */
 SingleDoubleFullHandlers(paramStr) {
+    static handlerMap := Map()     ; 存储每个热键的处理函数
+    
     ; 解析参数字符串
     params := StrSplit(paramStr, "|")
     hotkeyStr := params[1]
-
-    ; 设置默认函数名称
-    singleClickFunc := "SingleClick"
-    doubleClickFunc := "DoubleClick"
-    longPressFunc := "LongPress"
+    
+    ; 设置默认函数
+    singleFunc := SingleClick
+    doubleFunc := DoubleClick
+    longFunc := LongPress
 
     ; 如果提供了自定义函数名称，则使用它们
-    if (params.Length >= 2 && params[2] != "")
-        singleClickFunc := params[2]
-    if (params.Length >= 3 && params[3] != "")
-        doubleClickFunc := params[3]
-    ; 如果参数1、2、3都提供了，则不使用长按功能（设为空函数）
-    if (params.Length >= 2 && params[2] != "" && params.Length >= 3 && params[3] != "")
-        longPressFunc := ""
-    ; 否则，如果提供了参数4，则使用它
-    else if (params.Length >= 4 && params[4] != "")
-        longPressFunc := params[4]
+    if (params.Length >= 2 && params[2] != "") {
+        try {
+            singleFunc := %params[2]%
+        } catch {
+            MsgBox "错误：函数 '" params[2] "' 未找到，使用默认单击函数"
+        }
+    }
+    if (params.Length >= 3 && params[3] != "") {
+        try {
+            doubleFunc := %params[3]%
+        } catch {
+            MsgBox "错误：函数 '" params[3] "' 未找到，使用默认双击函数"
+        }
+    }
+    if (params.Length >= 4 && params[4] != "") {
+        try {
+            longFunc := %params[4]%
+        } catch {
+            MsgBox "错误：函数 '" params[4] "' 未找到，使用默认长按函数"
+        }
+    }
 
-    ; 将函数名称转换为函数对象
-    singleClickHandler := %singleClickFunc%
-    doubleClickHandler := %doubleClickFunc%
-    longPressHandler := longPressFunc != "" ? %longPressFunc% : ""
-
-    ; 创建处理函数
-    SingleDoubleFullHandler := CreateClickHandler(singleClickHandler, doubleClickHandler, longPressHandler)
+    ; 创建处理程序
+    handler := CreateClickHandler(singleFunc, doubleFunc, longFunc)
     
-    ; 注册热键
-    Hotkey hotkeyStr, SingleDoubleFullHandler
+    ; 存储并注册热键
+    handlerMap[hotkeyStr] := handler
+    Hotkey hotkeyStr, handler
 }
 
 /**
- * F1单击功能 - 打开Everything搜索对话框
+ * 默认单击功能
  */
 SingleClick() {
-    MsgBox("需要你自己配置功能  这是单击")
+    MsgBox("默认 这是单击")
 }
 
 /**
- * F1双击功能 - 运行Everything程序
+ * 默认双击功能
  */
 DoubleClick() {
-    MsgBox("需要你自己配置功能  这是双击")
+    MsgBox("默认 这是双击")
 }
 
 /**
- * F1长按功能 - 显示帮助信息
+ * 默认长按功能
  */
 LongPress() {
-    MsgBox("需要你自己配置功能  这是长按")
+    MsgBox("默认 这是长按")
 }
+
+; === 注册热键 ===
+SingleDoubleFullHandlers("1") ; 使用默认函数设置按键1
+
+; 自定义函数示例（必须在调用 SingleDoubleFullHandlers 之前定义）
+MySingleFunc() {
+    MsgBox("自定义单击")
+}
+
+; 注册自定义热键
+; SingleDoubleFullHandlers("2|MySingleFunc")
