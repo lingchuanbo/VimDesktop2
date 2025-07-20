@@ -24,6 +24,15 @@ PotPlayer(){
 	KeyArray.push({Key:"B", Mode: "VIM模式", Group: "存档", Func: "PotPlayer_保存存档1", Param: "", Comment: "保存存档1"})
 
 
+    ;;以下为 单双长按 自定义函数，需要在插件里定义 其中 SingleDoubleFullHandlers" 必填函数 Param需要自定义内容运行
+    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
+        Comment: "单击/双击/长按" })
+    KeyArray.push({ Key: "2", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
+        Comment: "单击/双击" })
+    KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
+        Comment: "单击" })
+
+
     ;注册窗体,请务必保证 PluginName 和文件名一致，以避免名称混乱影响使用
     ;如果 class 和 exe 同时填写，以 exe 为准
     ;vim.SetWin("PluginName", "ahk_class名")
@@ -32,11 +41,11 @@ PotPlayer(){
     ;设置超时
     ;vim.SetTimeOut(300, "PluginName")
     vim.SetTimeOut(300, "PotPlayer")
-	for k, v in KeyArray{
-        if (v.Key!="")  ;方便类似TC类全功能，仅启用部分热键的情况
-            ;vim.map(v.Key, "PluginName", v.Mode, v.Func, v.Param, v.Group, v.Comment)
-            vim.map(v.Key, "PotPlayer", v.Mode, v.Func, v.Param, v.Group, v.Comment)
-	}
+
+    ; 注册热键
+    ; RegisterPluginKeys(KeyArray, "PluginName")
+    RegisterPluginKeys(KeyArray, "Everything")
+
     ;设置全局热键
     vim.map("<w-o>", "global", "VIM", "MsgBoxTest", "aaBBBcc", "", "这是全局热键示例")
 }

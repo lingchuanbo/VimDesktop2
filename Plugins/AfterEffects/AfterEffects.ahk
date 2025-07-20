@@ -45,10 +45,7 @@ AfterEffects() {
     ;设置超时
     vim.SetTimeOut(300, "AfterEffects")
 
-    for k, v in KeyArray {
-        if (v.Key != "")  ;方便类似TC类全功能，仅启用部分热键的情况
-            vim.map(v.Key, "AfterEffects", v.Mode, v.Func, v.Param, v.Group, v.Comment)
-    }
+    RegisterPluginKeys(KeyArray, "AfterEffects")
 }
 
 ;PluginName_Before() ;如有，值=true时，直接发送键值，不执行命令

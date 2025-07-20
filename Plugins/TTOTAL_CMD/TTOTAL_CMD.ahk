@@ -9,8 +9,8 @@ Comment=Total Commander
 */
 
 global TC_Global:=object()
-TC_Global.TcPath:="D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
-TC_Global.TcINI:="D:\BoBO\WorkFlow\tools\TotalCMD\WinCMD.ini"
+TC_Global.TcPath := INIObject.TTOTAL_CMD.HasOwnProp("tc_path") ? INIObject.TTOTAL_CMD.tc_path : "D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
+TC_Global.TcINI :="D:\BoBO\WorkFlow\tools\TotalCMD\WinCMD.ini"
 TC_Global.TcExe:="TOTALCMD.EXE"
 TC_Global.LastView:=""  ;最后视图
 
@@ -1372,10 +1372,31 @@ TC_OtherPanel_GotoNextDir(){
     AHK版本: 2.0.18
     */
 
-TC_LaunchOrShow(*) {
-    dynamicTitle := "Everything - 搜索 (" . A_YYYY . "-" . A_MM . "-" . A_DD . ")"
-    ; 使用转换后的函数
-    LaunchOrShow(TC_Global.TcPath, "TTOTAL_CMD", dynamicTitle)
+Run_TotalCommander(*) {
+    ; 从配置文件获取Everything路径
+    tcPath := ""
+    try {
+        tcPath := INIObject.TTOTAL_CMD.tc_path
+    } catch {
+        ; 如果配置文件中没有路径，尝试默认路径 
+        defaultPaths := [
+            "C:\Program Files\TotalCMD\TOTALCMD.EXE",
+        ]
+
+        for path in defaultPaths {
+            if FileExist(path) {
+                tcPath := path
+                break
+            }
+        }
+    }
+    ; 如果找到了Everything路径，运行它
+    if (tcPath && FileExist(tcPath)) {
+        LaunchOrShow(tcPath, "TTOTAL_CMD", "0")
+    } else {
+        MsgBox("未找到Total Commander程序，请在vimd.ini中设置正确的路径。", "错误", "Icon!")
+    }
+
 }
 
 /* TC_ToggleMenu【显示/隐藏_菜单栏】

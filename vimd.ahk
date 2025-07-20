@@ -2,7 +2,6 @@
 #SingleInstance Force
 Persistent true
 ; SetCapsLockState "AlwaysOff"
-SetCapsLockState "AlwaysOff"
 CoordMode "Tooltip", "Screen"
 CoordMode "Mouse", "Screen"
 CoordMode "Menu", "Window"
@@ -136,6 +135,7 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
 #Include .\lib\Logger.ahk
 #Include .\lib\vimd_API.ahk
 #Include .\lib\WindowsTheme.ahk
+#Include .\lib\RegisterPluginKeys.ahk
 #Include .\plugins\plugins.ahk
 ; 用户自定义配置
 #Include *i .\custom\custom.ahk

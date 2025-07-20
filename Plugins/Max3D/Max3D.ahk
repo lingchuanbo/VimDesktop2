@@ -29,10 +29,7 @@ Max3D() {
     vim.SetTimeOut(300, "Max3D")
     
     ; 注册热键
-    for k, v in KeyArray {
-        if (v.Key != "")  ; 方便类似TC类全功能，仅启用部分热键的情况
-            vim.map(v.Key, "Max3D", v.Mode, v.Func, v.Param, v.Group, v.Comment)
-    }
+    RegisterPluginKeys(KeyArray, "Max3D")
 }
 
 ; 对符合条件的控件使用【normal模式】，而不是【Vim模式】
