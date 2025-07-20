@@ -1,6 +1,6 @@
 ## ![icon](doc/images/vimdesktop2_32.jpg) VimDesktop2
 
-让所有 Windows 桌面程序拥有 Vim 操作风格的辅助工具。
+让所有 Windows 桌面程序拥有 自定义按键 风格的辅助工具。
 
 ### 链接
 
