@@ -27,7 +27,8 @@ Everything() {
         Comment: "单击" })
 
     ; 帮助
-    KeyArray.push({ Key: ":?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything", Comment: "显示所有按键(ToolTip)" })
+    KeyArray.push({ Key: ":?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
+        Comment: "显示所有按键(ToolTip)" })
     KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(MsgBox)" })
 
     ; 注册窗体
@@ -71,7 +72,8 @@ Run_Everything(*) {
 
     ; 如果找到了Everything路径，运行它
     if (everythingPath && FileExist(everythingPath)) {
-        LaunchOrShow(everythingPath, "EVERYTHING", "0")
+        ; 使用修改后的 LaunchOrShow 函数，现在可以安全地省略第三个参数
+        LaunchOrShow(everythingPath, "EVERYTHING")
     } else {
         MsgBox("未找到Everything程序，请在vimd.ini中设置正确的路径。", "错误", "Icon!")
     }

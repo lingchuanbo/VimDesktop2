@@ -9,7 +9,7 @@
 ;   - newTitle:      (可选) 一个新的窗口标题。如果留空或不提供此参数，则不修改标题。
 ; =================================================================================
 ; 将V1版本的函数转换为V2版本，并增强错误处理
-LaunchOrShow(ExePath, tClass, NewTitle) {
+LaunchOrShow(ExePath, tClass, NewTitle := "") {
     ; 检查窗口是否存在
     if WinExist("ahk_class " . tClass) {
         try {
@@ -19,17 +19,23 @@ LaunchOrShow(ExePath, tClass, NewTitle) {
             ; 如果窗口最小化
             if (minMax == -1) {
                 WinActivate("ahk_class " . tClass)
-                try WinSetTitle(NewTitle, "ahk_class " . tClass)
+                ; 只有当NewTitle不为空时才设置标题
+                if (NewTitle != "")
+                    try WinSetTitle(NewTitle, "ahk_class " . tClass)
             }
             ; 如果窗口未激活
             else if !WinActive("ahk_class " . tClass) {
                 WinActivate("ahk_class " . tClass)
-                try WinSetTitle(NewTitle, "ahk_class " . tClass)
+                ; 只有当NewTitle不为空时才设置标题
+                if (NewTitle != "")
+                    try WinSetTitle(NewTitle, "ahk_class " . tClass)
             }
             ; 如果窗口已激活
             else {
                 WinMinimize("ahk_class " . tClass)
-                try WinSetTitle(NewTitle, "ahk_class " . tClass)
+                ; 只有当NewTitle不为空时才设置标题
+                if (NewTitle != "")
+                    try WinSetTitle(NewTitle, "ahk_class " . tClass)
             }
         } catch Error as e {
             ; 忽略错误，继续执行
@@ -51,7 +57,9 @@ LaunchOrShow(ExePath, tClass, NewTitle) {
                 try {
                     WinActivate("ahk_class " . tClass)
                     Sleep(200) ; 给窗口一点时间来响应
-                    try WinSetTitle(NewTitle, "ahk_class " . tClass)
+                    ; 只有当NewTitle不为空时才设置标题
+                    if (NewTitle != "")
+                        try WinSetTitle(NewTitle, "ahk_class " . tClass)
                 } catch Error as e {
                     ; 忽略错误，继续执行
                 }
@@ -61,9 +69,9 @@ LaunchOrShow(ExePath, tClass, NewTitle) {
         }
     }
 
-    ; 最后一次尝试设置标题
+    ; 最后一次尝试设置标题，只有当NewTitle不为空时
     try {
-        if WinExist("ahk_class " . tClass)
+        if (NewTitle != "" && WinExist("ahk_class " . tClass))
             WinSetTitle(NewTitle, "ahk_class " . tClass)
     } catch Error as e {
         ; 忽略错误
