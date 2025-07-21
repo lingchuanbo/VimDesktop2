@@ -9,25 +9,42 @@ Comment=3DsMax搜索工具
 Max3D() {
     ; 热键映射数组
     KeyArray := Array()
-    
+
     ; 模式切换
     KeyArray.push({ Key: "<insert>", Mode: "普通模式", Group: "模式", Func: "ModeChange", Param: "VIM模式", Comment: "切换到【VIM模式】" })
     KeyArray.push({ Key: "<insert>", Mode: "VIM模式", Group: "模式", Func: "ModeChange", Param: "普通模式", Comment: "切换到【普通模式】" })
     KeyArray.push({ Key: "<esc>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
-    
+
     ; 搜索功能
-    KeyArray.push({ Key: "ts", Mode: "VIM模式", Group: "搜索", Func: "Script_3DsMax", Param: "旋转90.ms", Comment: "旋转90" })
-    KeyArray.push({ Key: "tr", Mode: "VIM模式", Group: "搜索", Func: "Script_3DsMax", Param: "旋转-90", Comment: "旋转-90" })
-    
+    KeyArray.push({ Key: "E", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转90.ms", Comment: "旋转90" })
+    KeyArray.push({ Key: "R", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转-90.ms", Comment: "旋转-90" })
+    KeyArray.push({ Key: "<LB-e>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_EditPoly.ms", Comment: "添加 EditPoly" })
+    KeyArray.push({ Key: "<LB-d>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_DeleteMesh.ms",
+        Comment: "添加 DeleteMesh" })
+    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Unwrap_UVW.ms",
+        Comment: "添加 Unwrap_UVW" })
+    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Relax.ms", Comment: "添加 Mod_Relax" })
+    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_meshsmooth.ms",
+        Comment: "添加 Meshsmooth" })
+
+    ; 菜单
+    KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "打开", Func: "Max3D_Menu", Param: "", Comment: "功能菜单" })
+
+    ; 打开
+    KeyArray.push({ Key: "of", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openMaxfileDir.ms", Comment: "打开 Max文件所在位置" })
+    KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openRenderDir.ms", Comment: "打开 渲染文件所在位置" })
+    KeyArray.push({ Key: "oo", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40003", Comment: "打开 文件" })
+    KeyArray.push({ Key: "om", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40195", Comment: "打开 融合文件" })
+
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
 
     ; 注册窗体
     vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")
-    
+
     ; 设置超时
     vim.SetTimeOut(300, "Max3D")
-    
+
     ; 注册热键
     RegisterPluginKeys(KeyArray, "Max3D")
 }
@@ -53,7 +70,7 @@ Max3D_Run(*) {
             "C:\Program Files\3DsMax\3DsMax.exe",
             "C:\Program Files (x86)\3DsMax\3DsMax.exe"
         ]
-        
+
         for path in defaultPaths {
             if FileExist(path) {
                 maxPath := path
@@ -61,7 +78,7 @@ Max3D_Run(*) {
             }
         }
     }
-    
+
     ; 如果找到了3DsMax路径，运行它
     if (maxPath && FileExist(maxPath)) {
         Run maxPath
@@ -77,10 +94,101 @@ Max3D_Search(*) {
         Max3D_Run()
         WinWait("ahk_exe 3DsMax.exe", , 3)
     }
-    
+
     ; 激活3DsMax窗口并聚焦到搜索框
     if WinExist("ahk_exe 3DsMax.exe") {
         WinActivate
         Send "^f"  ; 聚焦到搜索框
     }
+}
+
+; 定义全局脚本路径配置
+GetMax3DScriptPaths() {
+    ; 基础目录
+    baseDir := A_ScriptDir "\plugins\Max3D\Script"
+
+    ; 返回路径配置
+    return {
+        baseDir: baseDir,
+        dirPaths: [
+            baseDir "\MenuScript",           ; 脚本目录
+            baseDir "\MenuScriptCreate",     ; 创建脚本目录
+            baseDir "\GameDevelop"           ; 开发脚本目录
+        ],
+        dirNames: ["脚本", "创建", "开发"]
+    }
+}
+
+Max3D_Menu() {
+    try {
+        ; 创建父菜单
+        parentMenu := Menu()
+
+        ; 获取脚本路径配置
+        pathConfig := GetMax3DScriptPaths()
+
+        ; 跟踪添加到父菜单的项目数量
+        totalMenuItems := 0
+
+        ; 为每个目录创建子菜单
+        for index, dirPath in pathConfig.dirPaths {
+            ; 创建子菜单
+            subMenu := Menu()
+
+            ; 使用增强版的目录扫描函数，它会自动保留完整文件路径
+            itemCount := ScanDirectoryForMenuEx(subMenu, dirPath, "*.ms|*.mse|*.py", Max3D_HandleMenuClick)
+
+            ; 如果子菜单有内容，添加到父菜单
+            if (itemCount > 0) {
+                parentMenu.Add(pathConfig.dirNames[index], subMenu)
+                totalMenuItems++
+            }
+        }
+        parentMenu.Add("输出 同名", Max3D_Render)  ; 添加菜单项
+
+        try {
+            if (totalMenuItems > 0) {
+                parentMenu.Show()
+            } else {
+                MsgBox("没有在指定目录中找到匹配的文件")
+            }
+        } catch as err {
+            MsgBox("显示菜单时出错: " err.Message)
+        }
+    } catch as err {
+        MsgBox("创建多目录菜单时出错: " err.Message)
+    }
+}
+
+Max3D_HandleMenuClick(ItemName, ItemPos, MenuName, filePath := "") {
+    ; 由于我们使用了ScanDirectoryForMenuEx，filePath已经是完整路径
+    ; 不需要再次构建路径
+
+    ; 如果没有提供文件路径（这种情况不应该发生），尝试构建一个
+    if (!filePath) {
+        ; 获取脚本路径配置
+        pathConfig := GetMax3DScriptPaths()
+
+        ; 尝试在各个子目录中查找文件
+        for _, dirPath in pathConfig.dirPaths {
+            possiblePath := dirPath "\" ItemName
+            if (FileExist(possiblePath)) {
+                filePath := possiblePath
+                break
+            }
+        }
+
+        ; 如果仍然没有找到，使用默认路径
+        if (!filePath) {
+            filePath := A_ScriptDir "\" ItemName
+        }
+    }
+    ; 显示选择的文件
+    ; MsgBox("您选择了文件: " . filePath)
+    ; 运行脚本
+    Script_3DsMax(filePath)
+}
+
+Max3D_Render(ItemName, ItemPos, MyMenu) {
+    Script_3DsMax("Render.ms")
 }
