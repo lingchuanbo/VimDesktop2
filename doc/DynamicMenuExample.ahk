@@ -107,6 +107,59 @@ ShowSubmenuMode(*) {
 ; 注意: 我们不再需要自己实现ScanDirectoryForMenu函数
 ; 因为它已经在更新后的DynamicFileMenu.ahk库中提供
 
+/**
+ * 模式4: 父菜单示例 - 显示包含3个目录的菜单
+ * 创建一个父菜单，其中包含多个目录的内容作为子菜单
+ */
+ShowMultiDirMenu(*) {
+    try {
+        ; 创建父菜单
+        parentMenu := Menu()
+
+        ; 定义要包含的目录路径
+        baseDir := A_ScriptDir "\.."  ; 脚本的上一级目录
+        dirPaths := [
+            baseDir "\doc",           ; doc目录
+            baseDir "\Core",          ; Core目录
+            baseDir "\Lib"            ; Lib目录
+        ]
+
+        ; 定义目录显示名称
+        dirNames := ["文档", "核心", "库"]
+
+        ; 跟踪添加到父菜单的项目数量
+        totalMenuItems := 0
+
+        ; 为每个目录创建子菜单
+        for index, dirPath in dirPaths {
+            ; 创建子菜单
+            subMenu := Menu()
+
+            ; 扫描目录并添加到子菜单
+            itemCount := ScanDirectoryForMenu(subMenu, dirPath, "*.ahk|*.md|*.txt", HandleMenuClick)
+
+            ; 如果子菜单有内容，添加到父菜单
+            if (itemCount > 0) {
+                parentMenu.Add(dirNames[index], subMenu)
+                totalMenuItems++
+            }
+        }
+
+        ; 显示父菜单（如果有内容）
+        try {
+            if (totalMenuItems > 0) {
+                parentMenu.Show()
+            } else {
+                MsgBox("没有在指定目录中找到匹配的文件")
+            }
+        } catch as err {
+            MsgBox("显示菜单时出错: " err.Message)
+        }
+    } catch as err {
+        MsgBox("创建多目录菜单时出错: " err.Message)
+    }
+}
+
 ; 热键: F1 显示基本菜单
 F1:: ShowBasicMenu
 
@@ -115,6 +168,9 @@ F2:: ShowLibraryMenu
 
 ; 热键: F3 显示推荐的AHK v2实现方式
 F3:: ShowSubmenuMode
+
+; 热键: F4 显示多目录父菜单
+F4:: ShowMultiDirMenu
 
 ; 显示提示信息
 MsgBox("动态文件菜单示例 - 三种实现方式:`n`n"

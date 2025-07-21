@@ -1,6 +1,6 @@
 ;DynamicFileMenu.ahk - AutoHotkey V2 版本
 ;原作者: BGM V1 http://www.autohotkey.com/board/topic/95219-dynamicfilemenuahk/
-;修改者: BoBO 
+;修改者: BoBO
 ;功能: 从文件系统创建动态菜单，支持多种文件格式和子文件夹，支持多格式 *.ms|*.mse [|]分开
 ;AHK v2适配: 更新为AHK v2兼容版本 调用示例文件 ..\doc\DynamicMenuExample.ahk
 /**
@@ -13,7 +13,7 @@
  * @param parentmenu 父菜单名称
  * @param folders 是否包含子文件夹 (1=是, 0=否)
  * @return 添加的菜单项数量
- *
+ * 
  * 注意: 在AHK v2中，此函数不再直接创建全局变量。
  * 如需使用创建的菜单，请使用返回的菜单项数量判断是否成功，
  * 并使用ScanDirectoryForMenu函数的方式创建菜单。
@@ -28,7 +28,7 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
 
     ; 扫描文件
     for i, mask in filemasksArray {
-        Loop Files, whatdir "\" mask, "F" {
+        loop files, whatdir "\" mask, "F" {
             ; 添加文件到菜单
             try {
                 if (Type(callbackFunc) = "Func" || IsObject(callbackFunc)) {
@@ -53,12 +53,13 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
 
     ; 扫描子文件夹
     if (folders) {
-        Loop Files, whatdir "\*", "D" {
+        loop files, whatdir "\*", "D" {
             ; 为子文件夹创建子菜单
             folderMenu := Menu()
 
             ; 递归处理子文件夹
-            subCount := menu_fromfiles(A_LoopFileName, A_LoopFileName, callbackFunc, A_LoopFileFullPath, filemask, "", folders)
+            subCount := menu_fromfiles(A_LoopFileName, A_LoopFileName, callbackFunc, A_LoopFileFullPath, filemask, "",
+                folders)
 
             ; 如果子文件夹有文件，添加到主菜单
             if (subCount > 0) {
@@ -145,6 +146,25 @@ MenuItemCallback(dir, *) {
 }
 
 /**
+ * 运行指定文件
+ * @param filePath 要运行的文件路径
+ */
+RunFile(filePath, *) {
+    if (FileExist(filePath))
+        Run(filePath)
+}
+
+/**
+ * 回调函数包装器，用于传递完整文件路径
+ * @param callbackFunc 原始回调函数
+ * @param itemName 菜单项名称
+ * @param fullPath 文件的完整路径
+ */
+CallbackWrapper(callbackFunc, itemName, fullPath, *) {
+    callbackFunc(itemName, 0, "", fullPath)
+}
+
+/**
  * 递归扫描目录并创建菜单 (AHK v2推荐方法)
  * 这是menu_fromfiles函数的替代实现，更适合AHK v2的对象模型
  * @param menuObj 菜单对象
@@ -187,6 +207,79 @@ ScanDirectoryForMenu(menuObj, dir, fileMask, callbackFunc := "", includeFolders 
 
             ; 递归扫描子目录
             subItemCount := ScanDirectoryForMenu(subMenu, A_LoopFileFullPath, fileMask, callbackFunc, includeFolders)
+
+            ; 如果子菜单有项目，添加到主菜单
+            if (subItemCount > 0) {
+                try {
+                    menuObj.Add(A_LoopFileName, subMenu)
+                    itemCount += subItemCount
+                } catch as err {
+                    ; 忽略错误
+                }
+            }
+        }
+    }
+
+    ; 返回添加的菜单项数量
+    return itemCount
+}
+
+/**
+ * 增强版递归扫描目录并创建菜单 - 保留完整文件路径
+ * 这个版本会为每个菜单项创建一个闭包函数，捕获文件的完整路径
+ * @param menuObj 菜单对象
+ * @param dir 要扫描的目录
+ * @param fileMask 文件掩码，可用"|"分隔多个格式
+ * @param callbackFunc 点击菜单项时调用的函数对象或函数名
+ * @param includeFolders 是否包含子文件夹 (true=是, false=否)
+ * @return 添加的菜单项数量
+ */
+ScanDirectoryForMenuEx(menuObj, dir, fileMask, callbackFunc := "", includeFolders := true) {
+    ; 计数器，记录添加的菜单项数量
+    itemCount := 0
+
+    ; 分割文件掩码
+    fileMasks := StrSplit(fileMask, "|")
+
+    ; 添加文件到菜单
+    for _, mask in fileMasks {
+        loop files, dir "\" mask, "F" {
+            try {
+                ; 获取文件的完整路径
+                fullPath := dir "\" A_LoopFileName
+
+                ; 如果提供了回调函数
+                if (callbackFunc) {
+                    ; 创建一个绑定函数，捕获当前文件的完整路径
+                    ; 这个绑定函数会调用原始的回调函数，并传递文件名、位置、菜单名和完整路径
+                    wrapperCallback := CallbackWrapper.Bind(callbackFunc, A_LoopFileName, fullPath)
+
+                    ; 添加菜单项
+                    menuObj.Add(A_LoopFileName, wrapperCallback)
+                } else {
+                    ; 如果没有提供回调函数，使用默认的
+                    ; 创建一个绑定函数，捕获当前文件的完整路径
+                    defaultCallback := RunFile.Bind(fullPath)
+
+                    ; 添加菜单项
+                    menuObj.Add(A_LoopFileName, defaultCallback)
+                }
+
+                itemCount++
+            } catch as err {
+                ; 忽略错误
+            }
+        }
+    }
+
+    ; 扫描子目录
+    if (includeFolders) {
+        loop files, dir "\*", "D" {
+            ; 为子目录创建子菜单
+            subMenu := Menu()
+
+            ; 递归扫描子目录
+            subItemCount := ScanDirectoryForMenuEx(subMenu, A_LoopFileFullPath, fileMask, callbackFunc, includeFolders)
 
             ; 如果子菜单有项目，添加到主菜单
             if (subItemCount > 0) {
