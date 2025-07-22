@@ -144,7 +144,10 @@ Max3D_Menu() {
                 totalMenuItems++
             }
         }
-        parentMenu.Add("输出 同名", Max3D_Render)  ; 添加菜单项
+
+        parentMenu.Add("FumeFX缓存路径修改", (*) => Script_3DsMax("QuikeFXLocalChang.ms"))
+        parentMenu.Add("快速渲染", (*) => Script_3DsMax("Render.ms"))
+        parentMenu.Add("初始化【删灯光黑背景设单位设网格】", (*) => Script_3DsMax("initialization.ms"))
 
         try {
             if (totalMenuItems > 0) {
@@ -165,30 +168,27 @@ Max3D_HandleMenuClick(ItemName, ItemPos, MenuName, filePath := "") {
     ; 不需要再次构建路径
 
     ; 如果没有提供文件路径（这种情况不应该发生），尝试构建一个
-    if (!filePath) {
-        ; 获取脚本路径配置
-        pathConfig := GetMax3DScriptPaths()
+    ; if (!filePath) {
+    ;     ; 获取脚本路径配置
+    ;     pathConfig := GetMax3DScriptPaths()
 
-        ; 尝试在各个子目录中查找文件
-        for _, dirPath in pathConfig.dirPaths {
-            possiblePath := dirPath "\" ItemName
-            if (FileExist(possiblePath)) {
-                filePath := possiblePath
-                break
-            }
-        }
+    ;     ; 尝试在各个子目录中查找文件
+    ;     for _, dirPath in pathConfig.dirPaths {
+    ;         possiblePath := dirPath "\" ItemName
+    ;         if (FileExist(possiblePath)) {
+    ;             filePath := possiblePath
+    ;             break
+    ;         }
+    ;     }
 
-        ; 如果仍然没有找到，使用默认路径
-        if (!filePath) {
-            filePath := A_ScriptDir "\" ItemName
-        }
-    }
+
+    ;     ; 如果仍然没有找到，使用默认路径
+    ;     if (!filePath) {
+    ;         filePath := A_ScriptDir "\" ItemName
+    ;     }
+    ; }
     ; 显示选择的文件
     ; MsgBox("您选择了文件: " . filePath)
     ; 运行脚本
     Script_3DsMax(filePath)
-}
-
-Max3D_Render(ItemName, ItemPos, MyMenu) {
-    Script_3DsMax("Render.ms")
 }
