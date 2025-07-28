@@ -30,6 +30,9 @@ Max3D() {
     ; 菜单
     KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "打开", Func: "Max3D_Menu", Param: "", Comment: "功能菜单" })
 
+    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
+        Comment: "单击/双击/长按" })
+
     ; 打开
     KeyArray.push({ Key: "of", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openMaxfileDir.ms", Comment: "打开 Max文件所在位置" })
     KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openRenderDir.ms", Comment: "打开 渲染文件所在位置" })

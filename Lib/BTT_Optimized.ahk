@@ -602,7 +602,7 @@ class BeautifulToolTip extends Map {
         } else {
             ; 其他坐标模式的处理（简化版）
             this._HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &
-                TargetWidth, &TargetHeight)
+                TargetWidth, &TargetHeight, &TargetRight, &TargetBottom)
         }
 
         if (GetTargetSize = 1) {
@@ -634,7 +634,7 @@ class BeautifulToolTip extends Map {
 
     ; 处理其他坐标模式
     _HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &TargetWidth, &
-        TargetHeight) {
+        TargetHeight, &TargetRight, &TargetBottom) {
         if (Options.CoordMode = "Window" or Options.CoordMode = "Relative") {
             WinGetPos(&WinX, &WinY, &WinW, &WinH, "ahk_id " Options.TargetHWND)
             XInScreen := WinX + X
@@ -643,6 +643,8 @@ class BeautifulToolTip extends Map {
             TargetTop := WinY
             TargetWidth := WinW
             TargetHeight := WinH
+            TargetRight := WinX + WinW
+            TargetBottom := WinY + WinH
             DisplayX := (X = "") ? MouseX : XInScreen
             DisplayY := (Y = "") ? MouseY : YInScreen
         } else if (Options.CoordMode = "Client") {
@@ -660,6 +662,8 @@ class BeautifulToolTip extends Map {
             TargetTop := ClientY
             TargetWidth := ClientW
             TargetHeight := ClientH
+            TargetRight := ClientX + ClientW
+            TargetBottom := ClientY + ClientH
             DisplayX := (X = "") ? MouseX : XInScreen
             DisplayY := (Y = "") ? MouseY : YInScreen
         } else {
@@ -668,8 +672,10 @@ class BeautifulToolTip extends Map {
             hMonitor := MDMF_FromPoint(&DisplayX, &DisplayY, 2)
             TargetLeft := this.Monitors[hMonitor].Left
             TargetTop := this.Monitors[hMonitor].Top
-            TargetWidth := this.Monitors[hMonitor].Right - TargetLeft
-            TargetHeight := this.Monitors[hMonitor].Bottom - TargetTop
+            TargetRight := this.Monitors[hMonitor].Right
+            TargetBottom := this.Monitors[hMonitor].Bottom
+            TargetWidth := TargetRight - TargetLeft
+            TargetHeight := TargetBottom - TargetTop
         }
 
         hMonitor := MDMF_FromPoint(&DisplayX, &DisplayY, 2)

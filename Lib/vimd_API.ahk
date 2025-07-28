@@ -2,97 +2,42 @@
 
 /* ModeChange【模式切换】
     函数:  ModeChange
-    作用:  按键输出
-    参数:  aMode：切换到的模式
+    作用:  模式切换并显示提示
+    参数:  modeName：切换到的模式
     返回:
     作者:  Kawvin
-    版本:  0.1
+    版本:  1.0
     AHK版本: 2.0.18
 */
 ModeChange(modeName) {
     ; 设置模式
     vim.mode(modeName, vim.LastFoundWin)
     
-    ; 创建一个自定义的GUI窗口作为提示
-    static modeGui := 0
+    ; 使用ToolTipManager显示模式切换提示
+    ToolTipManager.Init()
     
-    ; 如果已经有一个GUI存在，先销毁它
-    if (modeGui != 0) {
-        try {
-            modeGui.Destroy()
-            modeGui := 0
-        }
-    }
-    ; 创建一个新的GUI
-    modeGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
-    modeGui.BackColor := "28143D"  ; 背景颜色
-
-    ; 添加文本控件
-    modeGui.SetFont("s12 bold", "Segoe UI")
-    modeGui.Add("Text", "cWhite Center", "当前模式: " modeName)
+    ; 构建提示文本
+    modeText := "当前模式: " modeName
     
-    ; 获取屏幕中心位置
+    ; 获取屏幕中心位置来显示提示
     MonitorGetWorkArea(1, &left, &top, &right, &bottom)
-    centerX := (right - left) / 2
-    centerY := (bottom - top) / 2
+    centerX := Integer((right - left) / 2)
+    centerY := Integer((bottom - top) / 2)
     
-    ; 显示GUI在屏幕中央 设置大小
-    modeGui.Show("x" . (centerX) . " y" . (centerY) . " w180 h40 NoActivate")
+    ; 显示模式切换提示
+    ToolTipManager.Show(modeText, centerX - 90, centerY - 20, 2)
     
-    ; 设置淡出效果和自动关闭
-    ; 初始化透明度为255（完全不透明）
-    WinSetTransparent(255, modeGui)
+    ; 设置定时器自动隐藏提示
+    static modeChangeTimer := 0
     
-    ; 设置淡出效果
-    SetTimer(FadeOutModeGui, -100)
-    
-    FadeOutModeGui() {
-        static fadeSteps := 2  ; 淡出步骤数
-        static fadeDelay := 100  ; 每步延迟（毫秒）
-        static transparency := 255  ; 初始透明度
-        static fadeStep := 0  ; 当前步骤
-        
-        ; 如果GUI已经不存在，则退出
-        if (modeGui = 0)
-            return
-            
-        ; 计算每步透明度减少量
-        stepAmount := 255 / fadeSteps
-        
-        ; 创建淡出定时器
-        SetTimer(DoFade, fadeDelay)
-        
-        DoFade() {
-            fadeStep++
-            
-            ; 计算新的透明度值
-            transparency := 255 - (stepAmount * fadeStep)
-            
-            ; 如果GUI已经不存在，则停止定时器
-            if (modeGui = 0) {
-                SetTimer(, 0)
-                fadeStep := 0
-                transparency := 255
-                return
-            }
-            
-            ; 应用新的透明度
-            if (transparency > 0) {
-                try {
-                    WinSetTransparent(Round(transparency), modeGui)
-                }
-            } else {
-                ; 淡出完成，销毁GUI并重置变量
-                try {
-                    modeGui.Destroy()
-                    modeGui := 0
-                }
-                SetTimer(, 0)
-                fadeStep := 0
-                transparency := 255
-            }
-        }
+    ; 清除之前的定时器
+    if (modeChangeTimer != 0) {
+        SetTimer(modeChangeTimer, 0)
     }
+    
+    ; 创建新的定时器来隐藏提示
+    modeChangeTimer := () => ToolTipManager.Hide(2)
+    SetTimer(modeChangeTimer, -300)  ; 1.5秒后自动隐藏
 }
 
 /* SendKeyInput【按键输出】
