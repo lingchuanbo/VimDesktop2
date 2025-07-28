@@ -2209,7 +2209,17 @@ class __Action {
                 case 1:
                     f := this.Function
                     f := RegExReplace(f, "<\d>$", "")
-                    if (Type(%f%) = "Func") {
+                    
+                    ; 特殊处理 SingleDoubleFullHandlers 函数
+                    if (f = "SingleDoubleFullHandlers") {
+                        ; 调用存储的处理函数
+                        global singleDoubleHandlers
+                        if (IsSet(singleDoubleHandlers) && singleDoubleHandlers.Has(this.Name)) {
+                            handler := singleDoubleHandlers[this.Name]
+                            ; 使用按键名称而不是A_ThisHotkey，因为在vim系统中A_ThisHotkey可能不正确
+                            handler(this.OriKey ? this.OriKey : this.Name)
+                        }
+                    } else if (Type(%f%) = "Func") {
                         if (this.Param = "") {
                             %f%()
                         } else {

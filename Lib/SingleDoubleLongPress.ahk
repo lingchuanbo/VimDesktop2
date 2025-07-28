@@ -185,6 +185,38 @@ SingleDoubleFullHandlers(paramStr) {
 }
 
 /**
+ * 为vim系统创建单击双击长按处理函数（不直接注册热键）
+ * @param paramStr 参数字符串，格式为"热键|单击函数|双击函数|长按函数"
+ */
+CreateSingleDoubleFullHandler(paramStr) {
+    ; 解析参数字符串
+    params := StrSplit(paramStr, "|")
+    hotkeyStr := params[1]
+
+    ; 设置默认函数
+    singleFunc := SingleClick
+    doubleFunc := DoubleClick
+    longFunc := LongPress
+
+    ; 如果提供了自定义函数名称，则使用它们
+    if (params.Length >= 2 && params[2] != "") {
+        singleFuncName := params[2]
+        singleFunc := (*) => (%singleFuncName%)()
+    }
+    if (params.Length >= 3 && params[3] != "") {
+        doubleFuncName := params[3]
+        doubleFunc := (*) => (%doubleFuncName%)()
+    }
+    if (params.Length >= 4 && params[4] != "") {
+        longFuncName := params[4]
+        longFunc := (*) => (%longFuncName%)()
+    }
+
+    ; 创建并返回处理程序（不注册热键）
+    return CreateClickHandler(singleFunc, doubleFunc, longFunc)
+}
+
+/**
  * 默认单击功能
  */
 SingleClick() {
