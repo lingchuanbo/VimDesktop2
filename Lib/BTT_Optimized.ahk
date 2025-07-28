@@ -1,9 +1,72 @@
-;fix Extended Desktop issues
-;add Align Opt       @github:The-CoDingman
-
-;BTT Author: telppa  https://github.com/telppa/BeautifulToolTip
-;BTT v2 Converter: @github:liuyi91
-;Optimized version with performance improvements
+;===================================================================================
+; BeautifulToolTip (BTT) - 优化版
+;===================================================================================
+; 原作者: telppa  https://github.com/telppa/BeautifulToolTip
+; v2 转换: @github:liuyi91
+; 优化版本: 提高性能，修复多显示器问题，支持扩展桌面
+; 贡献者: @github:The-CoDingman (添加对齐选项)
+;
+;===================================================================================
+; 调用方式:
+;===================================================================================
+; 1. 基本调用:
+;    btt("提示文本")                  ; 显示简单提示
+;    btt()                           ; 清除提示
+;    btt("提示文本", x, y)            ; 在指定位置显示提示
+;    btt("提示文本", "", "", 2)       ; 使用第2个提示框(共20个)
+;
+; 2. 使用样式:
+;    btt("提示文本", "", "", 1, OwnzztooltipStyle1)  ; 使用预定义样式1
+;    btt("提示文本", "", "", 1, OwnzztooltipStyle2)  ; 使用预定义样式2
+;    btt("提示文本", "", "", 1, {Border: 2, Rounded: 5})  ; 使用自定义样式
+;
+; 3. 使用选项:
+;    btt("提示文本", "", "", 1, "", {Transparent: 200})  ; 设置透明度
+;    btt("提示文本", "", "", 1, "", {CoordMode: "Window"})  ; 设置坐标模式
+;
+; 4. 返回值:
+;    result := btt("提示文本")  ; 返回包含Hwnd, X, Y, W, H的对象
+;
+;===================================================================================
+; 样式参数 (Style):
+;===================================================================================
+; Border: 边框宽度 (0-20)
+; Rounded: 圆角半径 (0-30)
+; Margin: 文本边距 (0-30)
+; TabStops: 制表符位置数组 [50, 100, 150]
+; TextColor: 文本颜色 (ARGB)
+; BackgroundColor: 背景颜色 (ARGB)
+; Font: 字体名称
+; FontSize: 字体大小
+; FontRender: 字体渲染模式 (0-5)
+; FontStyle: 字体样式 "Bold Italic Underline Strikeout"
+; Align: 文本对齐方式 (0=左, 1=中, 2=右)
+;
+; 渐变色参数:
+; BorderColorLinearGradientStart: 边框渐变起始色
+; BorderColorLinearGradientEnd: 边框渐变结束色
+; BorderColorLinearGradientAngle: 边框渐变角度
+; BorderColorLinearGradientMode: 边框渐变模式 (1-8)
+; TextColorLinearGradientStart: 文本渐变起始色
+; TextColorLinearGradientEnd: 文本渐变结束色
+; TextColorLinearGradientAngle: 文本渐变角度
+; TextColorLinearGradientMode: 文本渐变模式 (1-8)
+; BackgroundColorLinearGradientStart: 背景渐变起始色
+; BackgroundColorLinearGradientEnd: 背景渐变结束色
+; BackgroundColorLinearGradientAngle: 背景渐变角度
+; BackgroundColorLinearGradientMode: 背景渐变模式 (1-8)
+;
+;===================================================================================
+; 选项参数 (Options):
+;===================================================================================
+; TargetHWND: 目标窗口句柄
+; CoordMode: 坐标模式 ("Screen", "Window", "Client")
+; Transparent: 透明度 (0-255)
+; MouseNeverCoverToolTip: 鼠标是否不遮挡提示 (0, 1)
+; DistanceBetweenMouseXAndToolTip: 提示框与鼠标X轴距离
+; DistanceBetweenMouseYAndToolTip: 提示框与鼠标Y轴距离
+; JustCalculateSize: 仅计算大小不显示
+;===================================================================================
 
 ; 优化后的主函数
 btt(Text := "", X := "", Y := "", WhichToolTip := "", BulitInStyleOrStyles := "", BulitInOptionOrOptions := "") {
@@ -652,7 +715,7 @@ class BeautifulToolTip extends Map {
             return false
         }
 
-        return NONCLIENTMETRICS.Ptr
+        return NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptr
     }
 
     ; 工具函数（优化版）
@@ -667,12 +730,87 @@ class BeautifulToolTip extends Map {
     }
 }
 
-; 示例样式定义
-OwnzztooltipStyle1 := { Border: 1, Rounded: 2, Margin: 8, BorderColorLinearGradientStart: 0xff3881a7,
-    BorderColorLinearGradientEnd: 0xff3881a7, BorderColorLinearGradientAngle: 45, BorderColorLinearGradientMode: 6,
-    FontSize: 16, TextColor: 0xFFFFFFFF, BackgroundColor: 0xFF000000, FontStyle: "Regular", Align: 0 }
+;===================================================================================
+; 预定义样式
+;===================================================================================
 
-OwnzztooltipStyle2 := { Border: 1, Rounded: 8, TextColor: 0xfff4f4f4, BackgroundColor: 0xaa3e3d45, FontSize: 14 }
+;-------------------------------------------------------------------------
+; 暗色主题样式
+;-------------------------------------------------------------------------
+
+; 经典暗色样式 - 黑底白字，蓝色边框
+OwnzztooltipStyle1 := { 
+    Border: 1, 
+    Rounded: 2, 
+    Margin: 8, 
+    BorderColorLinearGradientStart: 0xff3881a7,
+    BorderColorLinearGradientEnd: 0xff3881a7, 
+    BorderColorLinearGradientAngle: 45, 
+    BorderColorLinearGradientMode: 6,
+    FontSize: 16, 
+    TextColor: 0xFFFFFFFF, 
+    BackgroundColor: 0xFF000000, 
+    FontStyle: "Regular", 
+    Align: 0 
+}
+
+; 半透明暗色样式 - 灰黑底白字
+OwnzztooltipStyle2 := { 
+    Border: 1, 
+    Rounded: 8, 
+    TextColor: 0xfff4f4f4, 
+    BackgroundColor: 0xaa3e3d45, 
+    FontSize: 14 
+}
+
+; 现代暗色样式 - 深灰底，白字，渐变边框
+OwnzztooltipStyle3 := { 
+    Border: 2, 
+    Rounded: 10, 
+    Margin: 10, 
+    BorderColorLinearGradientStart: 0xff6a11cb,
+    BorderColorLinearGradientEnd: 0xff2575fc, 
+    BorderColorLinearGradientAngle: 120, 
+    BorderColorLinearGradientMode: 8,
+    FontSize: 14, 
+    TextColor: 0xFFFFFFFF, 
+    BackgroundColor: 0xFF222222, 
+    FontStyle: "Bold", 
+    Align: 1 
+}
+
+;-------------------------------------------------------------------------
+; 亮色主题样式
+;-------------------------------------------------------------------------
+
+; 简约亮色样式 - 白底黑字，细边框
+OwnzztooltipStyle4 := { 
+    Border: 1, 
+    Rounded: 6, 
+    Margin: 8, 
+    BorderColor: 0xFFCCCCCC,
+    FontSize: 13, 
+    TextColor: 0xFF333333, 
+    BackgroundColor: 0xFFF8F8F8, 
+    FontStyle: "Regular", 
+    Align: 0 
+}
+
+; 柔和亮色样式 - 浅蓝底，深蓝字，渐变边框
+OwnzztooltipStyle5 := { 
+    Border: 2, 
+    Rounded: 12, 
+    Margin: 10, 
+    BorderColorLinearGradientStart: 0xFF4DA0FF,
+    BorderColorLinearGradientEnd: 0xFF00CCFF, 
+    BorderColorLinearGradientAngle: 45, 
+    BorderColorLinearGradientMode: 6,
+    FontSize: 14, 
+    TextColor: 0xFF003366, 
+    BackgroundColor: 0xFFE6F4FF, 
+    FontStyle: "Bold", 
+    Align: 1 
+}
 
 ; 包含所有必要的GDIP函数（保持原有实现）
 ;================================GDIP================================================
@@ -941,3 +1079,167 @@ CreateRect(&Rect, x, y, w, h) => (Rect := Buffer(16), NumPut("UInt", x, Rect, 0)
     "UInt", w, Rect, 8), NumPut("UInt", h, Rect, 12))
 
 ;=======================================优化完成===============================================================
+;===================================================================================
+; 自动消失提示函数
+;===================================================================================
+
+/**
+ * 显示一个自动消失的提示
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ * @param {Number|String} X - X坐标，留空则跟随鼠标
+ * @param {Number|String} Y - Y坐标，留空则跟随鼠标
+ * @param {Number} WhichToolTip - 使用第几个提示框(1-20)
+ * @param {Object} Style - 样式设置
+ * @param {Object} Options - 选项设置
+ * @returns {Object} 包含提示框信息的对象
+ */
+bttAutoHide(Text, Timeout := 3000, X := "", Y := "", WhichToolTip := 1, Style := "", Options := "") {
+    ; 显示提示
+    result := btt(Text, X, Y, WhichToolTip, Style, Options)
+    
+    ; 设置定时器自动关闭提示
+    SetTimer(() => btt("", , , WhichToolTip), -Timeout)
+    
+    return result
+}
+
+/**
+ * 显示一个自动消失的提示(简化版)
+ * @param {String} Text - 提示文本
+ * @returns {Void}
+*/
+quickTip(Text) {
+    bttAutoHide(Text, 3000)
+}
+
+; ====================================================================================
+; 主题检测和自适应提示函数
+; ====================================================================================
+
+/**
+ * 检测系统是否使用暗色主题
+ * @returns {Boolean} 如果系统使用暗色主题返回true，否则返回false
+ */
+isDarkTheme() {
+    try {
+        AppsUseDarkTheme := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseDarkTheme")
+        return AppsUseDarkTheme = 1
+    } catch {
+        ; 如果无法读取注册表，尝试使用其他方法检测
+        try {
+            DllCall("UxTheme\ShouldSystemUseDarkMode", "UInt")
+            return true
+        } catch {
+            ; 默认返回false
+            return false
+        }
+    }
+}
+
+/**
+ * 根据系统主题显示自动消失的提示
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ * @param {Number|String} X - X坐标，留空则跟随鼠标
+ * @param {Number|String} Y - Y坐标，留空则跟随鼠标
+ * @returns {Object} 包含提示框信息的对象
+ */
+bttThemeAware(Text, Timeout := 3000, X := "", Y := "") {
+    ; 根据系统主题选择样式
+    Style := isDarkTheme() ? OwnzztooltipStyle3 : OwnzztooltipStyle5
+    
+    ; 显示提示并设置自动消失
+    result := btt(Text, X, Y, 1, Style)
+    SetTimer(() => btt("", , , 1), -Timeout)
+    
+    return result
+}
+
+/**
+ * 显示一个成功提示(绿色)，自动消失
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ */
+successTip(Text, Timeout := 3000) {
+    ; 成功提示样式 - 绿色
+    SuccessStyle := { 
+        Border: 1, 
+        Rounded: 8, 
+        Margin: 10, 
+        BorderColor: 0xFF4CAF50,
+        FontSize: 14, 
+        TextColor: 0xFFFFFFFF, 
+        BackgroundColor: 0xFF388E3C, 
+        FontStyle: "Bold", 
+        Align: 1 
+    }
+    
+    bttAutoHide(Text, Timeout, "", "", 2, SuccessStyle)
+}
+
+/**
+ * 显示一个错误提示(红色)，自动消失
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ */
+errorTip(Text, Timeout := 3000) {
+    ; 错误提示样式 - 红色
+    ErrorStyle := { 
+        Border: 1, 
+        Rounded: 8, 
+        Margin: 10, 
+        BorderColor: 0xFFE53935,
+        FontSize: 14, 
+        TextColor: 0xFFFFFFFF, 
+        BackgroundColor: 0xFFC62828, 
+        FontStyle: "Bold", 
+        Align: 1 
+    }
+    
+    bttAutoHide(Text, Timeout, "", "", 3, ErrorStyle)
+}
+
+/**
+ * 显示一个警告提示(黄色)，自动消失
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ */
+warningTip(Text, Timeout := 3000) {
+    ; 警告提示样式 - 黄色
+    WarningStyle := { 
+        Border: 1, 
+        Rounded: 8, 
+        Margin: 10, 
+        BorderColor: 0xFFFFC107,
+        FontSize: 14, 
+        TextColor: 0xFF212121, 
+        BackgroundColor: 0xFFFFD54F, 
+        FontStyle: "Bold", 
+        Align: 1 
+    }
+    
+    bttAutoHide(Text, Timeout, "", "", 4, WarningStyle)
+}
+
+/**
+ * 显示一个信息提示(蓝色)，自动消失
+ * @param {String} Text - 提示文本
+ * @param {Number} Timeout - 自动消失时间(毫秒)，默认3000毫秒(3秒)
+ */
+infoTip(Text, Timeout := 3000) {
+    ; 信息提示样式 - 蓝色
+    InfoStyle := { 
+        Border: 1, 
+        Rounded: 8, 
+        Margin: 10, 
+        BorderColor: 0xFF2196F3,
+        FontSize: 14, 
+        TextColor: 0xFFFFFFFF, 
+        BackgroundColor: 0xFF1976D2, 
+        FontStyle: "Bold", 
+        Align: 1 
+    }
+    
+    bttAutoHide(Text, Timeout, "", "", 5, InfoStyle)
+}
