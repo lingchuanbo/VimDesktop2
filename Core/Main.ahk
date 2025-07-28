@@ -323,5 +323,4 @@ ReceiveWMCopyData(wParam, lParam, msg, hwnd){
     }
 }
 
-#Include .\HasValue.ahk
 #Include .\class_vim.ahk
