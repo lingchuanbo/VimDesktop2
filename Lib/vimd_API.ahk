@@ -6,7 +6,8 @@
     参数:  modeName：切换到的模式
     返回:
     作者:  Kawvin
-    版本:  1.0
+    修改:  BoBO
+    版本:  1.1
     AHK版本: 2.0.18
 */
 ModeChange(modeName) {

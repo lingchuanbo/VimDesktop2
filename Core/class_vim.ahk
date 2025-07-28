@@ -410,6 +410,7 @@ VIMD_ShowKeyHelpWithGui(pluginName) {
 作用: 使用MsgBox显示按键列表（备用方案）
 参数: pluginName - 插件名称VIMD_ShowKeyHelpWithMsgBox
 返回: 无
+作者: BoBO
 */
 VIMD_ShowKeyHelpWithMsgBox(pluginName) {
     global vim
@@ -1452,6 +1453,7 @@ class __vim {
         参数: key： AHK热键名
         返回: 类VIM的热键名
         作者:  Kawvin
+        修改:  BoBO
         版本:  1.0
         AHK版本: 2.0.18
         例 Convert2VIM("f1")
@@ -1554,6 +1556,7 @@ class __vim {
         参数: key： AHK热键名
         返回: 类VIM的热键名
         作者:  Kawvin
+        修改:  BoBO
         版本:  1.0
         AHK版本: 2.0.18
         例 Convert2VIM_Title("f1")
@@ -1595,6 +1598,7 @@ class __vim {
                 ToSend：是否发送，0：enter , 1：{enter}
         返回:
         作者:  Kawvin
+        修改:  BoBO
         版本:  1.0
         AHK版本: 2.0.18
         例 Convert2AHK("<F1>")
