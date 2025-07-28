@@ -317,6 +317,49 @@ AdjustTransparencyDown() {
 }
 
 ; ==============================================================================
+/*
+    测试ToolTip库切换功能
+    使用Ctrl+Alt+T切换ToolTip库，使用Ctrl+Alt+Shift+T测试ToolTip显示
+*/
+^!t:: SwitchTooltipLibrary()
+SwitchTooltipLibrary() {
+    ; 获取当前使用的库
+    currentLib := ""
+    try {
+        currentLib := INIObject.config.tooltip_library
+    } catch {
+        currentLib := "ToolTipOptions"
+    }
+    
+    ; 切换到另一个库
+    newLib := (currentLib = "ToolTipOptions") ? "BTT_Optimized" : "ToolTipOptions"
+    
+    ; 使用ToolTipManager切换库
+    ToolTipManager.SwitchLibrary(newLib)
+    
+    ; 显示切换结果
+    ToolTipManager.Show("已切换到: " newLib "`n当前库: " ToolTipManager.currentLibrary, , , 1)
+    
+    ; 3秒后隐藏
+    SetTimer(() => ToolTipManager.Hide(1), -3000)
+}
+
+^!+t:: TestTooltipDisplay()
+TestTooltipDisplay() {
+    ; 测试当前ToolTip库的显示效果
+    currentLib := ToolTipManager.currentLibrary
+    
+    testText := "ToolTip库测试`n"
+    testText .= "当前使用: " currentLib "`n"
+    testText .= "时间: " FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss") "`n"
+    testText .= "这是一个多行测试文本"
+    
+    ; 显示测试ToolTip
+    ToolTipManager.Show(testText, , , 2)
+    
+    ; 5秒后隐藏
+    SetTimer(() => ToolTipManager.Hide(2), -5000)
+}
 
 ; ==============================================================================
 /*

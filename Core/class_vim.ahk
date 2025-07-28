@@ -195,58 +195,9 @@ ShowInfo() {
         }
     }
 
-    ToolTipOptions.Init()
-    try {
-        ; 从配置文件读取字体设置，如果没有则使用默认值
-        fontSize := INIObject.config.HasOwnProp("tooltip_font_size") ? INIObject.config.tooltip_font_size : "12"
-        fontName := INIObject.config.HasOwnProp("tooltip_font_name") ? INIObject.config.tooltip_font_name :
-            "Microsoft YaHei"
-        ToolTipOptions.SetFont("s" fontSize, fontName)
-    } catch {
-        ToolTipOptions.SetFont("s12", "Consolas")
-    }
-    ; ToolTipOptions.SetMargins(12, 12, 12, 12)
-    
-    ; 根据当前主题模式选择对应的颜色
-    try {
-        currentTheme := INIObject.config.HasOwnProp("theme_mode") ? INIObject.config.theme_mode : "system"
-        
-        ; 如果是系统模式，检测系统当前主题
-        if (currentTheme = "system") {
-            ; 检测系统是否处于深色模式
-            try {
-                isDarkMode := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme")
-                currentTheme := (isDarkMode = 0) ? "dark" : "light"
-            } catch {
-                ; 如果无法读取注册表，默认使用亮色主题
-                currentTheme := "light"
-            }
-        }
-        
-        ; 根据主题选择颜色
-        if (currentTheme = "dark") {
-            bgColor := INIObject.config.HasOwnProp("tooltip_dark_bg_color") ? INIObject.config.tooltip_dark_bg_color : "0x202020"
-            txtColor := INIObject.config.HasOwnProp("tooltip_dark_text_color") ? INIObject.config.tooltip_dark_text_color : "0xE0E0E0"
-            
-            ; 更新当前使用的颜色值
-            INIObject.config.tooltip_bg_color := bgColor
-            INIObject.config.tooltip_text_color := txtColor
-        } else {
-            bgColor := INIObject.config.HasOwnProp("tooltip_light_bg_color") ? INIObject.config.tooltip_light_bg_color : "White"
-            txtColor := INIObject.config.HasOwnProp("tooltip_light_text_color") ? INIObject.config.tooltip_light_text_color : "0x381255"
-            
-            ; 更新当前使用的颜色值
-            INIObject.config.tooltip_bg_color := bgColor
-            INIObject.config.tooltip_text_color := txtColor
-        }
-    } catch {
-        ; 出错时使用默认值
-        bgColor := "Green"
-        txtColor := "White"
-    }
-    
-    ToolTipOptions.SetColors(bgColor, txtColor)
-    ToolTip(np)        ; show a ToolTip
+    ; 初始化ToolTip管理器
+    ToolTipManager.Init()
+    ToolTipManager.Show(np)        ; show a ToolTip
 
 }
 
@@ -261,7 +212,7 @@ ShowInfo() {
 */
 HideInfo() {
     if (!VimDesktop_Global.showToolTipStatus) ; 当屏幕有非快捷键补全帮助信息时，不清理
-        Tooltip
+        ToolTipManager.Hide()
 }
 
 /*

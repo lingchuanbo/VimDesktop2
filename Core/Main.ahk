@@ -66,7 +66,6 @@ CheckPlugin(LoadAll:=0){
             if !Rst
                 INIObject.plugins.%A_LoopFileName%:=1
             _defaultMode:=RegExMatch(FileRead(PluginFile, "UTF-8"), 'im)Mode:\s*\"(.*?)\"', &m) ? m[1] : ""
-            INIObject.AddSection("plugins_DefaultMode", A_LoopFileName, _defaultMode)
             Rst:=INIObject.AddKey("plugins_DefaultMode", A_LoopFileName, _defaultMode)
             if !Rst
                 INIObject.plugins_DefaultMode.%A_LoopFileName%:=_defaultMode

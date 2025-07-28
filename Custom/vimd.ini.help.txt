@@ -1,91 +1,48 @@
-﻿; [使用说明]
-; 1. 如果当前目录无vimd.ini文件，VimDesktop会将此文件复制为vimd.ini
-; 2. 根据分号 ; 之后的提示内容进行相应修改
-;
-; [自定义配置用法]
-; 在当前目录添加 custom.ahk文件，内容如下：
-;
-; MyFunc_XXX1(){
-;     对应功能1
-; }
-;
-; MyFunc_XXX2(){
-;     对应功能2
-; }
-;
-; 然后MyFunc_XXX可以在作为功能函数使用，如：
-; a=MyFunc_XXX1[=normal模式]
-; b=MyFunc_XXX2[=VIM模式]
+﻿# VimDesktop 配置文件说明
 
-[config]
-default_enable_show_info=1
-; 是否默认开启快捷键提示，可以被插件的 enable_show_info 覆盖
-editor=
-; 配置编辑器，请填写完整路径
-enable_log=0
-; 打印调试日志
-enable_debug=0
-; 打开调试窗口
-tooltip_bg_color=Green
-; 提示框背景颜色，支持颜色名称或RGB值如0xFF0000
-tooltip_text_color=White
-; 提示框文字颜色，支持颜色名称或RGB值如0x000000
+## 基本配置
+- `default_enable_show_info`: 是否显示提示信息 (0/1)
+- `editor`: 默认编辑器路径
+- `enable_debug`: 是否开启调试模式 (0/1)
+- `enable_log`: 是否开启日志记录 (0/1)
+- `lang`: 语言设置 (zh_cn/en)
 
-[exclude]
-;排除窗体
-vim
+## 主题设置
+- `theme_mode`: 主题模式
+  - `light`: 明亮模式
+  - `dark`: 暗黑模式
+  - `system`: 跟随系统
 
-[global]
-; 全局热键
-default_Mode = normal
-;默认模式
-enabled = 0
-;是否启用
-;<w-t>=Gen_Toggle[=normal]
-; 激活TC
-;<w-e>=TC_ToggleTC[=normal]
-; 切换TC
-;<w-y>=Reload[=normal]
-; 重新加载VimDesktop
-;<c-j>=run|notepad.exe[=normal]
-;<c-k>=key|^o[=normal]
-;<c-o> = MsgBoxTest||aaaaa[=normal]
-;<w-k> =SendKeyInput||{F1}[=normal]
-;函数，参数可以0或多个，以"||"分隔，仅支持 String/Integer/Float，不支持Boolean/Array/Map/Object
-;<c-i> = MsgBoxTest<3>||aaaaa[=normal]
-;函数，支持指定运行次数，在函数名称后添加<次数>，如运行3次
+## 提示框库设置
+- `tooltip_library`: 提示框库选择
+  - `ToolTipOptions`: 系统原生样式，轻量级，兼容性好
+  - `BTT_Optimized`: 美化样式，支持圆角、渐变等效果，功能丰富
 
+## 提示框颜色设置
+### 明亮主题
+- `tooltip_light_bg_color`: 背景颜色 (如: White, 0xFFFFFF)
+- `tooltip_light_text_color`: 文字颜色 (如: 0x381255)
 
-[plugins]
-; 启用（1）/禁用（0） 插件，默认禁用
-;TTOTAL_CMD=1
+### 暗黑主题
+- `tooltip_dark_bg_color`: 背景颜色 (如: 0x202020)
+- `tooltip_dark_text_color`: 文字颜色 (如: 0xE0E0E0)
 
-[plugins_DefaultMode]
-; 启用（1）/禁用（0） 插件，默认插件文件第1个热键的模式
-;TTOTAL_CMD=VIM模式
+## 提示框字体设置
+- `tooltip_font_name`: 字体名称 (如: Microsoft YaHei)
+- `tooltip_font_size`: 字体大小 (如: 12)
 
-;[记事本]
-;设置窗口名
-;set_class=Notepad
-;set_file=Notepad.exe
-;default_Mode = normal
-;默认模式
-;enabled = 1
-;是否启用
-;set_time_out=800
-;设置超时时间
-;set_max_count=1000
-;设置最大重复执行次数
-;enable_show_info=1
-;设置显示提示
-;j=<down>[=vim]
-;k=<up>[=vim]
-;h=<left>[=vim]
-;l=<right>[=vim]
-;<c-j>=run|notepad.exe[=normal]
-;<c-k>=key|^o[=normal]
-;<c-o> = MsgBoxTest||aaaaa[=normal]
-;<w-k> =SendKeyInput||{F1}[=normal]
-;函数，参数可以0或多个，以"||"分隔，仅支持 String/Integer/Float，不支持Boolean/Array/Map/Object
-;<c-i> = MsgBoxTest<3>||aaaaa[=normal]
-;函数，支持指定运行次数，在函数名称后添加\<次数>，如运行3次
+## 测试功能
+在Custom.ahk中已添加测试功能：
+- `Ctrl+Alt+T`: 切换ToolTip库
+- `Ctrl+Alt+Shift+T`: 测试ToolTip显示效果
+
+## 使用建议
+1. 如果追求性能和兼容性，推荐使用 `ToolTipOptions`
+2. 如果需要美观的视觉效果，推荐使用 `BTT_Optimized`
+3. 可以随时通过修改配置文件或使用快捷键切换库
+4. BTT_Optimized支持更多自定义样式，但占用资源稍多
+
+## 注意事项
+- 修改配置后需要重新加载脚本才能生效
+- BTT_Optimized库包含完整的GDI+功能，无需额外依赖
+- 两个库的API基本兼容，切换时不会影响现有功能

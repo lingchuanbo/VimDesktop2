@@ -95,22 +95,11 @@ Everything_Search(*) {
 }
 
 Everything_1() {
-    btt("这是一个提示文本", , )
-    ; MsgBox("1")
-    ; btt("优化后的提示文本", , , , OwnzztooltipStyle1)
-    ; MouseGetPos, posx, posy, A
-    ; posx += 40
-    ; posy += 40
-    ; 提示信息
-    ; Tooltip, %np%, %posx%, %posy%y
-    ; Text=%np%
-    ; btt("优化后的提示文本",%posx%,%posy%,1,OwnzztooltipStyle1)	;==================BoBO	
+    MsgBox("1")
 }
 Everything_2() {
     MsgBox("2")
 }
 Everything_3() {
-    btt("这是一个提示文本", , )
-    ; MsgBox("3")
-    ; btt("优化后的提示文本", , , , OwnzztooltipStyle1)
+    MsgBox("3")
 }

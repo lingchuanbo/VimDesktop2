@@ -19,8 +19,11 @@ SaveTime := "/*`r`n[ExtensionsTime]`r`n"
 Loop Files, A_ScriptDir "\*.*", "D"
 {
     plugin :=  A_ScriptDir "\" A_LoopFileName "\" A_LoopFileName ".ahk"
-    ExtensionsTime:=FileGetTime(plugin, "M")
-    SaveTime .= A_LoopFileName "=" ExtensionsTime "`r`n"
+    ; 检查文件是否存在再获取修改时间
+    if FileExist(plugin) {
+        ExtensionsTime:=FileGetTime(plugin, "M")
+        SaveTime .= A_LoopFileName "=" ExtensionsTime "`r`n"
+    }
 }
 
 SaveTime .= "*/`r`n"

@@ -131,6 +131,7 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
 #Include .\lib\SingleDoubleLongPress.ahk
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\BTT_Optimized.ahk
+#Include .\lib\ToolTipManager.ahk
 #Include .\lib\Run.ahk
 #Include .\lib\Script.ahk
 #Include .\lib\Logger.ahk

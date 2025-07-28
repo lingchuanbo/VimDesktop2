@@ -463,15 +463,15 @@ class BeautifulToolTip extends Map {
 
     ; 清理文本资源
     _CleanupTextResources(pBrush, hStringFormat, hFont, hFontFamily, hFontCollection := "") {
-        if (pBrush) 
+        if (pBrush)
             Gdip_DeleteBrush(pBrush)
-        if (hStringFormat) 
+        if (hStringFormat)
             Gdip_DeleteStringFormat(hStringFormat)
-        if (hFont) 
+        if (hFont)
             Gdip_DeleteFont(hFont)
-        if (hFontFamily) 
+        if (hFontFamily)
             Gdip_DeleteFontFamily(hFontFamily)
-        if (hFontCollection) 
+        if (hFontCollection)
             Gdip_DeletePrivateFontCollection(hFontCollection)
     }
 
@@ -696,7 +696,7 @@ class BeautifulToolTip extends Map {
     ; 字体相关函数（优化版）
     Fnt_GetTooltipFontName() {
         static LF_FACESIZE := 32
-        return StrGet(this.Fnt_GetNonClientMetrics() + 316 + 28, LF_FACESIZE)
+        return StrGet(this.Fnt_GetNonClientMetrics().Ptr + 316 + 28, LF_FACESIZE)
     }
 
     Fnt_GetNonClientMetrics() {
@@ -715,7 +715,7 @@ class BeautifulToolTip extends Map {
             return false
         }
 
-        return NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptrn NONCLIENTMETRICS.Ptr
+        return NONCLIENTMETRICS
     }
 
     ; 工具函数（优化版）
@@ -739,44 +739,44 @@ class BeautifulToolTip extends Map {
 ;-------------------------------------------------------------------------
 
 ; 经典暗色样式 - 黑底白字，蓝色边框
-OwnzztooltipStyle1 := { 
-    Border: 1, 
-    Rounded: 2, 
-    Margin: 8, 
+OwnzztooltipStyle1 := {
+    Border: 1,
+    Rounded: 2,
+    Margin: 8,
     BorderColorLinearGradientStart: 0xff3881a7,
-    BorderColorLinearGradientEnd: 0xff3881a7, 
-    BorderColorLinearGradientAngle: 45, 
+    BorderColorLinearGradientEnd: 0xff3881a7,
+    BorderColorLinearGradientAngle: 45,
     BorderColorLinearGradientMode: 6,
-    FontSize: 16, 
-    TextColor: 0xFFFFFFFF, 
-    BackgroundColor: 0xFF000000, 
-    FontStyle: "Regular", 
-    Align: 0 
+    FontSize: 16,
+    TextColor: 0xFFFFFFFF,
+    BackgroundColor: 0xFF000000,
+    FontStyle: "Regular",
+    Align: 0
 }
 
 ; 半透明暗色样式 - 灰黑底白字
-OwnzztooltipStyle2 := { 
-    Border: 1, 
-    Rounded: 8, 
-    TextColor: 0xfff4f4f4, 
-    BackgroundColor: 0xaa3e3d45, 
-    FontSize: 14 
+OwnzztooltipStyle2 := {
+    Border: 1,
+    Rounded: 8,
+    TextColor: 0xfff4f4f4,
+    BackgroundColor: 0xaa3e3d45,
+    FontSize: 14
 }
 
 ; 现代暗色样式 - 深灰底，白字，渐变边框
-OwnzztooltipStyle3 := { 
-    Border: 2, 
-    Rounded: 10, 
-    Margin: 10, 
+OwnzztooltipStyle3 := {
+    Border: 2,
+    Rounded: 10,
+    Margin: 10,
     BorderColorLinearGradientStart: 0xff6a11cb,
-    BorderColorLinearGradientEnd: 0xff2575fc, 
-    BorderColorLinearGradientAngle: 120, 
+    BorderColorLinearGradientEnd: 0xff2575fc,
+    BorderColorLinearGradientAngle: 120,
     BorderColorLinearGradientMode: 8,
-    FontSize: 14, 
-    TextColor: 0xFFFFFFFF, 
-    BackgroundColor: 0xFF222222, 
-    FontStyle: "Bold", 
-    Align: 1 
+    FontSize: 14,
+    TextColor: 0xFFFFFFFF,
+    BackgroundColor: 0xFF222222,
+    FontStyle: "Bold",
+    Align: 1
 }
 
 ;-------------------------------------------------------------------------
@@ -784,32 +784,32 @@ OwnzztooltipStyle3 := {
 ;-------------------------------------------------------------------------
 
 ; 简约亮色样式 - 白底黑字，细边框
-OwnzztooltipStyle4 := { 
-    Border: 1, 
-    Rounded: 6, 
-    Margin: 8, 
+OwnzztooltipStyle4 := {
+    Border: 1,
+    Rounded: 6,
+    Margin: 8,
     BorderColor: 0xFFCCCCCC,
-    FontSize: 13, 
-    TextColor: 0xFF333333, 
-    BackgroundColor: 0xFFF8F8F8, 
-    FontStyle: "Regular", 
-    Align: 0 
+    FontSize: 13,
+    TextColor: 0xFF333333,
+    BackgroundColor: 0xFFF8F8F8,
+    FontStyle: "Regular",
+    Align: 0
 }
 
 ; 柔和亮色样式 - 浅蓝底，深蓝字，渐变边框
-OwnzztooltipStyle5 := { 
-    Border: 2, 
-    Rounded: 12, 
-    Margin: 10, 
+OwnzztooltipStyle5 := {
+    Border: 2,
+    Rounded: 12,
+    Margin: 10,
     BorderColorLinearGradientStart: 0xFF4DA0FF,
-    BorderColorLinearGradientEnd: 0xFF00CCFF, 
-    BorderColorLinearGradientAngle: 45, 
+    BorderColorLinearGradientEnd: 0xFF00CCFF,
+    BorderColorLinearGradientAngle: 45,
     BorderColorLinearGradientMode: 6,
-    FontSize: 14, 
-    TextColor: 0xFF003366, 
-    BackgroundColor: 0xFFE6F4FF, 
-    FontStyle: "Bold", 
-    Align: 1 
+    FontSize: 14,
+    TextColor: 0xFF003366,
+    BackgroundColor: 0xFFE6F4FF,
+    FontStyle: "Bold",
+    Align: 1
 }
 
 ; 包含所有必要的GDIP函数（保持原有实现）
@@ -845,7 +845,7 @@ CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0) {
     NumPut("ushort", 1, bi, 12), NumPut("uInt", 0, bi, 16), NumPut("ushort", bpp, bi, 14)
     hbm := DllCall("CreateDIBSection", "UPtr", hdc2, "UPtr", bi.Ptr, "UInt", 0, "UPtr*", &ppvBits, "UPtr", 0, "UInt", 0,
         "UPtr")
-    if (!hdc) 
+    if (!hdc)
         ReleaseDC(hdc2)
     return hbm
 }
@@ -1010,9 +1010,9 @@ MDMF_FromPoint(&X := "", &Y := "", Flag := 0) {
     if (X = "") || (Y = "") {
         PT := Buffer(8, 0)
         DllCall("User32.dll\GetCursorPos", "Ptr", PT.Ptr, "Int")
-        if (X = "") 
+        if (X = "")
             X := NumGet(PT, 0, "Int")
-        if (Y = "") 
+        if (Y = "")
             Y := NumGet(PT, 4, "Int")
     }
     return DllCall("User32.dll\MonitorFromPoint", "Int64", (X & 0xFFFFFFFF) | (Y << 32), "UInt", Flag, "Ptr")
@@ -1097,10 +1097,10 @@ CreateRect(&Rect, x, y, w, h) => (Rect := Buffer(16), NumPut("UInt", x, Rect, 0)
 bttAutoHide(Text, Timeout := 3000, X := "", Y := "", WhichToolTip := 1, Style := "", Options := "") {
     ; 显示提示
     result := btt(Text, X, Y, WhichToolTip, Style, Options)
-    
+
     ; 设置定时器自动关闭提示
     SetTimer(() => btt("", , , WhichToolTip), -Timeout)
-    
+
     return result
 }
 
@@ -1108,7 +1108,7 @@ bttAutoHide(Text, Timeout := 3000, X := "", Y := "", WhichToolTip := 1, Style :=
  * 显示一个自动消失的提示(简化版)
  * @param {String} Text - 提示文本
  * @returns {Void}
-*/
+ */
 quickTip(Text) {
     bttAutoHide(Text, 3000)
 }
@@ -1123,7 +1123,8 @@ quickTip(Text) {
  */
 isDarkTheme() {
     try {
-        AppsUseDarkTheme := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseDarkTheme")
+        AppsUseDarkTheme := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "AppsUseDarkTheme")
         return AppsUseDarkTheme = 1
     } catch {
         ; 如果无法读取注册表，尝试使用其他方法检测
@@ -1148,11 +1149,11 @@ isDarkTheme() {
 bttThemeAware(Text, Timeout := 3000, X := "", Y := "") {
     ; 根据系统主题选择样式
     Style := isDarkTheme() ? OwnzztooltipStyle3 : OwnzztooltipStyle5
-    
+
     ; 显示提示并设置自动消失
     result := btt(Text, X, Y, 1, Style)
     SetTimer(() => btt("", , , 1), -Timeout)
-    
+
     return result
 }
 
@@ -1163,18 +1164,18 @@ bttThemeAware(Text, Timeout := 3000, X := "", Y := "") {
  */
 successTip(Text, Timeout := 3000) {
     ; 成功提示样式 - 绿色
-    SuccessStyle := { 
-        Border: 1, 
-        Rounded: 8, 
-        Margin: 10, 
+    SuccessStyle := {
+        Border: 1,
+        Rounded: 8,
+        Margin: 10,
         BorderColor: 0xFF4CAF50,
-        FontSize: 14, 
-        TextColor: 0xFFFFFFFF, 
-        BackgroundColor: 0xFF388E3C, 
-        FontStyle: "Bold", 
-        Align: 1 
+        FontSize: 14,
+        TextColor: 0xFFFFFFFF,
+        BackgroundColor: 0xFF388E3C,
+        FontStyle: "Bold",
+        Align: 1
     }
-    
+
     bttAutoHide(Text, Timeout, "", "", 2, SuccessStyle)
 }
 
@@ -1185,18 +1186,18 @@ successTip(Text, Timeout := 3000) {
  */
 errorTip(Text, Timeout := 3000) {
     ; 错误提示样式 - 红色
-    ErrorStyle := { 
-        Border: 1, 
-        Rounded: 8, 
-        Margin: 10, 
+    ErrorStyle := {
+        Border: 1,
+        Rounded: 8,
+        Margin: 10,
         BorderColor: 0xFFE53935,
-        FontSize: 14, 
-        TextColor: 0xFFFFFFFF, 
-        BackgroundColor: 0xFFC62828, 
-        FontStyle: "Bold", 
-        Align: 1 
+        FontSize: 14,
+        TextColor: 0xFFFFFFFF,
+        BackgroundColor: 0xFFC62828,
+        FontStyle: "Bold",
+        Align: 1
     }
-    
+
     bttAutoHide(Text, Timeout, "", "", 3, ErrorStyle)
 }
 
@@ -1207,18 +1208,18 @@ errorTip(Text, Timeout := 3000) {
  */
 warningTip(Text, Timeout := 3000) {
     ; 警告提示样式 - 黄色
-    WarningStyle := { 
-        Border: 1, 
-        Rounded: 8, 
-        Margin: 10, 
+    WarningStyle := {
+        Border: 1,
+        Rounded: 8,
+        Margin: 10,
         BorderColor: 0xFFFFC107,
-        FontSize: 14, 
-        TextColor: 0xFF212121, 
-        BackgroundColor: 0xFFFFD54F, 
-        FontStyle: "Bold", 
-        Align: 1 
+        FontSize: 14,
+        TextColor: 0xFF212121,
+        BackgroundColor: 0xFFFFD54F,
+        FontStyle: "Bold",
+        Align: 1
     }
-    
+
     bttAutoHide(Text, Timeout, "", "", 4, WarningStyle)
 }
 
@@ -1229,17 +1230,17 @@ warningTip(Text, Timeout := 3000) {
  */
 infoTip(Text, Timeout := 3000) {
     ; 信息提示样式 - 蓝色
-    InfoStyle := { 
-        Border: 1, 
-        Rounded: 8, 
-        Margin: 10, 
+    InfoStyle := {
+        Border: 1,
+        Rounded: 8,
+        Margin: 10,
         BorderColor: 0xFF2196F3,
-        FontSize: 14, 
-        TextColor: 0xFFFFFFFF, 
-        BackgroundColor: 0xFF1976D2, 
-        FontStyle: "Bold", 
-        Align: 1 
+        FontSize: 14,
+        TextColor: 0xFFFFFFFF,
+        BackgroundColor: 0xFF1976D2,
+        FontStyle: "Bold",
+        Align: 1
     }
-    
+
     bttAutoHide(Text, Timeout, "", "", 5, InfoStyle)
 }
