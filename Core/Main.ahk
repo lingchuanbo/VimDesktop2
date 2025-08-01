@@ -4,6 +4,13 @@ VimDesktop_Run(){
     VimDesktop_Global.default_enable_show_info := INIObject.config.default_enable_show_info
     VimDesktop_Global.Editor := INIObject.config.editor
 
+    ; 启用内存优化器 - 每5分钟清理一次内存
+    try {
+        MemoryOptimizer.Enable(300000)
+    } catch {
+        ; 忽略内存优化器初始化错误
+    }
+
     ; 给 check.ahk 使用
     IniWrite A_ScriptHwnd, A_Temp "\vimd_auto.ini", "auto", "hwnd"
 

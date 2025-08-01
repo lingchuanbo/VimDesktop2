@@ -11,43 +11,45 @@ DetectHiddenWindows "on"
 FileEncoding "UTF-8"
 SendMode "Input"
 
-global VimDesktop_Global:=Object()
-global Vim:=Object()
-global INIObject:=Object()
-global Lang:=Object()
+global VimDesktop_Global := Object()
+global Vim := Object()
+global INIObject := Object()
+global Lang := Object()
 
-VimDesktop_Global.ConfigPath:=A_ScriptDir "\Custom\vimd.ini"
-VimDesktop_Global.Editor:=FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ? "D:\Program Files\Microsoft VS Code\Code.exe" : "NotePad.exe"
-VimDesktop_Global.default_enable_show_info :=""
-VimDesktop_Global.WshShell:=""
-VimDesktop_Global.__vimLastAction:=""
-VimDesktop_Global.showToolTipStatus:=0
-VimDesktop_Global.Current_KeyMap:=""
+VimDesktop_Global.ConfigPath := A_ScriptDir "\Custom\vimd.ini"
+VimDesktop_Global.Editor := FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ?
+    "D:\Program Files\Microsoft VS Code\Code.exe" : "NotePad.exe"
+VimDesktop_Global.default_enable_show_info := ""
+VimDesktop_Global.WshShell := ""
+VimDesktop_Global.__vimLastAction := ""
+VimDesktop_Global.showToolTipStatus := 0
+VimDesktop_Global.Current_KeyMap := ""
 
-INIObject:=EasyINI(VimDesktop_Global.ConfigPath)
-LangString:=FileRead(A_ScriptDir "\lang\" INIObject.config.lang ".json", "UTF-8")
-Lang:=JSON.parse(LangString)
+INIObject := EasyINI(VimDesktop_Global.ConfigPath)
+LangString := FileRead(A_ScriptDir "\lang\" INIObject.config.lang ".json", "UTF-8")
+Lang := JSON.parse(LangString)
 
-Try
-	TraySetIcon(".\Custom\vimd.ico")
+try
+    TraySetIcon(".\Custom\vimd.ico")
 
-VimDesktop_TrayMenuCreate() ; 生成托盘菜单 
+VimDesktop_TrayMenuCreate() ; 生成托盘菜单
+
 VimDesktop_Run()
 
-VimDesktop_TrayMenuCreate(){
+VimDesktop_TrayMenuCreate() {
     global VimDesktop_TrayMenu
     VimDesktop_TrayMenu := A_TrayMenu
     VimDesktop_TrayMenu.delete()
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Manager"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Setting"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
-    
+
     ; ; 添加主题子菜单
     ; themeMenu := Menu()
     ; themeMenu.Add("明亮模式 ⚪", VimDesktop_ThemeHandler)
     ; themeMenu.Add("暗黑模式 ⚫", VimDesktop_ThemeHandler)
     ; themeMenu.Add("跟随系统 🔄", VimDesktop_ThemeHandler)
-    
+
     ; 根据当前设置选中对应的主题
     ; try {
     ;     currentTheme := INIObject.config.theme_mode
@@ -60,22 +62,21 @@ VimDesktop_TrayMenuCreate(){
     ; } catch {
     ;     themeMenu.Check("跟随系统 🔄")
     ; }
-    
+
     ; VimDesktop_TrayMenu.Add("主题", themeMenu)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["EditCustom"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
-    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Reload"], (*)=>Reload())
-    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Exit"], (*)=>ExitApp())
+    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Reload"], (*) => Reload())
+    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Exit"], (*) => ExitApp())
     VimDesktop_TrayMenu.ClickCount := 2
-    VimDesktop_TrayMenu.default:=Lang["TrayMenu"]["Default"]
-    A_IconTip:="VimDesktop`n版本:vII_1.0(By_Kawvin)"
+    VimDesktop_TrayMenu.default := Lang["TrayMenu"]["Default"]
+    A_IconTip := "VimDesktop`n版本:vII_1.0(By_Kawvin)"
 }
 
-#y::Reload()
+#y:: Reload()
 
-VimDesktop_TrayHandler(Item, *){
-    switch Item
-    {
+VimDesktop_TrayHandler(Item, *) {
+    switch Item {
         case Lang["TrayMenu"]["Manager"]:
             VimDConfig_KeyMapEdit()
         case Lang["TrayMenu"]["Setting"]:
@@ -86,17 +87,17 @@ VimDesktop_TrayHandler(Item, *){
     }
 }
 
-VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
+VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
     global VimDesktop_TrayMenu
-    
+
     ; 取消所有选中状态
     MyMenu.Uncheck("明亮模式 ⚪")
     MyMenu.Uncheck("暗黑模式 ⚫")
     MyMenu.Uncheck("跟随系统 🔄")
-    
+
     ; 选中当前项
     MyMenu.Check(ItemName)
-    
+
     ; 根据选择设置主题
     switch ItemName {
         case "明亮模式 ⚪":
@@ -105,14 +106,14 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
             ; 更新配置文件
             INIObject.config.theme_mode := "light"
             INIObject.save()
-            
+
         case "暗黑模式 ⚫":
             ; 设置为暗黑模式
             WindowsTheme.SetAppMode(true)
             ; 更新配置文件
             INIObject.config.theme_mode := "dark"
             INIObject.save()
-            
+
         case "跟随系统 🔄":
             ; 设置为跟随系统
             WindowsTheme.SetAppMode("Default")
@@ -138,8 +139,8 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
 #Include .\lib\Logger.ahk
 #Include .\lib\vimd_API.ahk
 #Include .\lib\WindowsTheme.ahk
+#Include .\lib\MemoryOptimizer.ahk
 #Include .\lib\RegisterPluginKeys.ahk
 #Include .\plugins\plugins.ahk
 ; 用户自定义配置
 #Include *i .\custom\custom.ahk
-

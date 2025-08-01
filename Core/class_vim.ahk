@@ -53,6 +53,15 @@ VIMD_清除输入键() {
     ; 确保CapsLock状态被关闭，防止卡在大写状态
     SetCapsLockState "AlwaysOff"
 
+    ; 执行内存优化清理
+    try {
+        if (IsSet(MemoryOptimizer)) {
+            MemoryOptimizer.ManualCleanup()
+        }
+    } catch {
+        ; 忽略内存优化错误，不影响主功能
+        MemoryOptimizer.ManualCleanup()
+    }
 }
 
 /* VIMD_重复上次热键【重复上次热键】
@@ -213,6 +222,15 @@ ShowInfo() {
 HideInfo() {
     if (!VimDesktop_Global.showToolTipStatus) ; 当屏幕有非快捷键补全帮助信息时，不清理
         ToolTipManager.Hide()
+    
+    ; BTT提示关闭后进行内存优化，清理累积的内存
+    try {
+        if (IsSet(MemoryOptimizer)) {
+            MemoryOptimizer.ManualCleanup()
+        }
+    } catch {
+        ; 忽略内存优化错误，不影响主功能
+    }
 }
 
 /*
@@ -2213,7 +2231,7 @@ class __Action {
                 case 1:
                     f := this.Function
                     f := RegExReplace(f, "<\d>$", "")
-                    
+
                     ; 特殊处理 SingleDoubleFullHandlers 函数
                     if (f = "SingleDoubleFullHandlers") {
                         ; 调用存储的处理函数
@@ -2413,7 +2431,7 @@ class __vimDebug {
 /*
     函数: HasValue
     作用: 检查数组中是否包含指定值
-    参数: 
+    参数:
         - haystack: 要搜索的数组
         - needle: 要查找的值
     返回: 如果找到则返回true，否则返回false
@@ -2424,7 +2442,7 @@ class __vimDebug {
 HasValue(haystack, needle) {
     if !IsObject(haystack)
         return false
-    
+
     for index, value in haystack {
         if (value = needle)
             return true
