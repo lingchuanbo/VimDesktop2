@@ -197,14 +197,42 @@ EscapeMarkdown(text) {
 ShowMarkdownGUI(markdownContent, title) {
     static keyHelpGui := 0
     static ieControl := 0
+    static ieControlGui := 0
 
-    ; 如果已经有一个活动的GUI，先关闭它
+    ; 如果已经有一个活动的GUI，先彻底清理它
     if (keyHelpGui != 0) {
+        ; 先清理IE控件
+        if (ieControl) {
+            try {
+                ieControl.Document.Write("")
+                ieControl.Document.Close()
+                ieControl.Navigate("about:blank")
+                ; 等待清理完成
+                loop 5 {
+                    if (ieControl.ReadyState = 4)
+                        break
+                    Sleep(30)
+                }
+                ieControl := 0
+            } catch {
+                ; 忽略清理错误
+            }
+        }
+
+        if (ieControlGui) {
+            ieControlGui := 0
+        }
+
         try {
             keyHelpGui.Destroy()
         }
         keyHelpGui := 0
-        ieControl := 0
+
+        ; 强制内存清理
+        try {
+            DllCall("kernel32.dll\SetProcessWorkingSetSize", "ptr", -1, "uptr", -1, "uptr", -1)
+        }
+
         return
     }
 
@@ -266,20 +294,21 @@ ShowMarkdownGUI(markdownContent, title) {
         ; 等待页面加载完成
         while ieControl.ReadyState != 4 || ieControl.Document.readyState != "complete" || ieControl.Busy
             Sleep(50)
+
+        ; 写入HTML内容
         ieControl.Document.Write(htmlOutput)
+        ieControl.Document.Close()
+
+        ; 清空HTML变量释放内存
+        htmlOutput := ""
+        markdownContent := ""
+
     } catch as e {
         MsgBox("HTML加载失败: " e.Message, "错误", "Icon!")
         return
     }
 
-    ; 添加按钮
-    buttonPanel := keyHelpGui.Add("Text", "w800 h40 Background0xF0F0F0")
-    closeBtn := keyHelpGui.Add("Button", "x720 y610 w70 h25", "关闭")
-    exportBtn := keyHelpGui.Add("Button", "x640 y610 w70 h25", "导出")
-
-    ; 按钮事件
-    closeBtn.OnEvent("Click", (*) => CloseGUI())
-    exportBtn.OnEvent("Click", (*) => ExportMarkdown(markdownContent, title))
+    ; 移除按钮，只保留ESC键关闭功能
 
     ; GUI事件
     keyHelpGui.OnEvent("Close", (*) => CloseGUI())
@@ -291,8 +320,8 @@ ShowMarkdownGUI(markdownContent, title) {
     screenHeight := bottom - top
 
     ; 1520x700画布布局
-    guiWidth := Min(1520, screenWidth * 0.9)
-    guiHeight := Min(700, screenHeight * 0.8)
+    guiWidth := Min(600, screenWidth * 0.9)
+    guiHeight := Min(300, screenHeight * 0.8)
     xPos := (screenWidth - guiWidth) / 2
     yPos := (screenHeight - guiHeight) / 2
 
@@ -304,20 +333,67 @@ ShowMarkdownGUI(markdownContent, title) {
         if (minMax = -1)  ; 窗口最小化
             return
 
-        ; 调整IE控件大小
-        ieControlGui.Move(0, 0, width, height - 45)
-
-        ; 调整按钮位置
-        buttonPanel.Move(0, height - 40, width, 40)
-        closeBtn.Move(width - 80, height - 35, 70, 25)
-        exportBtn.Move(width - 160, height - 35, 70, 25)
+        ; 调整IE控件大小，占满整个窗口
+        ieControlGui.Move(0, 0, width, height)
     }
 
-    ; 清理GUI的函数
+    ; 清理GUI的函数 - 优化内存管理
     CloseGUI() {
-        keyHelpGui.Destroy()
-        keyHelpGui := 0
-        ieControl := 0
+        ; 清理IE控件内容和事件
+        if (ieControl) {
+            try {
+                ; 清空文档内容
+                ieControl.Document.Write("")
+                ieControl.Document.Close()
+
+                ; 导航到空白页释放资源
+                ieControl.Navigate("about:blank")
+
+                ; 等待导航完成
+                loop 10 {
+                    if (ieControl.ReadyState = 4)
+                        break
+                    Sleep(50)
+                }
+
+                ; 清空引用
+                ieControl := 0
+            } catch {
+                ; 忽略清理过程中的错误
+            }
+        }
+
+        ; 清理GUI控件引用
+        if (ieControlGui) {
+            try {
+                ieControlGui := 0
+            } catch {
+                ; 忽略清理过程中的错误
+            }
+        }
+
+        ; 销毁GUI窗口
+        if (keyHelpGui) {
+            try {
+                keyHelpGui.Destroy()
+            } catch {
+                ; 忽略清理过程中的错误
+            }
+            keyHelpGui := 0
+        }
+
+        ; 延迟强制垃圾回收，确保IE控件完全释放
+        DelayedCleanup() {
+            try {
+                ; 调用Windows API强制内存清理
+                DllCall("kernel32.dll\SetProcessWorkingSetSize", "ptr", -1, "uptr", -1, "uptr", -1)
+                ; 额外的内存清理
+                DllCall("kernel32.dll\EmptyWorkingSet", "ptr", -1)
+            } catch {
+                ; 忽略API调用错误
+            }
+        }
+        SetTimer(DelayedCleanup, -500)  ; 500ms后执行一次
     }
 }
 
@@ -327,18 +403,76 @@ ShowMarkdownGUI(markdownContent, title) {
 返回: CSS样式字符串
 */
 GetMarkdownCSS() {
+    global INIObject
     css := ""
+
+    ; 根据主题模式获取颜色配置
+    try {
+        themeMode := INIObject.config.theme_mode
+    } catch {
+        themeMode := "light"  ; 默认明亮主题
+    }
+
+    ; 根据主题设置颜色变量
+    if (themeMode = "dark") {
+        ; 暗黑主题颜色
+        bgColor := "#1a1a1a"
+        cardBgColor := "#2d2d2d"
+        textColor := "#e0e0e0"
+        titleColor := "#ffffff"
+        borderColor := "#404040"
+        hoverColor := "#3a3a3a"
+    } else if (themeMode = "system") {
+        ; 跟随系统主题
+        try {
+            isDarkMode := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "AppsUseLightTheme")
+            if (isDarkMode = 0) {
+                ; 系统是暗黑模式
+                bgColor := "#1a1a1a"
+                cardBgColor := "#2d2d2d"
+                textColor := "#e0e0e0"
+                titleColor := "#ffffff"
+                borderColor := "#404040"
+                hoverColor := "#3a3a3a"
+            } else {
+                ; 系统是明亮模式
+                bgColor := "#f8f9fa"
+                cardBgColor := "#ffffff"
+                textColor := "#2c3e50"
+                titleColor := "#2c3e50"
+                borderColor := "#ecf0f1"
+                hoverColor := "#e8f4fd"
+            }
+        } catch {
+            ; 无法读取系统设置，默认明亮主题
+            bgColor := "#f8f9fa"
+            cardBgColor := "#ffffff"
+            textColor := "#2c3e50"
+            titleColor := "#2c3e50"
+            borderColor := "#ecf0f1"
+            hoverColor := "#e8f4fd"
+        }
+    } else {
+        ; 明亮主题颜色（默认）
+        bgColor := "#f8f9fa"
+        cardBgColor := "#ffffff"
+        textColor := "#2c3e50"
+        titleColor := "#2c3e50"
+        borderColor := "#ecf0f1"
+        hoverColor := "#e8f4fd"
+    }
 
     ; 基础样式 - 1520x700适配，统一字体大小12
     css .= "body {"
     css .= "font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;"
     css .= "font-size: 12px;"
     css .= "line-height: 1.4;"
-    css .= "color: #2c3e50;"
+    css .= "color: " textColor ";"
     css .= "max-width: 100%;"
     css .= "margin: 0;"
     css .= "padding: 15px;"
-    css .= "background: #f8f9fa;"
+    css .= "background: " bgColor ";"
     css .= "min-height: 100vh;"
     css .= "}"
 
@@ -353,7 +487,7 @@ GetMarkdownCSS() {
     css .= ".column {"
     css .= "float: left;"
     css .= "width: 400px;"
-    css .= "background: #ffffff;"
+    css .= "background: " cardBgColor ";"
     css .= "border-radius: 8px;"
     css .= "box-shadow: 0 2px 8px rgba(0,0,0,0.08);"
     css .= "padding: 15px;"
@@ -363,13 +497,13 @@ GetMarkdownCSS() {
 
     ; 主标题样式 - 紧凑设计
     css .= "h1 {"
-    css .= "color: #2c3e50;"
+    css .= "color: " titleColor ";"
     css .= "font-size: 20px;"
     css .= "font-weight: 500;"
     css .= "text-align: center;"
     css .= "margin: 0 0 20px 0;"
     css .= "padding: 15px;"
-    css .= "background: #ffffff;"
+    css .= "background: " cardBgColor ";"
     css .= "border-radius: 8px;"
     css .= "box-shadow: 0 2px 8px rgba(0,0,0,0.08);"
     css .= "border-left: 4px solid #3498db;"
@@ -377,7 +511,6 @@ GetMarkdownCSS() {
 
     ; 分组标题样式 - 紧凑版
     css .= "h2 {"
-    css .= "color: #34495e;"
     css .= "font-size: 16px;"
     css .= "font-weight: 600;"
     css .= "margin: 0 0 10px 0;"
@@ -393,7 +526,7 @@ GetMarkdownCSS() {
     css .= "width: 100%;"
     css .= "border-collapse: collapse;"
     css .= "margin: 8px 0 15px 0;"
-    css .= "background: #ffffff;"
+    css .= "background: " cardBgColor ";"
     css .= "border-radius: 6px;"
     css .= "overflow: hidden;"
     css .= "box-shadow: 0 1px 6px rgba(0,0,0,0.08);"
@@ -416,10 +549,11 @@ GetMarkdownCSS() {
     ; 表格单元格样式 - 紧凑
     css .= "td {"
     css .= "padding: 8px 12px;"
-    css .= "border-bottom: 1px solid #ecf0f1;"
+    css .= "border-bottom: 1px solid " borderColor ";"
     css .= "vertical-align: middle;"
     css .= "font-size: 12px;"
     css .= "line-height: 1.3;"
+    css .= "color: " textColor ";"
     css .= "}"
 
     ; 第一列（按键列）居中对齐
@@ -431,11 +565,11 @@ GetMarkdownCSS() {
 
     ; 表格行样式
     css .= "tr:nth-child(even) {"
-    css .= "background-color: #f8f9fa;"
+    css .= "background-color: " (themeMode = "dark" ? "#333333" : "#f8f9fa") ";"
     css .= "}"
 
     css .= "tr:hover {"
-    css .= "background-color: #e8f4fd;"
+    css .= "background-color: " hoverColor ";"
     css .= "}"
 
     ; 按键代码样式 - 12px字体
@@ -452,24 +586,51 @@ GetMarkdownCSS() {
     css .= "text-align: center;"
     css .= "}"
 
-    ; 滚动条美化 - 细版
+    ; 滚动条美化 - 根据主题动态调整颜色
     css .= "::-webkit-scrollbar {"
-    css .= "width: 6px;"
+    css .= "width: 8px;"
     css .= "}"
 
-    css .= "::-webkit-scrollbar-track {"
-    css .= "background: #ecf0f1;"
-    css .= "border-radius: 3px;"
-    css .= "}"
+    ; 根据主题直接设置滚动条颜色
+    if (themeMode = "dark") {
+        css .= "::-webkit-scrollbar-track {"
+        css .= "background: #2a2a2a;"
+        css .= "border-radius: 4px;"
+        css .= "}"
 
-    css .= "::-webkit-scrollbar-thumb {"
-    css .= "background: #bdc3c7;"
-    css .= "border-radius: 3px;"
-    css .= "}"
+        css .= "::-webkit-scrollbar-thumb {"
+        css .= "background: #555555;"
+        css .= "border-radius: 4px;"
+        css .= "transition: background 0.2s ease;"
+        css .= "}"
 
-    css .= "::-webkit-scrollbar-thumb:hover {"
-    css .= "background: #95a5a6;"
-    css .= "}"
+        css .= "::-webkit-scrollbar-thumb:hover {"
+        css .= "background: #777777;"
+        css .= "}"
+
+        css .= "::-webkit-scrollbar-corner {"
+        css .= "background: #2a2a2a;"
+        css .= "}"
+    } else {
+        css .= "::-webkit-scrollbar-track {"
+        css .= "background: #f0f0f0;"
+        css .= "border-radius: 4px;"
+        css .= "}"
+
+        css .= "::-webkit-scrollbar-thumb {"
+        css .= "background: #c0c0c0;"
+        css .= "border-radius: 4px;"
+        css .= "transition: background 0.2s ease;"
+        css .= "}"
+
+        css .= "::-webkit-scrollbar-thumb:hover {"
+        css .= "background: #a0a0a0;"
+        css .= "}"
+
+        css .= "::-webkit-scrollbar-corner {"
+        css .= "background: #f0f0f0;"
+        css .= "}"
+    }
 
     ; 防止分组在列中间断开
     css .= "h2, table {"
