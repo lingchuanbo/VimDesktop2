@@ -13,29 +13,29 @@
 ModeChange(modeName) {
     ; 设置模式
     vim.mode(modeName, vim.LastFoundWin)
-    
+
     ; 使用ToolTipManager显示模式切换提示
     ToolTipManager.Init()
-    
+
     ; 构建提示文本
     modeText := "当前模式: " modeName
-    
+
     ; 获取屏幕中心位置来显示提示
     MonitorGetWorkArea(1, &left, &top, &right, &bottom)
     centerX := Integer((right - left) / 2)
     centerY := Integer((bottom - top) / 2)
-    
+
     ; 显示模式切换提示
     ToolTipManager.Show(modeText, centerX - 90, centerY - 20, 2)
-    
+
     ; 设置定时器自动隐藏提示
     static modeChangeTimer := 0
-    
+
     ; 清除之前的定时器
     if (modeChangeTimer != 0) {
         SetTimer(modeChangeTimer, 0)
     }
-    
+
     ; 创建新的定时器来隐藏提示
     modeChangeTimer := () => ToolTipManager.Hide(2)
     SetTimer(modeChangeTimer, -300)  ; 1.5秒后自动隐藏
@@ -252,3 +252,5 @@ EscapeRegex(str) {
 MsgBoxTest(a) {
     MsgBox a
 }
+; 包含Markdown按键帮助功能
+#Include VIMD_ShowKeyHelpMD.ahk
