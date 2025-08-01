@@ -128,6 +128,7 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu){
 #Include .\Lib\class_Json.ahk
 #Include .\lib\class_EasyINI.ahk
 #Include .\lib\DynamicFileMenu.ahk
+#Include .\lib\MD_Gen.ahk
 #Include .\lib\SingleDoubleLongPress.ahk
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\BTT_Optimized.ahk
