@@ -53,6 +53,13 @@ VIMD_清除输入键() {
     ; 确保CapsLock状态被关闭，防止卡在大写状态
     SetCapsLockState "AlwaysOff"
 
+    ; BTT tooltip清理 - 清理所有tooltip实例
+    try {
+        BTTCleanupAll()
+    } catch {
+        ; 忽略BTT清理错误，不影响主功能
+    }
+
     ; 执行内存优化清理
     try {
         if (IsSet(MemoryOptimizer)) {
@@ -222,7 +229,7 @@ ShowInfo() {
 HideInfo() {
     if (!VimDesktop_Global.showToolTipStatus) ; 当屏幕有非快捷键补全帮助信息时，不清理
         ToolTipManager.Hide()
-    
+
     ; BTT提示关闭后进行内存优化，清理累积的内存
     try {
         if (IsSet(MemoryOptimizer)) {
