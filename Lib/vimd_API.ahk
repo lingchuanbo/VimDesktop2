@@ -252,5 +252,3 @@ EscapeRegex(str) {
 MsgBoxTest(a) {
     MsgBox a
 }
-; 包含Markdown按键帮助功能
-#Include VIMD_ShowKeyHelpMD.ahk

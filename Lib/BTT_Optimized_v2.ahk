@@ -69,13 +69,15 @@ class BeautifulToolTip extends Map {
         primaryMonitor := this.Monitors["Primary"]
         if (primaryMonitor) {
             if (isWin8Plus) {
-                DllCall("Shcore.dll\GetDpiForMonitor", "Ptr", primaryMonitor, "Int", 0, "UIntP", &dpiX := 0, "UIntP", &dpiY := 0, "UInt")
+                DllCall("Shcore.dll\GetDpiForMonitor", "Ptr", primaryMonitor, "Int", 0, "UIntP", &dpiX := 0, "UIntP", &
+                    dpiY := 0, "UInt")
             } else {
-                hDC := DllCall("Gdi32.dll\CreateDC", "Str", this.Monitors[primaryMonitor].name, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr")
+                hDC := DllCall("Gdi32.dll\CreateDC", "Str", this.Monitors[primaryMonitor].name, "Ptr", 0, "Ptr", 0,
+                    "Ptr", 0, "Ptr")
                 dpiX := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "Int", 88)
                 DllCall("Gdi32.dll\DeleteDC", "Ptr", hDC)
             }
-            
+
             dpiScale := this.NonNull_Ret(dpiX, A_ScreenDPI) / 96
             this.Monitors[primaryMonitor].DPIScale := dpiScale
             this._cachedDPI[primaryMonitor] := dpiScale
@@ -143,7 +145,7 @@ class BeautifulToolTip extends Map {
         }
 
         guiObj := this._activeGUIs[WhichToolTip]
-        
+
         ; 清理GDI资源
         if (guiObj.HasOwnProp("graphics") && guiObj.graphics) {
             Gdip_DeleteGraphics(guiObj.graphics)
@@ -169,8 +171,8 @@ class BeautifulToolTip extends Map {
 
     ; 清理ToolTip缓存
     _ClearToolTipCache(WhichToolTip) {
-        clearVars := ["SavedText", "SavedOptions", "SavedX", "SavedY", "SavedW", "SavedH", 
-                     "SavedTargetHWND", "SavedCoordMode", "SavedTransparent"]
+        clearVars := ["SavedText", "SavedOptions", "SavedX", "SavedY", "SavedW", "SavedH",
+            "SavedTargetHWND", "SavedCoordMode", "SavedTransparent"]
         for var in clearVars {
             if (this.HasOwnProp(var WhichToolTip)) {
                 this.DeleteProp(var WhichToolTip)
@@ -183,7 +185,7 @@ class BeautifulToolTip extends Map {
         for key in this._activeGUIs.Clone() {
             this._ReleaseGUI(key)
         }
-        
+
         if (this.HasOwnProp("pToken") && this.pToken) {
             Gdip_Shutdown(this.pToken)
         }
@@ -255,15 +257,15 @@ class BeautifulToolTip extends Map {
         R := (O.Rounded > Min(RectWidth, RectHeight) // 2) ? Min(RectWidth, RectHeight) // 2 : O.Rounded
 
         if (O.JustCalculateSize != 1) {
-            this._RenderToolTip(guiObj, Text, TextArea, O, RectWidth, RectHeight, 
-                              RectWithBorderWidth, RectWithBorderHeight, R, TextWidth, TextHeight)
+            this._RenderToolTip(guiObj, Text, TextArea, O, RectWidth, RectHeight,
+                RectWithBorderWidth, RectWithBorderHeight, R, TextWidth, TextHeight)
             this._CalculateDisplayPosition(&X, &Y, RectWithBorderWidth, RectWithBorderHeight, O)
 
             ; 显示和置顶
             UpdateLayeredWindow(guiObj.hwnd, guiObj.hdc, X, Y, RectWithBorderWidth,
                 RectWithBorderHeight, O.Transparent)
-            DllCall("SetWindowPos", "ptr", guiObj.hwnd, "ptr", -1, "int", 0, "int", 0, 
-                   "int", 0, "int", 0, "uint", 26139)
+            DllCall("SetWindowPos", "ptr", guiObj.hwnd, "ptr", -1, "int", 0, "int", 0,
+                "int", 0, "int", 0, "uint", 26139)
         }
 
         ; 保存状态
@@ -273,7 +275,8 @@ class BeautifulToolTip extends Map {
     }
 
     ; 渲染ToolTip内容（优化版）
-    _RenderToolTip(guiObj, Text, TextArea, O, RectWidth, RectHeight, RectWithBorderWidth, RectWithBorderHeight, R, TextWidth, TextHeight) {
+    _RenderToolTip(guiObj, Text, TextArea, O, RectWidth, RectHeight, RectWithBorderWidth, RectWithBorderHeight, R,
+        TextWidth, TextHeight) {
         Gdip_GraphicsClear(guiObj.graphics)
 
         ; 创建画刷（优化：减少重复创建）
@@ -285,7 +288,8 @@ class BeautifulToolTip extends Map {
             if (R = 0) {
                 Gdip_FillRectangle(guiObj.graphics, pBrushBorder, 0, 0, RectWithBorderWidth, RectWithBorderHeight)
             } else {
-                Gdip_FillRoundedRectanglePath(guiObj.graphics, pBrushBorder, 0, 0, RectWithBorderWidth, RectWithBorderHeight, R)
+                Gdip_FillRoundedRectanglePath(guiObj.graphics, pBrushBorder, 0, 0, RectWithBorderWidth,
+                    RectWithBorderHeight, R)
             }
         }
 
@@ -293,7 +297,8 @@ class BeautifulToolTip extends Map {
         if (R = 0) {
             Gdip_FillRectangle(guiObj.graphics, pBrushBackground, O.Border, O.Border, RectWidth, RectHeight)
         } else {
-            Gdip_FillRoundedRectanglePath(guiObj.graphics, pBrushBackground, O.Border, O.Border, RectWidth, RectHeight, (R > O.Border) ? R - O.Border : R)
+            Gdip_FillRoundedRectanglePath(guiObj.graphics, pBrushBackground, O.Border, O.Border, RectWidth, RectHeight,
+                (R > O.Border) ? R - O.Border : R)
         }
 
         ; 立即清理画刷
@@ -311,12 +316,14 @@ class BeautifulToolTip extends Map {
             (TextArea[5] > 4 ? SubStr(Text, 1, TextArea[5] - 4) "…………" : SubStr(Text, 1, 1) "…………") : Text
 
         this._TextToGraphics(guiObj.graphics, TempText, O)
-    }#Requires AutoHotkey v2.0
+    }
+    #Requires AutoHotkey v2.0
 
     ; 创建边框画刷（优化版）
     _CreateBorderBrush(O, RectWithBorderWidth, RectWithBorderHeight) {
         if (O.BCLGA != "" and O.BCLGM and O.BCLGS and O.BCLGE) {
-            return this._CreateLinearGrBrush(O.BCLGA, O.BCLGM, O.BCLGS, O.BCLGE, 0, 0, RectWithBorderWidth, RectWithBorderHeight)
+            return this._CreateLinearGrBrush(O.BCLGA, O.BCLGM, O.BCLGS, O.BCLGE, 0, 0, RectWithBorderWidth,
+                RectWithBorderHeight)
         }
         return Gdip_BrushCreateSolid(O.BorderColor)
     }
@@ -324,7 +331,8 @@ class BeautifulToolTip extends Map {
     ; 创建背景画刷（优化版）
     _CreateBackgroundBrush(O, RectWidth, RectHeight) {
         if (O.BGCLGA != "" and O.BGCLGM and O.BGCLGS and O.BGCLGE) {
-            return this._CreateLinearGrBrush(O.BGCLGA, O.BGCLGM, O.BGCLGS, O.BGCLGE, O.Border, O.Border, RectWidth, RectHeight)
+            return this._CreateLinearGrBrush(O.BGCLGA, O.BGCLGM, O.BGCLGS, O.BGCLGE, O.Border, O.Border, RectWidth,
+                RectHeight)
         }
         return Gdip_BrushCreateSolid(O.BackgroundColor)
     }
@@ -340,8 +348,10 @@ class BeautifulToolTip extends Map {
 
             this._CalculateDisplayPosition(&X, &Y, this["SavedW" WhichToolTip], this["SavedH" WhichToolTip], O)
 
-            if (X != this["SavedX" WhichToolTip] or Y != this["SavedY" WhichToolTip] or O.Transparent != this["SavedTransparent" WhichToolTip]) {
-                UpdateLayeredWindow(guiObj.hwnd, guiObj.hdc, X, Y, this["SavedW" WhichToolTip], this["SavedH" WhichToolTip], O.Transparent)
+            if (X != this["SavedX" WhichToolTip] or Y != this["SavedY" WhichToolTip] or O.Transparent != this[
+                "SavedTransparent" WhichToolTip]) {
+                UpdateLayeredWindow(guiObj.hwnd, guiObj.hdc, X, Y, this["SavedW" WhichToolTip], this["SavedH" WhichToolTip
+                    ], O.Transparent)
 
                 ; 更新保存的位置信息
                 this["SavedX" WhichToolTip] := X
@@ -451,7 +461,8 @@ class BeautifulToolTip extends Map {
 
     ; 创建文本画刷
     _CreateTextBrush(Options) {
-        if (Options.TCLGA != "" and Options.TCLGM and Options.TCLGS and Options.TCLGE and Options.Width and Options.Height) {
+        if (Options.TCLGA != "" and Options.TCLGM and Options.TCLGS and Options.TCLGE and Options.Width and Options.Height
+        ) {
             return this._CreateLinearGrBrush(Options.TCLGA, Options.TCLGM, Options.TCLGS, Options.TCLGE,
                 this.NonNull_Ret(Options.HasOwnProp("X") ? Options.X : 0, 0),
                 this.NonNull_Ret(Options.HasOwnProp("Y") ? Options.Y : 0, 0),
@@ -500,8 +511,10 @@ class BeautifulToolTip extends Map {
             O.Rounded := Styles.HasOwnProp("Rounded") ? this.NonNull_Ret(Styles.Rounded, 3, 0, 30) : 3
             O.Margin := Styles.HasOwnProp("Margin") ? this.NonNull_Ret(Styles.Margin, 5, 0, 30) : 5
             O.TabStops := Styles.HasOwnProp("TabStops") ? this.NonNull_Ret(Styles.TabStops, [50], "", "") : [50]
-            O.TextColor := Styles.HasOwnProp("TextColor") ? this.NonNull_Ret(Styles.TextColor, 0xff575757, "", "") : 0xff575757
-            O.BackgroundColor := Styles.HasOwnProp("BackgroundColor") ? this.NonNull_Ret(Styles.BackgroundColor, 0xffffffff, "", "") : 0xffffffff
+            O.TextColor := Styles.HasOwnProp("TextColor") ? this.NonNull_Ret(Styles.TextColor, 0xff575757, "", "") :
+                0xff575757
+            O.BackgroundColor := Styles.HasOwnProp("BackgroundColor") ? this.NonNull_Ret(Styles.BackgroundColor,
+                0xffffffff, "", "") : 0xffffffff
             O.Font := Styles.HasOwnProp("Font") ? this.NonNull_Ret(Styles.Font, this.ToolTipFontName, "", "") : this.ToolTipFontName
             O.FontSize := Styles.HasOwnProp("FontSize") ? this.NonNull_Ret(Styles.FontSize, 12, "", "") : 12
             O.FontRender := Styles.HasOwnProp("FontRender") ? this.NonNull_Ret(Styles.FontRender, 5, 0, 5) : 5
@@ -512,22 +525,29 @@ class BeautifulToolTip extends Map {
             O.BCLGS := Styles.HasOwnProp("BorderColorLinearGradientStart") ? Styles.BorderColorLinearGradientStart : ""
             O.BCLGE := Styles.HasOwnProp("BorderColorLinearGradientEnd") ? Styles.BorderColorLinearGradientEnd : ""
             O.BCLGA := Styles.HasOwnProp("BorderColorLinearGradientAngle") ? Styles.BorderColorLinearGradientAngle : ""
-            O.BCLGM := Styles.HasOwnProp("BorderColorLinearGradientMode") ? this.NonNull_Ret(Styles.BorderColorLinearGradientMode, "", 1, 8) : ""
+            O.BCLGM := Styles.HasOwnProp("BorderColorLinearGradientMode") ? this.NonNull_Ret(Styles.BorderColorLinearGradientMode,
+                "", 1, 8) : ""
 
             O.TCLGS := Styles.HasOwnProp("TextColorLinearGradientStart") ? Styles.TextColorLinearGradientStart : ""
             O.TCLGE := Styles.HasOwnProp("TextColorLinearGradientEnd") ? Styles.TextColorLinearGradientEnd : ""
             O.TCLGA := Styles.HasOwnProp("TextColorLinearGradientAngle") ? Styles.TextColorLinearGradientAngle : ""
-            O.TCLGM := Styles.HasOwnProp("TextColorLinearGradientMode") ? this.NonNull_Ret(Styles.TextColorLinearGradientMode, "", 1, 8) : ""
+            O.TCLGM := Styles.HasOwnProp("TextColorLinearGradientMode") ? this.NonNull_Ret(Styles.TextColorLinearGradientMode,
+                "", 1, 8) : ""
 
-            O.BGCLGS := Styles.HasOwnProp("BackgroundColorLinearGradientStart") ? Styles.BackgroundColorLinearGradientStart : ""
-            O.BGCLGE := Styles.HasOwnProp("BackgroundColorLinearGradientEnd") ? Styles.BackgroundColorLinearGradientEnd : ""
-            O.BGCLGA := Styles.HasOwnProp("BackgroundColorLinearGradientAngle") ? Styles.BackgroundColorLinearGradientAngle : ""
-            O.BGCLGM := Styles.HasOwnProp("BackgroundColorLinearGradientMode") ? this.NonNull_Ret(Styles.BackgroundColorLinearGradientMode, "", 1, 8) : ""
+            O.BGCLGS := Styles.HasOwnProp("BackgroundColorLinearGradientStart") ? Styles.BackgroundColorLinearGradientStart :
+                ""
+            O.BGCLGE := Styles.HasOwnProp("BackgroundColorLinearGradientEnd") ? Styles.BackgroundColorLinearGradientEnd :
+                ""
+            O.BGCLGA := Styles.HasOwnProp("BackgroundColorLinearGradientAngle") ? Styles.BackgroundColorLinearGradientAngle :
+                ""
+            O.BGCLGM := Styles.HasOwnProp("BackgroundColorLinearGradientMode") ? this.NonNull_Ret(Styles.BackgroundColorLinearGradientMode,
+                "", 1, 8) : ""
 
             ; 边框颜色计算
             BlendedColor2 := (O.TCLGS and O.TCLGE) ? O.TCLGS : O.TextColor
             BlendedColor := ((O.BackgroundColor >> 24) << 24) + (BlendedColor2 & 0xffffff)
-            O.BorderColor := Styles.HasOwnProp("BorderColor") ? this.NonNull_Ret(Styles.BorderColor, BlendedColor, "", "") : BlendedColor
+            O.BorderColor := Styles.HasOwnProp("BorderColor") ? this.NonNull_Ret(Styles.BorderColor, BlendedColor, "",
+                "") : BlendedColor
         }
 
         ; 选项处理
@@ -540,17 +560,24 @@ class BeautifulToolTip extends Map {
             O.DistanceBetweenMouseYAndToolTip := 16
             O.JustCalculateSize := ""
         } else {
-            O.TargetHWND := Options.HasOwnProp("TargetHWND") ? this.NonNull_Ret(Options.TargetHWND, WinExist("A"), "", "") : WinExist("A")
-            O.CoordMode := Options.HasOwnProp("CoordMode") ? this.NonNull_Ret(Options.CoordMode, A_CoordModeToolTip, "", "") : A_CoordModeToolTip
-            O.Transparent := Options.HasOwnProp("Transparent") ? this.NonNull_Ret(Options.Transparent, 255, 0, 255) : 255
-            O.MouseNeverCoverToolTip := Options.HasOwnProp("MouseNeverCoverToolTip") ? this.NonNull_Ret(Options.MouseNeverCoverToolTip, 1, 0, 1) : 1
-            O.DistanceBetweenMouseXAndToolTip := Options.HasOwnProp("DistanceBetweenMouseXAndToolTip") ? this.NonNull_Ret(Options.DistanceBetweenMouseXAndToolTip, 16, "", "") : 16
-            O.DistanceBetweenMouseYAndToolTip := Options.HasOwnProp("DistanceBetweenMouseYAndToolTip") ? this.NonNull_Ret(Options.DistanceBetweenMouseYAndToolTip, 16, "", "") : 16
+            O.TargetHWND := Options.HasOwnProp("TargetHWND") ? this.NonNull_Ret(Options.TargetHWND, WinExist("A"), "",
+            "") : WinExist("A")
+            O.CoordMode := Options.HasOwnProp("CoordMode") ? this.NonNull_Ret(Options.CoordMode, A_CoordModeToolTip, "",
+                "") : A_CoordModeToolTip
+            O.Transparent := Options.HasOwnProp("Transparent") ? this.NonNull_Ret(Options.Transparent, 255, 0, 255) :
+                255
+            O.MouseNeverCoverToolTip := Options.HasOwnProp("MouseNeverCoverToolTip") ? this.NonNull_Ret(Options.MouseNeverCoverToolTip,
+                1, 0, 1) : 1
+            O.DistanceBetweenMouseXAndToolTip := Options.HasOwnProp("DistanceBetweenMouseXAndToolTip") ? this.NonNull_Ret(
+                Options.DistanceBetweenMouseXAndToolTip, 16, "", "") : 16
+            O.DistanceBetweenMouseYAndToolTip := Options.HasOwnProp("DistanceBetweenMouseYAndToolTip") ? this.NonNull_Ret(
+                Options.DistanceBetweenMouseYAndToolTip, 16, "", "") : 16
             O.JustCalculateSize := Options.HasOwnProp("JustCalculateSize") ? Options.JustCalculateSize : ""
         }
 
         ; 优化校验和生成 - 使用更高效的方法
-        O.Checksum := O.Border . "|" . O.Rounded . "|" . O.Margin . "|" . O.BorderColor . "|" . O.TextColor . "|" . O.BackgroundColor . "|" . O.Font . "|" . O.FontSize . "|" . O.FontRender . "|" . O.FontStyle
+        O.Checksum := O.Border . "|" . O.Rounded . "|" . O.Margin . "|" . O.BorderColor . "|" . O.TextColor . "|" . O.BackgroundColor .
+            "|" . O.Font . "|" . O.FontSize . "|" . O.FontRender . "|" . O.FontStyle
 
         return O
     }
@@ -565,7 +592,8 @@ class BeautifulToolTip extends Map {
         isWin8Plus := !(osv[1] < 6 || (osv[1] == 6 && osv[2] < 3))
 
         if (isWin8Plus) {
-            DllCall("Shcore.dll\GetDpiForMonitor", "Ptr", hMonitor, "Int", 0, "UIntP", &dpiX := 0, "UIntP", &dpiY := 0, "UInt")
+            DllCall("Shcore.dll\GetDpiForMonitor", "Ptr", hMonitor, "Int", 0, "UIntP", &dpiX := 0, "UIntP", &dpiY := 0,
+                "UInt")
         } else {
             monitorInfo := this.Monitors[hMonitor]
             hDC := DllCall("Gdi32.dll\CreateDC", "Str", monitorInfo.name, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Ptr")
@@ -574,7 +602,7 @@ class BeautifulToolTip extends Map {
         }
 
         dpiScale := this.NonNull_Ret(dpiX, A_ScreenDPI) / 96
-        
+
         ; 限制缓存大小
         if (this._cachedDPI.Count >= 10) {
             ; 清理一个旧的缓存项
@@ -583,7 +611,7 @@ class BeautifulToolTip extends Map {
                 break
             }
         }
-        
+
         this._cachedDPI[hMonitor] := dpiScale
         return dpiScale
     }
@@ -616,11 +644,13 @@ class BeautifulToolTip extends Map {
             Options.DPIScale := this._GetDPIScale(hMonitor)
         } else {
             ; 其他坐标模式的处理（简化版）
-            this._HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &TargetWidth, &TargetHeight, &TargetRight, &TargetBottom)
+            this._HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &
+                TargetWidth, &TargetHeight, &TargetRight, &TargetBottom)
         }
 
         if (GetTargetSize = 1) {
-            return { X: TargetLeft, Y: TargetTop, W: Min(TargetWidth, this.DIBWidth), H: Min(TargetHeight, this.DIBHeight) }
+            return { X: TargetLeft, Y: TargetTop, W: Min(TargetWidth, this.DIBWidth), H: Min(TargetHeight, this.DIBHeight
+            ) }
         }
 
         ; 位置调整和边界检查
@@ -637,7 +667,8 @@ class BeautifulToolTip extends Map {
         ; 鼠标遮挡处理
         if (Options.MouseNeverCoverToolTip = 1 and (X = "" or Y = "")
         and MouseX >= DisplayX and MouseY >= DisplayY and MouseX <= DisplayX + W and MouseY <= DisplayY + H) {
-            DisplayY := MouseY - H - 16 >= TargetTop ? MouseY - H - 16 : MouseY + H + 16 <= TargetBottom ? MouseY + 16 : DisplayY
+            DisplayY := MouseY - H - 16 >= TargetTop ? MouseY - H - 16 : MouseY + H + 16 <= TargetBottom ? MouseY + 16 :
+                DisplayY
         }
 
         X := DisplayX
@@ -645,7 +676,8 @@ class BeautifulToolTip extends Map {
     }
 
     ; 处理其他坐标模式
-    _HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &TargetWidth, &TargetHeight, &TargetRight, &TargetBottom) {
+    _HandleOtherCoordModes(&X, &Y, Options, MouseX, MouseY, &DisplayX, &DisplayY, &TargetLeft, &TargetTop, &TargetWidth, &
+        TargetHeight, &TargetRight, &TargetBottom) {
         if (Options.CoordMode = "Window" or Options.CoordMode = "Relative") {
             WinGetPos(&WinX, &WinY, &WinW, &WinH, "ahk_id " Options.TargetHWND)
             XInScreen := WinX + X
@@ -727,7 +759,8 @@ class BeautifulToolTip extends Map {
         NONCLIENTMETRICS := Buffer(cbSize, 0)
         NumPut("UInt", cbSize, NONCLIENTMETRICS, 0)
 
-        if (!DllCall("SystemParametersInfo", "UInt", SPI_GETNONCLIENTMETRICS, "UInt", cbSize, "Ptr", NONCLIENTMETRICS.Ptr, "UInt", 0)) {
+        if (!DllCall("SystemParametersInfo", "UInt", SPI_GETNONCLIENTMETRICS, "UInt", cbSize, "Ptr", NONCLIENTMETRICS.Ptr,
+            "UInt", 0)) {
             return false
         }
 
@@ -736,11 +769,13 @@ class BeautifulToolTip extends Map {
 
     ; 工具函数（优化版）
     NonNull(&var, DefaultValue, MinValue := "", MaxValue := "") {
-        var := var = "" ? DefaultValue : MinValue = "" ? (MaxValue = "" ? var : Min(var, MaxValue)) : (MaxValue != "" ? Max(Min(var, MaxValue), MinValue) : Max(var, MinValue))
+        var := var = "" ? DefaultValue : MinValue = "" ? (MaxValue = "" ? var : Min(var, MaxValue)) : (MaxValue != "" ?
+            Max(Min(var, MaxValue), MinValue) : Max(var, MinValue))
     }
 
     NonNull_Ret(var, DefaultValue, MinValue := "", MaxValue := "") {
-        return var = "" ? DefaultValue : MinValue = "" ? (MaxValue = "" ? var : Min(var, MaxValue)) : (MaxValue != "" ? Max(Min(var, MaxValue), MinValue) : Max(var, MinValue))
+        return var = "" ? DefaultValue : MinValue = "" ? (MaxValue = "" ? var : Min(var, MaxValue)) : (MaxValue != "" ?
+            Max(Min(var, MaxValue), MinValue) : Max(var, MinValue))
     }
 
     ; 内存清理函数 - 定期清理不活跃的GUI
@@ -763,12 +798,12 @@ class BeautifulToolTip extends Map {
     ForceGarbageCollection() {
         ; 清理所有非活跃GUI
         this.CleanupInactiveGUIs(0)
-        
+
         ; 清理字体缓存
         if (this.HasOwnProp("_fontFamilyCache")) {
             this._fontFamilyCache.Clear()
         }
-        
+
         ; 清理DPI缓存（保留主显示器）
         primaryMonitor := this.Monitors["Primary"]
         primaryDPI := this._cachedDPI.Has(primaryMonitor) ? this._cachedDPI[primaryMonitor] : ""
@@ -863,7 +898,8 @@ MDMF_Enum(HMON := "") {
     static Monitors := {}
     if (HMON = "") {
         Monitors := %Obj%("TotalCount", 0)
-        if !DllCall("User32.dll\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", EnumProc, "Ptr", ObjPtr(Monitors), "Int")
+        if !DllCall("User32.dll\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", EnumProc, "Ptr", ObjPtr(Monitors),
+        "Int")
             return False
     }
     return (HMON = "") ? Monitors : Monitors.Has(HMON) ? Monitors[HMON] : False
@@ -874,7 +910,8 @@ CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0) {
     bi := Buffer(40, 0)
     NumPut("UInt", w, bi, 4), NumPut("UInt", h, bi, 8), NumPut("UInt", 40, bi, 0)
     NumPut("ushort", 1, bi, 12), NumPut("uInt", 0, bi, 16), NumPut("ushort", bpp, bi, 14)
-    hbm := DllCall("CreateDIBSection", "UPtr", hdc2, "UPtr", bi.Ptr, "UInt", 0, "UPtr*", &ppvBits, "UPtr", 0, "UInt", 0, "UPtr")
+    hbm := DllCall("CreateDIBSection", "UPtr", hdc2, "UPtr", bi.Ptr, "UInt", 0, "UPtr*", &ppvBits, "UPtr", 0, "UInt", 0,
+        "UPtr")
     if (!hdc)
         ReleaseDC(hdc2)
     return hbm
@@ -882,14 +919,18 @@ CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0) {
 
 CreateCompatibleDC(hdc := 0) => DllCall("CreateCompatibleDC", "UPtr", hdc)
 Gdip_GraphicsFromHDC(hdc) => (DllCall("gdiplus\GdipCreateFromHDC", "UPtr", hdc, "UPtr*", &pGraphics := 0), pGraphics)
-Gdip_SetSmoothingMode(pGraphics, SmoothingMode) => !pGraphics ? 2 : DllCall("gdiplus\GdipSetSmoothingMode", "UPtr", pGraphics, "Int", SmoothingMode)
-Gdip_SetPixelOffsetMode(graphics, pixelOffsetMode) => DllCall('Gdiplus\GdipSetPixelOffsetMode', 'ptr', graphics, 'ptr', pixelOffsetMode, 'uint')
+Gdip_SetSmoothingMode(pGraphics, SmoothingMode) => !pGraphics ? 2 : DllCall("gdiplus\GdipSetSmoothingMode", "UPtr",
+    pGraphics, "Int", SmoothingMode)
+Gdip_SetPixelOffsetMode(graphics, pixelOffsetMode) => DllCall('Gdiplus\GdipSetPixelOffsetMode', 'ptr', graphics, 'ptr',
+    pixelOffsetMode, 'uint')
 SelectObject(hdc, hgdiobj) => DllCall("SelectObject", "UPtr", hdc, "UPtr", hgdiobj)
 Gdip_DeleteGraphics(pGraphics) => DllCall("gdiplus\GdipDeleteGraphics", "UPtr", pGraphics)
 DeleteObject(hObject) => DllCall("DeleteObject", "UPtr", hObject)
 DeleteDC(hdc) => DllCall("DeleteDC", "UPtr", hdc)
-Gdip_Shutdown(pToken) => (DllCall("gdiplus\GdiplusShutdown", "UPtr", pToken), (hModule := DllCall("GetModuleHandle", "str", "gdiplus", "UPtr")) ? DllCall("FreeLibrary", "UPtr", hModule) : 0, 0)
-Gdip_GraphicsClear(pGraphics, ARGB := 0x00ffffff) => !pGraphics ? 2 : DllCall("gdiplus\GdipGraphicsClear", "UPtr", pGraphics, "Int", ARGB)
+Gdip_Shutdown(pToken) => (DllCall("gdiplus\GdiplusShutdown", "UPtr", pToken), (hModule := DllCall("GetModuleHandle",
+    "str", "gdiplus", "UPtr")) ? DllCall("FreeLibrary", "UPtr", hModule) : 0, 0)
+Gdip_GraphicsClear(pGraphics, ARGB := 0x00ffffff) => !pGraphics ? 2 : DllCall("gdiplus\GdipGraphicsClear", "UPtr",
+    pGraphics, "Int", ARGB)
 
 UpdateLayeredWindow(hwnd, hdc, x := "", y := "", w := "", h := "", Alpha := 255) {
     if ((x != "") && (y != ""))
@@ -904,16 +945,22 @@ UpdateLayeredWindow(hwnd, hdc, x := "", y := "", w := "", h := "", Alpha := 255)
     "Int64*", w | h << 32, "UPtr", hdc, "Int64*", 0, "UInt", 0, "UInt*", Alpha << 16 | 1 << 24, "UInt", 2)
 }
 
-Gdip_BrushCreateSolid(ARGB := 0xff000000) => (DllCall("gdiplus\GdipCreateSolidFill", "UInt", ARGB, "UPtr*", &pBrush := 0), pBrush)
-Gdip_FillRectangle(pGraphics, pBrush, x, y, w, h) => DllCall("gdiplus\GdipFillRectangle", "UPtr", pGraphics, "UPtr", pBrush, "Float", x, "Float", y, "Float", w, "Float", h)
+Gdip_BrushCreateSolid(ARGB := 0xff000000) => (DllCall("gdiplus\GdipCreateSolidFill", "UInt", ARGB, "UPtr*", &pBrush :=
+    0), pBrush)
+Gdip_FillRectangle(pGraphics, pBrush, x, y, w, h) => DllCall("gdiplus\GdipFillRectangle", "UPtr", pGraphics, "UPtr",
+    pBrush, "Float", x, "Float", y, "Float", w, "Float", h)
 
 Gdip_FillRoundedRectanglePath(pGraphics, pBrush, X, Y, W, H, R) {
     DllCall("Gdiplus.dll\GdipCreatePath", "UInt", 0, "PtrP", &pPath := 0)
     D := (R * 2), W -= D, H -= D
-    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X, "Float", Y, "Float", D, "Float", D, "Float", 180, "Float", 90)
-    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X + W, "Float", Y, "Float", D, "Float", D, "Float", 270, "Float", 90)
-    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X + W, "Float", Y + H, "Float", D, "Float", D, "Float", 0, "Float", 90)
-    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X, "Float", Y + H, "Float", D, "Float", D, "Float", 90, "Float", 90)
+    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X, "Float", Y, "Float", D, "Float", D, "Float", 180,
+        "Float", 90)
+    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X + W, "Float", Y, "Float", D, "Float", D, "Float",
+        270, "Float", 90)
+    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X + W, "Float", Y + H, "Float", D, "Float", D, "Float",
+        0, "Float", 90)
+    DllCall("Gdiplus.dll\GdipAddPathArc", "Ptr", pPath, "Float", X, "Float", Y + H, "Float", D, "Float", D, "Float", 90,
+        "Float", 90)
     DllCall("Gdiplus.dll\GdipClosePathFigure", "Ptr", pPath)
     RS := DllCall("Gdiplus.dll\GdipFillPath", "Ptr", pGraphics, "Ptr", pBrush, "Ptr", pPath)
     DllCall("Gdiplus.dll\GdipDeletePath", "Ptr", pPath)
@@ -921,7 +968,8 @@ Gdip_FillRoundedRectanglePath(pGraphics, pBrush, X, Y, W, H, R) {
 }
 
 Gdip_DeleteBrush(pBrush) => DllCall("gdiplus\GdipDeleteBrush", "UPtr", pBrush)
-Gdip_NewPrivateFontCollection(fontCollection := 0) => DllCall('Gdiplus\GdipNewPrivateFontCollection', 'ptr', fontCollection, 'uint')
+Gdip_NewPrivateFontCollection(fontCollection := 0) => DllCall('Gdiplus\GdipNewPrivateFontCollection', 'ptr',
+    fontCollection, 'uint')
 
 Gdip_CreateFontFamilyFromFile(FontFile, hFontCollection, FontName := "") {
     if !hFontCollection
@@ -929,16 +977,19 @@ Gdip_CreateFontFamilyFromFile(FontFile, hFontCollection, FontName := "") {
     E := DllCall("gdiplus\GdipPrivateAddFontFile", "ptr", hFontCollection, "str", FontFile)
     if (FontName = "" && !E) {
         pFontFamily := Buffer(10, 0)
-        DllCall("gdiplus\GdipGetFontCollectionFamilyList", "ptr", hFontCollection, "int", 1, "ptr", pFontFamily.Ptr, "int*", &found := 0)
+        DllCall("gdiplus\GdipGetFontCollectionFamilyList", "ptr", hFontCollection, "int", 1, "ptr", pFontFamily.Ptr,
+            "int*", &found := 0)
         FontName := Buffer(100, 0)
         DllCall("gdiplus\GdipGetFamilyName", "ptr", NumGet(pFontFamily, 0, "ptr"), "str", FontName, "ushort", 1033)
     }
     if !E
-        DllCall("gdiplus\GdipCreateFontFamilyFromName", "str", FontName, "ptr", hFontCollection, "uint*", &hFontFamily := 0)
+        DllCall("gdiplus\GdipCreateFontFamilyFromName", "str", FontName, "ptr", hFontCollection, "uint*", &hFontFamily :=
+            0)
     return hFontFamily
 }
 
-Gdip_FontFamilyCreate(Font) => (DllCall("gdiplus\GdipCreateFontFamilyFromName", "UPtr", StrPtr(Font), "UInt", 0, "UPtr*", &hFamily := 0), hFamily)
+Gdip_FontFamilyCreate(Font) => (DllCall("gdiplus\GdipCreateFontFamilyFromName", "UPtr", StrPtr(Font), "UInt", 0,
+"UPtr*", &hFamily := 0), hFamily)
 Gdip_FontFamilyCreateGeneric(whichStyle) {
     if (whichStyle = 0)
         DllCall("gdiplus\GdipGetGenericFontFamilyMonospace", "UPtr*", &hFontFamily := 0)
@@ -949,7 +1000,8 @@ Gdip_FontFamilyCreateGeneric(whichStyle) {
     return hFontFamily
 }
 
-Gdip_FontCreate(hFamily, Size, Style := 0) => (DllCall("gdiplus\GdipCreateFont", "UPtr", hFamily, "Float", Size, "Int", Style, "Int", 0, "UPtr*", &hFont := 0), hFont)
+Gdip_FontCreate(hFamily, Size, Style := 0) => (DllCall("gdiplus\GdipCreateFont", "UPtr", hFamily, "Float", Size, "Int",
+    Style, "Int", 0, "UPtr*", &hFont := 0), hFont)
 Gdip_StringFormatGetGeneric(whichFormat := 0) {
     if (whichFormat = 1)
         DllCall("gdiplus\GdipStringFormatGetGenericTypographic", "UPtr*", &hStringFormat := 0)
@@ -961,7 +1013,8 @@ Gdip_StringFormatGetGeneric(whichFormat := 0) {
 Gdip_DeleteStringFormat(hFormat) => DllCall("gdiplus\GdipDeleteStringFormat", "UPtr", hFormat)
 Gdip_DeleteFont(hFont) => DllCall("gdiplus\GdipDeleteFont", "UPtr", hFont)
 Gdip_DeleteFontFamily(hFamily) => DllCall("gdiplus\GdipDeleteFontFamily", "UPtr", hFamily)
-Gdip_DeletePrivateFontCollection(fontCollection) => DllCall('Gdiplus\GdipDeletePrivateFontCollection', 'ptr', fontCollection, 'uint')
+Gdip_DeletePrivateFontCollection(fontCollection) => DllCall('Gdiplus\GdipDeletePrivateFontCollection', 'ptr',
+    fontCollection, 'uint')
 
 Gdip_SetStringFormatTabStops(format, tabStops) {
     firstTabOffset := 0
@@ -969,33 +1022,41 @@ Gdip_SetStringFormatTabStops(format, tabStops) {
     buf := Buffer(4 * count), p := buf.Ptr
     loop count
         p := NumPut('Float', tabStops[A_index], p)
-    return DllCall('Gdiplus\GdipSetStringFormatTabStops', 'ptr', format, 'int', firstTabOffset, 'int', count, 'ptr', buf, 'uint')
+    return DllCall('Gdiplus\GdipSetStringFormatTabStops', 'ptr', format, 'int', firstTabOffset, 'int', count, 'ptr',
+        buf, 'uint')
 }
 
 Gdip_SetStringFormatAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatAlign", "UPtr", hFormat, "Int", Align)
-Gdip_SetTextRenderingHint(pGraphics, RenderingHint) => !pGraphics ? 2 : DllCall("gdiplus\GdipSetTextRenderingHint", "UPtr", pGraphics, "Int", RenderingHint)
+Gdip_SetTextRenderingHint(pGraphics, RenderingHint) => !pGraphics ? 2 : DllCall("gdiplus\GdipSetTextRenderingHint",
+    "UPtr", pGraphics, "Int", RenderingHint)
 
 CreateRectF(&RectF, x, y, w, h) {
     RectF := Buffer(16)
-    NumPut("Float", x, RectF, 0), NumPut("Float", y, RectF, 4), NumPut("Float", w, RectF, 8), NumPut("Float", h, RectF, 12)
+    NumPut("Float", x, RectF, 0), NumPut("Float", y, RectF, 4), NumPut("Float", w, RectF, 8), NumPut("Float", h, RectF,
+        12)
 }
 
 Gdip_MeasureString(pGraphics, sString, hFont, hFormat, &RectF) {
     RC := Buffer(16)
-    DllCall("gdiplus\GdipMeasureString", "UPtr", pGraphics, "UPtr", StrPtr(sString), "Int", -1, "UPtr", hFont, "UPtr", RectF.Ptr, "UPtr", hFormat, "UPtr", RC.Ptr, "uint*", &Chars := 0, "uint*", &Lines := 0)
-    return RC.Ptr ? NumGet(RC, 0, "Float") "|" NumGet(RC, 4, "Float") "|" NumGet(RC, 8, "Float") "|" NumGet(RC, 12, "Float") "|" Chars "|" Lines : 0
+    DllCall("gdiplus\GdipMeasureString", "UPtr", pGraphics, "UPtr", StrPtr(sString), "Int", -1, "UPtr", hFont, "UPtr",
+    RectF.Ptr, "UPtr", hFormat, "UPtr", RC.Ptr, "uint*", &Chars := 0, "uint*", &Lines := 0)
+    return RC.Ptr ? NumGet(RC, 0, "Float") "|" NumGet(RC, 4, "Float") "|" NumGet(RC, 8, "Float") "|" NumGet(RC, 12,
+        "Float") "|" Chars "|" Lines : 0
 }
 
-Gdip_DrawString(pGraphics, sString, hFont, hFormat, pBrush, &RectF) => DllCall("gdiplus\GdipDrawString", "UPtr", pGraphics, "UPtr", StrPtr(sString), "Int", -1, "UPtr", hFont, "UPtr", RectF.Ptr, "UPtr", hFormat, "UPtr", pBrush)
+Gdip_DrawString(pGraphics, sString, hFont, hFormat, pBrush, &RectF) => DllCall("gdiplus\GdipDrawString", "UPtr",
+    pGraphics, "UPtr", StrPtr(sString), "Int", -1, "UPtr", hFont, "UPtr", RectF.Ptr, "UPtr", hFormat, "UPtr", pBrush)
 
 Gdip_CreateLinearGrBrush(x1, y1, x2, y2, ARGB1, ARGB2, WrapMode := 1) {
     CreatePointF(&PointF1, x1, y1)
     CreatePointF(&PointF2, x2, y2)
-    DllCall("gdiplus\GdipCreateLineBrush", "UPtr", PointF1.Ptr, "UPtr", PointF2.Ptr, "Uint", ARGB1, "Uint", ARGB2, "int", WrapMode, "UPtr*", &pLinearGradientBrush := 0)
+    DllCall("gdiplus\GdipCreateLineBrush", "UPtr", PointF1.Ptr, "UPtr", PointF2.Ptr, "Uint", ARGB1, "Uint", ARGB2,
+        "int", WrapMode, "UPtr*", &pLinearGradientBrush := 0)
     return pLinearGradientBrush
 }
 
-Gdip_RotateLinearGrBrushTransform(pLinearGradientBrush, Angle, matrixOrder := 0) => DllCall("gdiplus\GdipRotateLineTransform", "UPtr", pLinearGradientBrush, "float", Angle, "int", matrixOrder)
+Gdip_RotateLinearGrBrushTransform(pLinearGradientBrush, Angle, matrixOrder := 0) => DllCall(
+    "gdiplus\GdipRotateLineTransform", "UPtr", pLinearGradientBrush, "float", Angle, "int", matrixOrder)
 
 Gdip_RotateLinearGrBrushAtCenter(pLinearGradientBrush, Angle, MatrixOrder := 1) {
     Rect := Gdip_GetLinearGrBrushRect(pLinearGradientBrush)
@@ -1042,9 +1103,12 @@ Gdip_GetLinearGrBrushRect(pLinearGradientBrush) {
 }
 
 Gdip_CreateMatrix() => (DllCall("gdiplus\GdipCreateMatrix", "UPtr*", &Matrix := 0), Matrix)
-Gdip_TranslateMatrix(matrix, offsetX, offsetY, order := 0) => DllCall('Gdiplus\GdipTranslateMatrix', 'ptr', matrix, 'int', offsetX, 'int', offsetY, 'uint', order, 'uint')
-Gdip_RotateMatrix(matrix, angle, order := 0) => DllCall('Gdiplus\GdipRotateMatrix', 'ptr', matrix, 'int', angle, 'uint', order, 'uint')
-Gdip_SetLinearGrBrushTransform(pLinearGradientBrush, pMatrix) => DllCall("gdiplus\GdipSetLineTransform", "UPtr", pLinearGradientBrush, "UPtr", pMatrix)
+Gdip_TranslateMatrix(matrix, offsetX, offsetY, order := 0) => DllCall('Gdiplus\GdipTranslateMatrix', 'ptr', matrix,
+    'int', offsetX, 'int', offsetY, 'uint', order, 'uint')
+Gdip_RotateMatrix(matrix, angle, order := 0) => DllCall('Gdiplus\GdipRotateMatrix', 'ptr', matrix, 'int', angle, 'uint',
+    order, 'uint')
+Gdip_SetLinearGrBrushTransform(pLinearGradientBrush, pMatrix) => DllCall("gdiplus\GdipSetLineTransform", "UPtr",
+    pLinearGradientBrush, "UPtr", pMatrix)
 Gdip_DeleteMatrix(Matrix) => DllCall("gdiplus\GdipDeleteMatrix", "UPtr", Matrix)
 
 MDMF_EnumProc(HMON, HDC, PRECT, ObjectAddr) {
@@ -1076,7 +1140,8 @@ MDMF_GetInfo(HMON) {
     return False
 }
 
-CreateRect(&Rect, x, y, w, h) => (Rect := Buffer(16), NumPut("UInt", x, Rect, 0), NumPut("UInt", y, Rect, 4), NumPut("UInt", w, Rect, 8), NumPut("UInt", h, Rect, 12))
+CreateRect(&Rect, x, y, w, h) => (Rect := Buffer(16), NumPut("UInt", x, Rect, 0), NumPut("UInt", y, Rect, 4), NumPut(
+    "UInt", w, Rect, 8), NumPut("UInt", h, Rect, 12))
 
 ;===================================================================================
 ; 自动消失提示函数 - 轻量版
@@ -1118,7 +1183,8 @@ quickTip(Text) {
  */
 isDarkTheme() {
     try {
-        AppsUseDarkTheme := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseDarkTheme")
+        AppsUseDarkTheme := RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "AppsUseDarkTheme")
         return AppsUseDarkTheme = 1
     } catch {
         return false

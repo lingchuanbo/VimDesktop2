@@ -241,6 +241,330 @@ HideInfo() {
 }
 
 /*
+函数: VIMD_ShowKeyHelpMD
+作用: 生成Markdown文件并使用inlyne.exe打开显示按键绑定，如果inlyne.exe不存在则使用VIMD_ShowKeyHelp
+参数: param - 参数，格式为"窗口名|模式名"，如果为空则使用当前窗口
+返回: 无
+作者: BoBO
+版本: 2.0
+AHK版本: 2.0
+*/
+VIMD_ShowKeyHelpMD(param := "") {
+    global vim
+
+    ; 检查 inlyne.exe 是否存在
+    inlyneExe := A_ScriptDir "\Apps\inlyne\inlyne.exe"
+    if (!FileExist(inlyneExe)) {
+        ; 如果 inlyne.exe 不存在，使用原来的 VIMD_ShowKeyHelp 函数
+        VIMD_ShowKeyHelp(param)
+        return
+    }
+
+    ; 解析参数
+    if (param != "") {
+        params := StrSplit(param, "|")
+        win := params[1]
+        mode := params.Length > 1 ? params[2] : ""
+    } else {
+        win := vim.LastFoundWin
+        mode := ""
+    }
+
+    ; 获取模式对象
+    if strlen(mode) {
+        winObj := vim.GetWin(win)
+        modeObj := winObj.modeList[mode]
+    } else {
+        modeObj := vim.getMode(win)
+        mode := vim.GetCurMode(win)
+    }
+
+    ; 构建Markdown内容
+    markdownContent := BuildMarkdownContent(win, mode, modeObj)
+
+    ; 生成临时MD文件并用inlyne打开
+    OpenMarkdownWithInlyne(markdownContent, win " - " (mode ? mode : modeObj.name) " 按键列表")
+}
+
+/*
+函数: BuildMarkdownContent
+作用: 构建按键帮助的纯Markdown内容
+参数: win - 窗口名称, mode - 模式名称, modeObj - 模式对象
+返回: Markdown格式的字符串
+*/
+BuildMarkdownContent(win, mode, modeObj) {
+    global vim
+
+    ; 收集按键信息，按Group分组
+    groupedKeys := Map()
+    totalKeys := 0
+
+    ; 首先按Group分组收集按键
+    for key, actionName in modeObj.keyMapList {
+        ; 获取Action对象
+        actionObj := vim.GetAction(win, mode, key)
+
+        if (!actionObj)
+            continue
+
+        ; 获取按键 - 使用原始按键
+        HotKeyStr := key
+
+        ; 如果按键为空，跳过
+        if (!HotKeyStr || StrLen(HotKeyStr) = 0) {
+            continue
+        }
+
+        ; 获取注释
+        if (actionObj.Type = 1) {
+            ActionDescList := actionObj.Comment
+            if (IsObject(ActionDescList) && ActionDescList.Has(key)) {
+                actionDesc := StrSplit(ActionDescList[key], "|")
+                comment := (actionDesc.Length >= 2) ? actionDesc[2] : ActionDescList[key]
+            } else {
+                comment := ActionDescList
+            }
+        } else {
+            comment := actionObj.Comment
+        }
+
+        ; 获取分组和函数信息
+        group := actionObj.Group ? actionObj.Group : "未分组"
+        funcName := actionObj.Function ? actionObj.Function : "未知"
+        param := actionObj.Param ? actionObj.Param : ""
+
+        ; 如果该分组不存在，创建一个新数组
+        if (!groupedKeys.Has(group))
+            groupedKeys[group] := []
+
+        ; 将按键信息添加到对应分组
+        groupedKeys[group].Push({
+            key: HotKeyStr,
+            comment: comment,
+            func: funcName,
+            param: param
+        })
+        totalKeys++
+    }
+
+    ; 构建纯Markdown内容
+    markdownContent := "## " win " - " (mode ? mode : modeObj.name) " 按键列表`n`n"
+    markdownContent .= "**总计按键数量:** " totalKeys "`n`n"
+
+    ; 使用简单的单列布局 - 按分组竖直排列
+    for group, keys in groupedKeys {
+        ; 添加分组标题
+        markdownContent .= "## " GetGroupIcon(group) " " group "`n`n"
+
+        ; 创建表格
+        markdownContent .= "| 按键 | 功能描述 |`n"
+        markdownContent .= "|------|----------|`n"
+
+        ; 添加该分组下的所有按键
+        for _, keyInfo in keys {
+            ; 对包含 < > 的按键进行HTML实体编码，避免被Markdown渲染器误认为HTML标签
+            key := StrReplace(StrReplace(keyInfo.key, "<", "&lt;"), ">", "&gt;")
+            comment := keyInfo.comment
+
+            ; 构建表格行
+            tableRow := Format("| `{1}` | {2} |`n", key, comment)
+            markdownContent .= tableRow
+        }
+
+        markdownContent .= "`n"
+    }
+
+    return markdownContent
+}
+
+/*
+函数: GetGroupIcon
+作用: 根据分组名称获取对应的图标
+参数: group - 分组名称
+返回: 图标字符串
+*/
+GetGroupIcon(group) {
+    ; 根据分组名称返回对应的图标
+    switch StrLower(group) {
+        case "模式", "mode":
+            return "🔄"
+        case "搜索", "search":
+            return "🔍"
+        case "帮助", "help":
+            return "❓"
+        case "编辑", "edit":
+            return "✏️"
+        case "导航", "navigation":
+            return "🧭"
+        case "文件", "file":
+            return "📁"
+        case "窗口", "window":
+            return "🪟"
+        case "系统", "system":
+            return "⚙️"
+        case "音量", "volume":
+            return "🔊"
+        case "播放", "play":
+            return "▶️"
+        case "工具", "tools":
+            return "🔧"
+        default:
+            return "📋"
+    }
+}
+
+/*
+函数: OpenMarkdownWithInlyne
+作用: 生成临时MD文件并使用inlyne.exe打开
+参数: markdownContent - Markdown内容, title - 文件标题
+返回: 无
+*/
+OpenMarkdownWithInlyne(markdownContent, title) {
+    ; inlyne.exe 路径
+    inlyneExe := A_ScriptDir "\Apps\inlyne\inlyne.exe"
+
+    ; 检查 inlyne.exe 是否存在
+    if (!FileExist(inlyneExe)) {
+        MsgBox("找不到 inlyne.exe 文件:`n" inlyneExe "`n`n请确认路径是否正确。", "错误", "Icon!")
+        return
+    }
+
+    ; 生成临时文件名
+    safeTitle := RegExReplace(title, '[<>:"/\\|?*]', "_")
+    tempDir := A_Temp "\VimD_KeyHelp"
+
+    ; 确保临时目录存在
+    if (!DirExist(tempDir)) {
+        try {
+            DirCreate(tempDir)
+        } catch as e {
+            MsgBox("创建临时目录失败: " e.Message, "错误", "Icon!")
+            return
+        }
+    }
+
+    ; 生成临时文件路径 - 使用Markdown格式
+    tempFile := tempDir "\" safeTitle "_" FormatTime(, "yyyyMMdd_HHmmss") ".md"
+
+    ; 写入Markdown内容到临时文件
+    try {
+        FileAppend(markdownContent, tempFile, "UTF-8")
+    } catch as e {
+        MsgBox("写入临时文件失败: " e.Message, "错误", "Icon!")
+        return
+    }
+
+    ; 使用inlyne.exe打开文件
+    try {
+        Run('"' inlyneExe '" "' tempFile '"', , "Hide", &inlynePID)
+    } catch as e {
+        MsgBox("启动 inlyne.exe 失败: " e.Message, "错误", "Icon!")
+        ; 清理临时文件
+        try {
+            FileDelete(tempFile)
+        }
+        return
+    }
+
+    ; 等待inlyne窗口出现并设置窗口属性
+    SetTimer(() => SetInlyneWindowProperties(inlynePID, title), -500)
+
+    ; 设置定时器清理临时文件（30秒后）
+    SetTimer(() => CleanupTempFile(tempFile), -30000)
+}
+
+/*
+函数: CleanupTempFile
+作用: 清理临时文件
+参数: filePath - 要清理的文件路径
+返回: 无
+*/
+CleanupTempFile(filePath) {
+    try {
+        if (FileExist(filePath)) {
+            FileDelete(filePath)
+        }
+    } catch {
+        ; 忽略清理错误
+    }
+}
+
+/*
+函数: SetInlyneWindowProperties
+作用: 设置inlyne窗口属性（置顶、居中、大小）
+参数: pid - inlyne进程ID, title - 窗口标题
+返回: 无
+*/
+SetInlyneWindowProperties(pid, title) {
+    ; 等待窗口出现，最多等待5秒
+    maxWaitTime := 5000
+    startTime := A_TickCount
+    inlyneHwnd := 0
+
+    while (A_TickCount - startTime < maxWaitTime) {
+        ; 尝试通过进程ID找到窗口
+        try {
+            windows := WinGetList("ahk_pid " pid)
+            for hwnd in windows {
+                if (WinExist("ahk_id " hwnd)) {
+                    inlyneHwnd := hwnd
+                    break
+                }
+            }
+        } catch {
+            ; 如果通过PID找不到，尝试通过可执行文件名查找
+            try {
+                windows := WinGetList("ahk_exe inlyne.exe")
+                for hwnd in windows {
+                    if (WinExist("ahk_id " hwnd)) {
+                        inlyneHwnd := hwnd
+                        break
+                    }
+                }
+            }
+        }
+
+        if (inlyneHwnd != 0)
+            break
+
+        Sleep(100)
+    }
+
+    if (inlyneHwnd == 0) {
+        ; 如果还是找不到，就不设置窗口属性
+        return
+    }
+
+    try {
+        ; 激活inlyne窗口
+        WinActivate("ahk_id " inlyneHwnd)
+        Sleep(100)
+
+        ; 获取主屏幕尺寸
+        screenWidth := A_ScreenWidth
+        screenHeight := A_ScreenHeight
+
+        ; 设置窗口大小为1024x800
+        windowWidth := 1024
+        windowHeight := 800
+
+        ; 计算屏幕中心位置
+        centerX := (screenWidth - windowWidth) / 2
+        centerY := (screenHeight - windowHeight) / 2
+
+        ; 移动窗口到屏幕中心并设置大小
+        WinMove(centerX, centerY, windowWidth, windowHeight, "ahk_id " inlyneHwnd)
+        Sleep(100)
+
+        ; 设置窗口置顶
+        WinSetAlwaysOnTop(1, "ahk_id " inlyneHwnd)
+
+    } catch as e {
+        ; 忽略设置窗口属性时的错误
+    }
+}
+
+/*
 函数: VIMD_ShowKeyHelpGui
 作用: 显示指定插件中定义的所有按键绑定
 参数: pluginName - 插件名称

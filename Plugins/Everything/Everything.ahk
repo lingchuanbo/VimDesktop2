@@ -26,33 +26,31 @@ Everything() {
     KeyArray.push({ Key: "<c-1>", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
         Comment: "单击" })
 
-        KeyArray.push({ Key: "4", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
+    KeyArray.push({ Key: "4", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
         Comment: "单击/双击/长按" })
     KeyArray.push({ Key: "5", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
         Comment: "单击/双击" })
     KeyArray.push({ Key: "6", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
         Comment: "单击" })
 
-
-
     ; 帮助
     KeyArray.push({ Key: ":?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
         Comment: "显示所有按键(GUI)" })
     KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-    KeyArray.push({ Key: ":h", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式", Comment: "显示所有按键(Markdown)" })
-
-
+    KeyArray.push({ Key: ":h", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
+        Comment: "显示所有按键(Markdown)" })
 
     KeyArray.push({ Key: "i", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
-    Comment: "显示所有按键(GUI)" })
-KeyArray.push({ Key: "o", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式", Comment: "显示所有按键(Markdown)" })
+        Comment: "显示所有按键(GUI)" })
+    KeyArray.push({ Key: "o", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
+    KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
+        Comment: "显示所有按键(Markdown)" })
 
-
-KeyArray.push({ Key: "a", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
-Comment: "显示所有按键(GUI)" })
-KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-KeyArray.push({ Key: "c", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式", Comment: "显示所有按键(Markdown)" })
+    KeyArray.push({ Key: "a", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
+        Comment: "显示所有按键(GUI)" })
+    KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
+    KeyArray.push({ Key: "c", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
+        Comment: "显示所有按键(Markdown)" })
 
     ; 注册窗体
     vim.SetWin("Everything", "EVERYTHING", "Everything.exe")
