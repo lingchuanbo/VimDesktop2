@@ -1,5 +1,5 @@
 ; ======================================================================================================================
-; ToolTipManager - 统一的ToolTip管理器，支持ToolTipOptions和BTT_Optimized两种库
+; ToolTipManager - 统一的ToolTip管理器，支持ToolTipOptions和BTT两种库
 ; 作者：BoBO
 ; 时间：20250728
 ; ======================================================================================================================
@@ -25,7 +25,7 @@ class ToolTipManager {
         switch library {
             case "ToolTipOptions":
                 this._InitToolTipOptions()
-            case "BTT_Optimized":
+            case "BTT":
                 this._InitBTT()
             default:
                 this.currentLibrary := "ToolTipOptions"
@@ -86,9 +86,9 @@ class ToolTipManager {
         }
     }
 
-    ; 初始化BTT_Optimized
+    ; 初始化BTT
     static _InitBTT() {
-        ; BTT_Optimized 会自动初始化，无需特殊处理
+        ; BTT 会自动初始化，无需特殊处理
         ; 可以在这里设置BTT的默认样式
     }
 
@@ -113,7 +113,7 @@ class ToolTipManager {
                 } else {
                     ToolTip(text, xParam, yParam, whichToolTip)
                 }
-            case "BTT_Optimized":
+            case "BTT":
                 this._ShowBTT(text, x, y, whichToolTip)
         }
     }
@@ -221,7 +221,7 @@ class ToolTipManager {
         switch this.currentLibrary {
             case "ToolTipOptions":
                 ToolTip("", , , whichToolTip)
-            case "BTT_Optimized":
+            case "BTT":
                 btt("", , , whichToolTip)
         }
     }
@@ -235,7 +235,7 @@ class ToolTipManager {
         switch this.currentLibrary {
             case "ToolTipOptions":
                 ToolTipOptions.Reset()
-            case "BTT_Optimized":
+            case "BTT":
                 ; BTT会自动清理
         }
 

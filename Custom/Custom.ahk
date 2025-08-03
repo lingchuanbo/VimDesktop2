@@ -332,7 +332,7 @@ SwitchTooltipLibrary() {
     }
     
     ; 切换到另一个库
-    newLib := (currentLib = "ToolTipOptions") ? "BTT_Optimized" : "ToolTipOptions"
+    newLib := (currentLib = "ToolTipOptions") ? "BTT" : "ToolTipOptions"
     
     ; 使用ToolTipManager切换库
     ToolTipManager.SwitchLibrary(newLib)
