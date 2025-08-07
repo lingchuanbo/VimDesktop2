@@ -1,0 +1,652 @@
+#Requires AutoHotkey v2.0
+;@Ahk2Exe-SetVersion 1.0
+;@Ahk2Exe-SetName QuickSwitch
+;@Ahk2Exe-SetDescription Use opened file manager folders in File dialogs.
+;@Ahk2Exe-SetCopyright NotNull
+
+/*
+QuickSwitch V2 - Refactored Version
+By: NotNull
+Refactored for AHK V2 with configuration file support
+*/
+
+; ============================================================================
+; INITIALIZATION
+; ============================================================================
+
+#Warn
+SendMode("Input")
+SetWorkingDir(A_ScriptDir)
+#SingleInstance Force
+
+; Global variables
+global g_Config := {}
+global g_CurrentDialog := {
+	WinID: "",
+	Type: "",
+	FingerPrint: "",
+	Action: ""
+}
+
+; Initialize configuration
+InitializeConfig()
+
+; Create global hotkey for manual menu activation
+^q::ShowMenu()
+
+; Start main loop
+MainLoop()
+
+; ============================================================================
+; CONFIGURATION MANAGEMENT
+; ============================================================================
+
+InitializeConfig() {
+	; Get script name for config files
+	SplitPath(A_ScriptFullPath, , , , &name_no_ext)
+	g_Config.IniFile := name_no_ext . ".ini"
+	g_Config.TempFile := EnvGet("TEMP") . "\dopusinfo.xml"
+
+	; Load configuration from INI file
+	LoadConfiguration()
+
+	; Clean up temp file
+	try FileDelete(g_Config.TempFile)
+}
+
+LoadConfiguration() {
+	; Load hotkey configuration
+	g_Config.Hotkey := IniRead(g_Config.IniFile, "Settings", "Hotkey", "^q")
+
+	; Load display settings
+	g_Config.MenuColor := IniRead(g_Config.IniFile, "Display", "MenuColor", "C0C59C")
+	g_Config.IconSize := IniRead(g_Config.IniFile, "Display", "IconSize", "32")
+	g_Config.MenuPosX := IniRead(g_Config.IniFile, "Display", "MenuPosX", "100")
+	g_Config.MenuPosY := IniRead(g_Config.IniFile, "Display", "MenuPosY", "100")
+
+	; Load file manager settings
+	g_Config.SupportTC := IniRead(g_Config.IniFile, "FileManagers", "TotalCommander", "1")
+	g_Config.SupportExplorer := IniRead(g_Config.IniFile, "FileManagers", "Explorer", "1")
+	g_Config.SupportXY := IniRead(g_Config.IniFile, "FileManagers", "XYplorer", "1")
+	g_Config.SupportOpus := IniRead(g_Config.IniFile, "FileManagers", "DirectoryOpus", "1")
+
+	; Total Commander message codes
+	g_Config.TC_CopySrcPath := 2029
+	g_Config.TC_CopyTrgPath := 2030
+}
+
+; ============================================================================
+; MAIN LOOP
+; ============================================================================
+
+MainLoop() {
+	; Check OS compatibility
+	if !IsOSSupported() {
+		MsgBox(A_OSVersion . " is not supported.")
+		ExitApp()
+	}
+
+	; Main event loop
+	loop {
+		WinWaitActive("ahk_class #32770")
+
+		g_CurrentDialog.WinID := WinExist("A")
+		g_CurrentDialog.Type := DetectFileDialog(g_CurrentDialog.WinID)
+
+		if g_CurrentDialog.Type {
+			ProcessFileDialog()
+		}
+
+		Sleep(100)
+		WinWaitNotActive()
+
+		; Cleanup when dialog closes
+		CleanupGlobals()
+	}
+}
+
+ProcessFileDialog() {
+	; Get dialog fingerprint
+	ahk_exe := WinGetProcessName("ahk_id " . g_CurrentDialog.WinID)
+	window_title := WinGetTitle("ahk_id " . g_CurrentDialog.WinID)
+	g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
+
+	; Check dialog action from INI
+	g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
+
+	if (g_CurrentDialog.Action = "1") {
+		; AutoSwitch mode
+		folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
+		if IsValidFolder(folderPath) {
+			FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+		}
+	} else if (g_CurrentDialog.Action = "0") {
+		; Never here mode - do nothing
+	} else {
+		; Show menu mode
+		ShowMenu()
+	}
+}
+
+; ============================================================================
+; DIALOG DETECTION AND FEEDING
+; ============================================================================
+
+DetectFileDialog(winID) {
+	controlList := WinGetControls("ahk_id " . winID)
+
+	hasSysListView := false
+	hasToolbar := false
+	hasDirectUI := false
+	hasEdit := false
+
+	for control in controlList {
+		switch control {
+		case "SysListView321":
+			hasSysListView := true
+		case "ToolbarWindow321":
+			hasToolbar := true
+		case "DirectUIHWND1":
+			hasDirectUI := true
+		case "Edit1":
+			hasEdit := true
+		}
+	}
+
+	if (hasDirectUI && hasToolbar && hasEdit) {
+		return "GENERAL"
+	} else if (hasSysListView && hasToolbar && hasEdit) {
+		return "SYSLISTVIEW"
+	}
+
+	return false
+}
+
+FeedDialog(winID, folderPath, dialogType) {
+	switch dialogType {
+	case "GENERAL":
+		FeedDialogGeneral(winID, folderPath)
+	case "SYSLISTVIEW":
+		FeedDialogSysListView(winID, folderPath)
+	}
+}
+
+FeedDialogGeneral(winID, folderPath) {
+	WinActivate("ahk_id " . winID)
+	Sleep(100)
+
+	; Method 1: Try using Ctrl+L to access address bar
+	try {
+		; Save current clipboard
+		oldClipboard := A_Clipboard
+		A_Clipboard := folderPath
+		ClipWait(1)  ; Wait for clipboard to be ready
+
+		SendInput("^l")
+		Sleep(200)
+		SendInput("^v")  ; Paste from clipboard instead of typing
+		Sleep(100)
+		SendInput("{Enter}")
+		Sleep(200)
+
+		; Restore original clipboard
+		A_Clipboard := oldClipboard
+
+		; Focus back to filename field
+		try ControlFocus("Edit1", "ahk_id " . winID)
+		return
+	}
+
+	; Method 2: Try setting path directly to Edit1 (fallback)
+	try {
+		; Save original filename
+		originalText := ControlGetText("Edit1", "ahk_id " . winID)
+
+		; Set folder path with backslash
+		folderWithSlash := RTrim(folderPath, "\") . "\"
+		ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
+		Sleep(100)
+		ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
+		Sleep(200)
+
+		; Restore original filename
+		if (originalText != "" && !InStr(originalText, "\")) {
+			ControlSetText(originalText, "Edit1", "ahk_id " . winID)
+		}
+	}
+}
+
+FeedDialogSysListView(winID, folderPath) {
+	WinActivate("ahk_id " . winID)
+	Sleep(50)
+
+	try {
+		; Save original filename
+		originalText := ControlGetText("Edit1", "ahk_id " . winID)
+
+		; Ensure folder path ends with backslash
+		folderWithSlash := RTrim(folderPath, "\") . "\"
+
+		; Set folder path
+		ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
+		Sleep(100)
+		ControlFocus("Edit1", "ahk_id " . winID)
+		ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
+		Sleep(200)
+
+		; Restore original filename if it wasn't a path
+		if (originalText != "" && !InStr(originalText, "\") && !InStr(originalText, "/")) {
+			ControlSetText(originalText, "Edit1", "ahk_id " . winID)
+		} else {
+			; Clear the filename field
+			ControlSetText("", "Edit1", "ahk_id " . winID)
+		}
+	} catch {
+		; Fallback: try simple method
+		try {
+			ControlSetText(folderPath, "Edit1", "ahk_id " . winID)
+			ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
+		}
+	}
+}
+
+; ============================================================================
+; MENU SYSTEM
+; ============================================================================
+
+ShowMenu() {
+	; Create context menu
+	contextMenu := Menu()
+	contextMenu.Add("QuickSwitch Menu", (*) => "")
+	contextMenu.Default := "QuickSwitch Menu"
+	contextMenu.Disable("QuickSwitch Menu")
+
+	hasMenuItems := false
+
+	; Scan for file manager windows
+	if g_Config.SupportTC = "1" {
+		hasMenuItems := AddTotalCommanderFolders(contextMenu) || hasMenuItems
+	}
+	if g_Config.SupportExplorer = "1" {
+		hasMenuItems := AddExplorerFolders(contextMenu) || hasMenuItems
+	}
+	if g_Config.SupportXY = "1" {
+		hasMenuItems := AddXYplorerFolders(contextMenu) || hasMenuItems
+	}
+	if g_Config.SupportOpus = "1" {
+		hasMenuItems := AddOpusFolders(contextMenu) || hasMenuItems
+	}
+
+	; Always add settings menu, even if no file managers found
+	AddSettingsMenu(contextMenu)
+
+	; Configure menu appearance
+	contextMenu.Color := g_Config.MenuColor
+
+	; Show menu
+	try {
+		contextMenu.Show(Integer(g_Config.MenuPosX), Integer(g_Config.MenuPosY))
+	} catch as e {
+		; Fallback to default position if config values are invalid
+		contextMenu.Show(100, 100)
+	}
+}
+
+AddTotalCommanderFolders(contextMenu) {
+	added := false
+	allWindows := WinGetList()
+
+	for winID in allWindows {
+		try {
+			winClass := WinGetClass("ahk_id " . winID)
+			if (winClass = "TTOTAL_CMD") {
+				thisPID := WinGetPID("ahk_id " . winID)
+				tcExe := GetModuleFileName(thisPID)
+
+				; Get source path
+				clipSaved := ClipboardAll()
+				A_Clipboard := ""
+
+				SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
+				Sleep(50)  ; Wait for clipboard update
+				if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
+					folderPath := A_Clipboard
+					contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+					try contextMenu.SetIcon(folderPath, tcExe, 0, g_Config.IconSize)
+					added := true
+				}
+
+				; Get target path
+				SendMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
+				Sleep(50)  ; Wait for clipboard update
+				if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
+					folderPath := A_Clipboard
+					contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+					try contextMenu.SetIcon(folderPath, tcExe, 0, g_Config.IconSize)
+					added := true
+				}
+
+				A_Clipboard := clipSaved
+			}
+		}
+	}
+
+	return added
+}
+
+AddExplorerFolders(contextMenu) {
+	added := false
+	allWindows := WinGetList()
+
+	for winID in allWindows {
+		try {
+			winClass := WinGetClass("ahk_id " . winID)
+			if (winClass = "CabinetWClass") {
+				for explorerWindow in ComObject("Shell.Application").Windows {
+					try {
+						if (winID = explorerWindow.hwnd) {
+							explorerPath := explorerWindow.Document.Folder.Self.Path
+							if IsValidFolder(explorerPath) {
+								contextMenu.Add(explorerPath, FolderChoiceHandler.Bind(explorerPath))
+								try contextMenu.SetIcon(explorerPath, "shell32.dll", 5, g_Config.IconSize)
+								added := true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return added
+}
+
+AddXYplorerFolders(contextMenu) {
+	added := false
+	allWindows := WinGetList()
+
+	for winID in allWindows {
+		try {
+			winClass := WinGetClass("ahk_id " . winID)
+			if (winClass = "ThunderRT6FormDC") {
+				thisPID := WinGetPID("ahk_id " . winID)
+				xyExe := GetModuleFileName(thisPID)
+
+				clipSaved := ClipboardAll()
+				A_Clipboard := ""
+
+				; Get active path
+				SendXYplorerMessage(winID, "::copytext get('path', a);")
+				if IsValidFolder(A_Clipboard) {
+					folderPath := A_Clipboard
+					contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+					try contextMenu.SetIcon(folderPath, xyExe, 0, g_Config.IconSize)
+					added := true
+				}
+
+				; Get inactive path
+				SendXYplorerMessage(winID, "::copytext get('path', i);")
+				if IsValidFolder(A_Clipboard) {
+					folderPath := A_Clipboard
+					contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+					try contextMenu.SetIcon(folderPath, xyExe, 0, g_Config.IconSize)
+					added := true
+				}
+
+				A_Clipboard := clipSaved
+			}
+		}
+	}
+
+	return added
+}
+
+AddOpusFolders(contextMenu) {
+	added := false
+	allWindows := WinGetList()
+
+	for winID in allWindows {
+		try {
+			winClass := WinGetClass("ahk_id " . winID)
+			if (winClass = "dopus.lister") {
+				thisPID := WinGetPID("ahk_id " . winID)
+				dopusExe := GetModuleFileName(thisPID)
+
+				; Get Opus info
+				RunWait('"' . dopusExe . '\..\dopusrt.exe" /info "' . g_Config.TempFile . '",paths', , , &dummy)
+				Sleep(100)
+
+				try {
+					opusInfo := FileRead(g_Config.TempFile)
+					FileDelete(g_Config.TempFile)
+
+					; Parse active and passive paths
+					if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="1".*>(.*)</path>', &match) {
+						folderPath := match[1]
+						if IsValidFolder(folderPath) {
+							contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+							try contextMenu.SetIcon(folderPath, dopusExe, 0, g_Config.IconSize)
+							added := true
+						}
+					}
+
+					if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="2".*>(.*)</path>', &match) {
+						folderPath := match[1]
+						if IsValidFolder(folderPath) {
+							contextMenu.Add(folderPath, FolderChoiceHandler.Bind(folderPath))
+							try contextMenu.SetIcon(folderPath, dopusExe, 0, g_Config.IconSize)
+							added := true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return added
+}
+
+AddSettingsMenu(contextMenu) {
+	contextMenu.Add()
+	contextMenu.Add("Settings for this dialog", (*) => "")
+	contextMenu.Disable("Settings for this dialog")
+
+	contextMenu.Add("Allow AutoSwitch", AutoSwitchHandler)
+	contextMenu.Add("Never here", NeverHandler)
+	contextMenu.Add("Not now", NotNowHandler)
+
+	; Set current selection
+	switch g_CurrentDialog.Action {
+	case "1":
+		contextMenu.Check("Allow AutoSwitch")
+	case "0":
+		contextMenu.Check("Never here")
+	default:
+		contextMenu.Check("Not now")
+	}
+}
+
+; ============================================================================
+; MENU HANDLERS
+; ============================================================================
+
+FolderChoiceHandler(folderPath, *) {
+	if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
+		FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+	}
+}
+
+FolderChoice(itemName, itemPos, menu) {
+	if IsValidFolder(itemName) {
+		FeedDialog(g_CurrentDialog.WinID, itemName, g_CurrentDialog.Type)
+	}
+}
+
+AutoSwitchHandler(*) {
+	IniWrite("1", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+	g_CurrentDialog.Action := "1"
+
+	folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
+	if IsValidFolder(folderPath) {
+		FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+	}
+}
+
+NeverHandler(*) {
+	IniWrite("0", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+	g_CurrentDialog.Action := "0"
+}
+
+NotNowHandler(*) {
+	try IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+	g_CurrentDialog.Action := ""
+}
+
+; ============================================================================
+; UTILITY FUNCTIONS
+; ============================================================================
+
+IsOSSupported() {
+	unsupportedOS := ["WIN_VISTA", "WIN_2003", "WIN_XP", "WIN_2000"]
+	return !HasValue(unsupportedOS, A_OSVersion)
+}
+
+IsValidFolder(path) {
+	return (path != "" && StrLen(path) < 259 && InStr(FileExist(path), "D"))
+}
+
+GetActiveFileManagerFolder(winID) {
+	; Read Z-Order delta from INI
+	zDelta := IniRead(g_Config.IniFile, "AutoSwitchException", g_CurrentDialog.FingerPrint, "2")
+
+	allWindows := WinGetList()
+	thisZ := 0
+
+	; Find Z-order of current window
+	for index, id in allWindows {
+		if (winID = id) {
+			thisZ := index
+			break
+		}
+	}
+
+	nextIndex := thisZ + Integer(zDelta)
+	if (nextIndex <= allWindows.Length) {
+		nextID := allWindows[nextIndex]
+		nextClass := WinGetClass("ahk_id " . nextID)
+
+		switch nextClass {
+		case "TTOTAL_CMD":
+			return GetTCActiveFolder(nextID)
+		case "ThunderRT6FormDC":
+			return GetXYActiveFolder(nextID)
+		case "CabinetWClass":
+			return GetExplorerActiveFolder(nextID)
+		case "dopus.lister":
+			return GetOpusActiveFolder(nextID)
+		}
+	}
+
+	return ""
+}
+
+GetTCActiveFolder(winID) {
+	clipSaved := ClipboardAll()
+	A_Clipboard := ""
+
+	result := SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
+	if (result != 0 && A_Clipboard != "") {
+		folderPath := A_Clipboard
+		A_Clipboard := clipSaved
+		return folderPath
+	}
+
+	A_Clipboard := clipSaved
+	return ""
+}
+
+GetXYActiveFolder(winID) {
+	clipSaved := ClipboardAll()
+	A_Clipboard := ""
+
+	SendXYplorerMessage(winID, "::copytext get('path', a);")
+	ClipWait(0)
+
+	result := A_Clipboard
+	A_Clipboard := clipSaved
+	return result
+}
+
+GetExplorerActiveFolder(winID) {
+	for explorerWindow in ComObject("Shell.Application").Windows {
+		try {
+			if (winID = explorerWindow.hwnd) {
+				return explorerWindow.Document.Folder.Self.Path
+			}
+		}
+	}
+	return ""
+}
+
+GetOpusActiveFolder(winID) {
+	thisPID := WinGetPID("ahk_id " . winID)
+	dopusExe := GetModuleFileName(thisPID)
+
+	RunWait('"' . dopusExe . '\..\dopusrt.exe" /info "' . g_Config.TempFile . '",paths', , , &dummy)
+	Sleep(100)
+
+	try {
+		opusInfo := FileRead(g_Config.TempFile)
+		FileDelete(g_Config.TempFile)
+
+		if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="1".*>(.*)</path>', &match) {
+			return match[1]
+		}
+	}
+
+	return ""
+}
+
+GetModuleFileName(pid) {
+	hProcess := DllCall("OpenProcess", "uint", 0x10|0x400, "int", false, "uint", pid)
+	if (!hProcess) {
+		return ""
+	}
+
+	nameSize := 255
+	name := Buffer(nameSize * 2)
+
+	result := DllCall("psapi.dll\GetModuleFileNameExW", "uint", hProcess, "uint", 0, "ptr", name, "uint", nameSize)
+	DllCall("CloseHandle", "ptr", hProcess)
+
+	return result ? StrGet(name) : ""
+}
+
+SendXYplorerMessage(xyHwnd, message) {
+	size := StrLen(message)
+	data := Buffer(size * 2)
+	StrPut(message, data, "UTF-16")
+
+	copyData := Buffer(A_PtrSize * 3)
+	NumPut("Ptr", 4194305, copyData, 0)
+	NumPut("UInt", size * 2, copyData, A_PtrSize)
+	NumPut("Ptr", data.Ptr, copyData, A_PtrSize * 2)
+
+	DllCall("User32.dll\SendMessageW", "Ptr", xyHwnd, "UInt", 74, "Ptr", 0, "Ptr", copyData, "Ptr")
+}
+
+CleanupGlobals() {
+	g_CurrentDialog.WinID := ""
+	g_CurrentDialog.Type := ""
+	g_CurrentDialog.FingerPrint := ""
+	g_CurrentDialog.Action := ""
+}
+
+HasValue(haystack, needle) {
+	for value in haystack {
+		if (value = needle) {
+			return true
+		}
+	}
+	return false
+}
