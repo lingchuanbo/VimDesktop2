@@ -62,7 +62,7 @@ LoadConfiguration() {
 
 	; Load display settings
 	g_Config.MenuColor := IniRead(g_Config.IniFile, "Display", "MenuColor", "C0C59C")
-	g_Config.IconSize := IniRead(g_Config.IniFile, "Display", "IconSize", "32")
+	g_Config.IconSize := IniRead(g_Config.IniFile, "Display", "IconSize", "16")
 	g_Config.MenuPosX := IniRead(g_Config.IniFile, "Display", "MenuPosX", "100")
 	g_Config.MenuPosY := IniRead(g_Config.IniFile, "Display", "MenuPosY", "100")
 
@@ -94,13 +94,31 @@ MainLoop() {
 
 	; Main event loop
 	loop {
-		WinWaitActive("ahk_class #32770")
-
+		; 获取当前激活窗口
 		g_CurrentDialog.WinID := WinExist("A")
-		g_CurrentDialog.Type := DetectFileDialog(g_CurrentDialog.WinID)
+		winClass := WinGetClass("ahk_id " . g_CurrentDialog.WinID)
+		exeName := WinGetProcessName("ahk_id " . g_CurrentDialog.WinID)
 
-		if g_CurrentDialog.Type {
-			ProcessFileDialog()
+		;添加适配窗口 Blendr窗口
+		if (winClass = "#32770" || (winClass = "GHOST_WindowClass" && exeName = "blender.exe"))
+		{
+			g_CurrentDialog.Type := DetectFileDialog(g_CurrentDialog.WinID)
+			if g_CurrentDialog.Type {
+                ProcessFileDialog()
+                
+                ; 等待对话框关闭
+                WinWaitNotActive("ahk_id " . g_CurrentDialog.WinID)
+                CleanupGlobals()
+		}
+
+		; g_CurrentDialog.WinID := WinExist("A")
+
+		; g_CurrentDialog.Type := DetectFileDialog(g_CurrentDialog.WinID)
+
+		; if g_CurrentDialog.Type {
+
+		; 	ProcessFileDialog()
+
 		}
 
 		Sleep(100)
@@ -139,12 +157,20 @@ ProcessFileDialog() {
 ; ============================================================================
 
 DetectFileDialog(winID) {
+    winClass := WinGetClass("ahk_id " . winID)
+    
+    ; 直接识别Blender窗口
+    if (winClass = "GHOST_WindowClass") {
+        return "GENERAL"
+    }
+
 	controlList := WinGetControls("ahk_id " . winID)
 
 	hasSysListView := false
 	hasToolbar := false
 	hasDirectUI := false
 	hasEdit := false
+
 
 	for control in controlList {
 		switch control {
@@ -159,47 +185,49 @@ DetectFileDialog(winID) {
 		}
 	}
 
+
 	if (hasDirectUI && hasToolbar && hasEdit) {
 		return "GENERAL"
 	} else if (hasSysListView && hasToolbar && hasEdit) {
 		return "SYSLISTVIEW"
 	}
-
 	return false
 }
 
 FeedDialog(winID, folderPath, dialogType) {
 	switch dialogType {
 	case "GENERAL":
+		; MsgBox("1")
 		FeedDialogGeneral(winID, folderPath)
 	case "SYSLISTVIEW":
+		; MsgBox("2")
 		FeedDialogSysListView(winID, folderPath)
 	}
 }
 
 FeedDialogGeneral(winID, folderPath) {
 	WinActivate("ahk_id " . winID)
-	Sleep(100)
-
+	Sleep(200)
 	; Method 1: Try using Ctrl+L to access address bar
 	try {
 		; Save current clipboard
 		oldClipboard := A_Clipboard
 		A_Clipboard := folderPath
-		ClipWait(1)  ; Wait for clipboard to be ready
+		ClipWait(1,0)  ; Wait for clipboard to be ready
 
 		SendInput("^l")
-		Sleep(200)
+		Sleep(300)
 		SendInput("^v")  ; Paste from clipboard instead of typing
 		Sleep(100)
 		SendInput("{Enter}")
-		Sleep(200)
+		Sleep(500)
 
 		; Restore original clipboard
 		A_Clipboard := oldClipboard
 
 		; Focus back to filename field
 		try ControlFocus("Edit1", "ahk_id " . winID)
+
 		return
 	}
 
@@ -219,6 +247,8 @@ FeedDialogGeneral(winID, folderPath) {
 		if (originalText != "" && !InStr(originalText, "\")) {
 			ControlSetText(originalText, "Edit1", "ahk_id " . winID)
 		}
+		Sleep(200)
+
 	}
 }
 
@@ -254,6 +284,7 @@ FeedDialogSysListView(winID, folderPath) {
 			ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
 		}
 	}
+	Send("{Enter}")
 }
 
 ; ============================================================================
@@ -295,16 +326,12 @@ ShowMenu() {
 	contextMenu.Color := g_Config.MenuColor
 
 	; Debug: Show configuration and menu items
-	ToolTip("EnableQuickAccess: " . g_Config.EnableQuickAccess . ", MenuItems: " . g_MenuItems.Length, 0, 0)
-	SetTimer(() => ToolTip(, 0, 0), -2000)
+	;ToolTip("EnableQuickAccess: " . g_Config.EnableQuickAccess . ", MenuItems: " . g_MenuItems.Length, 0, 0)
+	;SetTimer(() => ToolTip(, 0, 0), -2000)
 
 	; Setup quick access hotkeys if enabled
 	if g_Config.EnableQuickAccess = "1" && g_MenuItems.Length > 0 {
 		SetupQuickAccessHotkeys()
-
-		; Use a timer to clean up hotkeys after a delay
-		; This ensures hotkeys work while menu is visible
-		SetTimer(CleanupQuickAccessHotkeys, -3000)  ; Clean up after 3 seconds
 	}
 
 	; Show menu
@@ -495,7 +522,7 @@ AddMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex :=
 	displayText := folderPath
 	if g_Config.EnableQuickAccess = "1" && g_MenuItems.Length <= StrLen(g_Config.QuickAccessKeys) {
 		shortcutKey := SubStr(g_Config.QuickAccessKeys, g_MenuItems.Length, 1)
-		displayText := "[" . shortcutKey . "] " . folderPath
+		displayText := "["  "&" . shortcutKey . "] " . folderPath
 	}
 
 	; Add menu item
@@ -516,30 +543,15 @@ SetupQuickAccessHotkeys() {
 		key := SubStr(g_Config.QuickAccessKeys, A_Index, 1)
 		try {
 			; Use Ctrl+key to avoid conflicts and menu issues
-			hotkeyCombo := "^" . key  ; ^ means Ctrl
-			Hotkey(hotkeyCombo, QuickAccessHandler.Bind(A_Index), "On")
+			; hotkeyCombo := "^" . key  ; ^ means Ctrl
+			; Hotkey(hotkeyCombo, QuickAccessHandler.Bind(A_Index), "On")
 			; Debug: Show which hotkeys are being set up
-			ToolTip("Setting up hotkey: " . key . " for index " . A_Index, 0, 20 * A_Index)
+			; ToolTip("Setting up hotkey: " . key . " for index " . A_Index, 0, 20 * A_Index)
 			SetTimer(() => ToolTip(, 0, 20 * A_Index), -500)  ; Clear after 0.5 seconds
 		} catch as e {
 			; Debug: Show if hotkey setup failed
-			ToolTip("Failed to set hotkey: " . key . " - " . e.message, 0, 20 * A_Index)
+			; ToolTip("Failed to set hotkey: " . key . " - " . e.message, 0, 20 * A_Index)
 			SetTimer(() => ToolTip(, 0, 20 * A_Index), -1000)
-		}
-	}
-}
-
-CleanupQuickAccessHotkeys() {
-	; Clean up hotkeys
-	Loop g_MenuItems.Length {
-		if A_Index > StrLen(g_Config.QuickAccessKeys)
-			break
-
-		key := SubStr(g_Config.QuickAccessKeys, A_Index, 1)
-		try {
-			; Use the same Ctrl+key combination as in setup
-			hotkeyCombo := "^" . key  ; ^ means Ctrl
-			Hotkey(hotkeyCombo, "Off")
 		}
 	}
 }
@@ -560,7 +572,7 @@ QuickAccessHandler(index, *) {
 		folderPath := g_MenuItems[index]
 		if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
 			; Clean up hotkeys before feeding dialog
-			CleanupQuickAccessHotkeys()
+
 			FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
 		}
 	}
