@@ -122,6 +122,10 @@ class ToolTipManager {
     static _ShowBTT(text, x := "", y := "", whichToolTip := 1) {
         ; 获取主题相关的样式
         style := this._GetBTTStyle()
+        
+        ; BTT使用GDI+绘制，需要将制表符转换为空格以正确显示对齐
+        ; 将制表符替换为8个空格，确保key和comment之间有足够间隔
+        text := StrReplace(text, "`t", "        ")
 
         ; 处理空字符串参数，转换为unset以使用默认位置
         xParam := (x = "") ? unset : x

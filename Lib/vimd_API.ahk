@@ -324,10 +324,10 @@ KyFunc_AutoAligned(iText, iSplit := "`t", iStrLen := 90, iStrFront := "", iStrBe
 
         ThisLen := StrLen(RegExReplace(ItemLeft, "[^\x00-\xff]", "11"))   ;本条左侧的长度
         if (ThisLen > MaxLen) {      ;如果本条左侧大于最大长度，注意是最大长度，而不是LimitMax，则不参与对齐
-            Aligned .= ItemLeft "    " ItemRight "`r`n"
+            Aligned .= ItemLeft "        " ItemRight "`r`n"
             continue
         } else {
-            Aligned .= ItemLeft . SubStr(StrSpace, 1, MaxLen + 4 - ThisLen) ItemRight "`r`n"        ;该处给右侧 分隔符 后添加了一个空格，根据需求可删
+            Aligned .= ItemLeft . SubStr(StrSpace, 1, MaxLen + 8 - ThisLen) ItemRight "`r`n"        ;该处给右侧 分隔符 后添加了一个空格，根据需求可删
         }
     }
     Aligned := RegExReplace(Aligned, "\s*$", "")   ;顺便删除最后的空白行，可根据需求注释掉
