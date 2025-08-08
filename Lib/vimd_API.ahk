@@ -14,31 +14,155 @@ ModeChange(modeName) {
     ; 设置模式
     vim.mode(modeName, vim.LastFoundWin)
 
+    ; 检查当前窗口是否启用了显示提示
+    winObj := vim.GetWin(vim.LastFoundWin)
+    if (!winObj.Info) {
+        return  ; 如果没有启用显示提示，直接返回
+    }
+
     ; 使用ToolTipManager显示模式切换提示
     ToolTipManager.Init()
 
     ; 构建提示文本
     modeText := "当前模式: " modeName
 
-    ; 获取屏幕中心位置来显示提示
-    MonitorGetWorkArea(1, &left, &top, &right, &bottom)
-    centerX := Integer((right - left) / 2)
-    centerY := Integer((bottom - top) / 2)
-
-    ; 显示模式切换提示
-    ToolTipManager.Show(modeText, centerX - 90, centerY - 20, 2)
-
-    ; 设置定时器自动隐藏提示
-    static modeChangeTimer := 0
-
-    ; 清除之前的定时器
-    if (modeChangeTimer != 0) {
-        SetTimer(modeChangeTimer, 0)
+    ; 获取最佳显示位置
+    pos := GetOptimalTooltipPosition()
+    
+    ; 调试信息（如果启用了调试模式）
+    try {
+        if (INIObject.config.enable_debug) {
+            MouseGetPos(&mouseX, &mouseY)
+            monitorIndex := GetMonitorFromPoint(mouseX, mouseY)
+            debugInfo := "鼠标位置: " mouseX "," mouseY "`n"
+            debugInfo .= "检测到显示器: " monitorIndex "`n"
+            debugInfo .= "提示位置: " pos.x "," pos.y
+            MsgBox(debugInfo, "模式切换调试", "OK T2")
+        }
     }
+    
+    ; 显示模式切换提示，1秒后自动隐藏
+    ToolTipManager.ShowWithTimeout(modeText, pos.x, pos.y, 2, 300)
+}
 
-    ; 创建新的定时器来隐藏提示
-    modeChangeTimer := () => ToolTipManager.Hide(2)
-    SetTimer(modeChangeTimer, -300)  ; 1.5秒后自动隐藏
+/* GetOptimalTooltipPosition【获取最佳提示显示位置】
+    函数:  GetOptimalTooltipPosition
+    作用:  获取最佳的提示显示位置，支持多屏幕
+    参数:  无
+    返回:  {x: 坐标x, y: 坐标y}
+    作者:  BoBO
+    版本:  1.0
+    AHK版本: 2.0.18
+*/
+GetOptimalTooltipPosition() {
+    ; 优先级：活动窗口 > 鼠标位置 > 主屏幕
+    
+    ; 方法1: 尝试获取活动窗口所在的显示器
+    try {
+        activeHwnd := WinGetID("A")
+        if (activeHwnd) {
+            WinGetPos(&winX, &winY, &winW, &winH, "ahk_id " activeHwnd)
+            winCenterX := winX + winW // 2
+            winCenterY := winY + winH // 2
+            
+            ; 检查窗口中心点在哪个显示器
+            monitorIndex := GetMonitorFromPoint(winCenterX, winCenterY)
+            if (monitorIndex > 0) {
+                return GetMonitorCenter(monitorIndex)
+            }
+        }
+    }
+    
+    ; 方法2: 使用鼠标位置
+    MouseGetPos(&mouseX, &mouseY)
+    monitorIndex := GetMonitorFromPoint(mouseX, mouseY)
+    if (monitorIndex > 0) {
+        return GetMonitorCenter(monitorIndex)
+    }
+    
+    ; 方法3: 使用主显示器
+    return GetMonitorCenter(1)
+}
+
+/* GetMonitorFromPoint【根据坐标获取显示器索引】
+    函数:  GetMonitorFromPoint
+    作用:  根据坐标点获取对应的显示器索引
+    参数:  x, y - 坐标点
+    返回:  显示器索引，0表示未找到
+    作者:  BoBO
+    版本:  1.0
+    AHK版本: 2.0.18
+*/
+GetMonitorFromPoint(x, y) {
+    try {
+        monitorCount := MonitorGet()
+        if (monitorCount <= 0) {
+            return 1  ; 如果无法获取显示器信息，返回主显示器
+        }
+        
+        ; 遍历所有显示器，找到包含该点的显示器
+        loop monitorCount {
+            ; 使用 MonitorGet 获取显示器的完整区域（不是工作区域）
+            MonitorGet(A_Index, &left, &top, &right, &bottom)
+            if (x >= left && x < right && y >= top && y < bottom) {
+                return A_Index
+            }
+        }
+        
+        ; 如果没有找到精确匹配，找最近的显示器
+        minDistance := 999999
+        closestMonitor := 1
+        
+        loop monitorCount {
+            MonitorGet(A_Index, &left, &top, &right, &bottom)
+            centerX := (left + right) // 2
+            centerY := (top + bottom) // 2
+            distance := Sqrt((x - centerX)**2 + (y - centerY)**2)
+            
+            if (distance < minDistance) {
+                minDistance := distance
+                closestMonitor := A_Index
+            }
+        }
+        
+        return closestMonitor
+    } catch {
+        ; 如果出现任何错误，返回主显示器
+        return 1
+    }
+}
+
+/* GetMonitorCenter【获取显示器中心位置】
+    函数:  GetMonitorCenter
+    作用:  获取指定显示器的中心位置
+    参数:  monitorIndex - 显示器索引
+    返回:  {x: 中心x坐标, y: 中心y坐标}
+    作者:  BoBO
+    版本:  1.0
+    AHK版本: 2.0.18
+*/
+GetMonitorCenter(monitorIndex) {
+    try {
+        ; 确保显示器索引有效
+        monitorCount := MonitorGet()
+        if (monitorIndex < 1 || monitorIndex > monitorCount) {
+            monitorIndex := 1  ; 使用主显示器
+        }
+        
+        ; 使用工作区域，避免任务栏等区域
+        MonitorGetWorkArea(monitorIndex, &left, &top, &right, &bottom)
+        
+        centerX := (left + right) // 2
+        centerY := (top + bottom) // 2
+        
+        ; 稍微向上偏移，避免正中心可能被其他窗口遮挡
+        centerY := centerY - 50
+        
+        return {x: centerX - 90, y: centerY}  ; -90 是为了让文本居中
+    } catch {
+        ; 如果出现错误，返回屏幕中心的默认位置
+        return {x: A_ScreenWidth // 2 - 90, y: A_ScreenHeight // 2 - 50}
+    }
 }
 
 /* SendKeyInput【按键输出】

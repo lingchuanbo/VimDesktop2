@@ -122,7 +122,36 @@ class ToolTipManager {
     static _ShowBTT(text, x := "", y := "", whichToolTip := 1) {
         ; 获取主题相关的样式
         style := this._GetBTTStyle()
-        btt(text, x, y, whichToolTip, style)
+
+        ; 处理空字符串参数，转换为unset以使用默认位置
+        xParam := (x = "") ? unset : x
+        yParam := (y = "") ? unset : y
+
+        if (x = "" && y = "") {
+            btt(text, , , whichToolTip, style)
+        } else if (x = "") {
+            btt(text, , yParam, whichToolTip, style)
+        } else if (y = "") {
+            btt(text, xParam, , whichToolTip, style)
+        } else {
+            btt(text, xParam, yParam, whichToolTip, style)
+        }
+    }
+
+    ; 使用BTT显示带超时的ToolTip
+    static _ShowBTTWithTimeout(text, x := "", y := "", whichToolTip := 1, timeout := 300) {
+        ; 获取主题相关的样式
+        style := this._GetBTTStyle()
+
+        ; 使用 bttAutoHide 函数，但需要适配多实例
+        if (whichToolTip = 1) {
+            ; 对于实例1，可以直接使用 bttAutoHide
+            return bttAutoHide(text, timeout, x, y, style)
+        } else {
+            ; 对于其他实例，使用原来的方法
+            this._ShowBTT(text, x, y, whichToolTip)
+            SetTimer(() => btt("", , , whichToolTip), -timeout)
+        }
     }
 
     ; 获取BTT样式
@@ -240,6 +269,24 @@ class ToolTipManager {
         }
 
         this.isInitialized := false
+    }
+
+    ; 显示带超时的ToolTip
+    static ShowWithTimeout(text, x := "", y := "", whichToolTip := 1, timeout := 1000) {
+        if (!this.isInitialized) {
+            this.Init()
+        }
+
+        switch this.currentLibrary {
+            case "ToolTipOptions":
+                ; 先显示提示
+                this.Show(text, x, y, whichToolTip)
+                ; 使用定时器自动隐藏
+                SetTimer(() => this.Hide(whichToolTip), -timeout)
+            case "BTT":
+                ; 使用BTT的内置自动隐藏功能
+                this._ShowBTTWithTimeout(text, x, y, whichToolTip, timeout)
+        }
     }
 
     ; 切换库

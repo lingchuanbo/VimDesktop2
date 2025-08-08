@@ -66,15 +66,60 @@ class UltraTooltip {
             ; 获取系统字体名称
             UltraTooltip.fontName := this._GetSystemFont()
 
-            ; 简化的显示器信息
-            UltraTooltip.monitors := {
-                primary: {
+            ; 初始化多显示器信息
+            UltraTooltip.monitors := UltraTooltip._InitMonitors()
+        }
+    }
+
+    ; 初始化多显示器信息
+    static _InitMonitors() {
+        monitors := {}
+        
+        try {
+            monitorCount := MonitorGet()
+            
+            ; 初始化所有显示器信息
+            if (monitorCount > 0) {
+                loop monitorCount {
+                    MonitorGet(A_Index, &left, &top, &right, &bottom)
+                    monitors["monitor" . A_Index] := {
+                        left: left, top: top,
+                        right: right, bottom: bottom,
+                        dpi: A_ScreenDPI / 96  ; 简化处理，使用主显示器DPI
+                    }
+                }
+                
+                ; 设置主显示器（兼容性）
+                if (monitors.HasOwnProp("monitor1")) {
+                    monitors.primary := monitors.monitor1
+                } else {
+                    ; 如果 monitor1 不存在，使用第一个可用的显示器
+                    for key, monitor in monitors.OwnProps() {
+                        monitors.primary := monitor
+                        break
+                    }
+                }
+            }
+            
+            ; 如果没有成功获取任何显示器信息，使用默认值
+            if (!monitors.HasOwnProp("primary")) {
+                monitors.primary := {
                     left: 0, top: 0,
                     right: A_ScreenWidth, bottom: A_ScreenHeight,
                     dpi: A_ScreenDPI / 96
                 }
             }
+            
+        } catch {
+            ; 如果出现错误，使用默认的主显示器信息
+            monitors.primary := {
+                left: 0, top: 0,
+                right: A_ScreenWidth, bottom: A_ScreenHeight,
+                dpi: A_ScreenDPI / 96
+            }
         }
+        
+        return monitors
     }
 
     ; 获取系统字体
@@ -94,7 +139,7 @@ class UltraTooltip {
     Show(Text := "", X := "", Y := "", Style := "", Options := "") {
         if (Text = "") {
             this._Hide()
-            return
+            return { Hwnd: 0, X: 0, Y: 0, W: 0, H: 0 }  ; 返回一个表示隐藏状态的对象
         }
 
         ; 快速变化检测
@@ -138,24 +183,38 @@ class UltraTooltip {
 
     ; 隐藏提示并释放资源
     _Hide() {
-        if (this.gui) {
-            ; this.gui.Hide()
-            this.gui.Destroy()
+        try {
+            if (this.gui && this.hwnd) {
+                ; 先隐藏窗口，然后销毁
+                this.gui.Hide()
+                this.gui.Destroy()
+                this.gui := ""
+                this.hwnd := 0
+            }
+        } catch {
+            ; 如果销毁失败，至少清空引用
             this.gui := ""
             this.hwnd := 0
         }
         
         ; 释放GDI+资源以节省内存
-        if (this.graphics) {
-            Gdip_DeleteGraphics(this.graphics)
+        try {
+            if (this.graphics) {
+                Gdip_DeleteGraphics(this.graphics)
+                this.graphics := 0
+            }
+            if (this.hbm) {
+                DeleteObject(this.hbm)
+                this.hbm := 0
+            }
+            if (this.hdc) {
+                DeleteDC(this.hdc)
+                this.hdc := 0
+            }
+        } catch {
+            ; 如果释放资源失败，至少清空引用
             this.graphics := 0
-        }
-        if (this.hbm) {
-            DeleteObject(this.hbm)
             this.hbm := 0
-        }
-        if (this.hdc) {
-            DeleteDC(this.hdc)
             this.hdc := 0
         }
         
@@ -166,7 +225,11 @@ class UltraTooltip {
         this.currentSize := { w: 0, h: 0 }
 
         ; 强制垃圾回收
-        DllCall("kernel32.dll\SetProcessWorkingSetSize", "ptr", -1, "uptr", -1, "uptr", -1)
+        try {
+            DllCall("kernel32.dll\SetProcessWorkingSetSize", "ptr", -1, "uptr", -1, "uptr", -1)
+        } catch {
+            ; 忽略垃圾回收错误
+        }
     }
 
     ; 确保资源可用
@@ -324,8 +387,11 @@ class UltraTooltip {
             if (Y = "")
                 Y := mouseY + 16
         }
+        
+        ; 找到包含目标位置的显示器
+        mon := this._GetMonitorForPosition(X, Y)
+        
         ; 边界检查
-        mon := UltraTooltip.monitors.primary
         if (X + W > mon.right)
             X := mon.right - W
         if (Y + H > mon.bottom)
@@ -348,6 +414,31 @@ class UltraTooltip {
         DllCall("SetWindowPos", "ptr", this.hwnd, "ptr", -1, "int", 0, "int", 0, "int", 0, "int", 0, "uint", 19)
     }
 
+    ; 获取包含指定位置的显示器信息
+    _GetMonitorForPosition(x, y) {
+        try {
+            ; 直接使用 MonitorGet 来实时检测，更准确
+            monitorCount := MonitorGet()
+            
+            ; 遍历所有显示器，找到包含该点的显示器
+            loop monitorCount {
+                MonitorGet(A_Index, &left, &top, &right, &bottom)
+                if (x >= left && x < right && y >= top && y < bottom) {
+                    return {
+                        left: left, top: top,
+                        right: right, bottom: bottom,
+                        dpi: A_ScreenDPI / 96
+                    }
+                }
+            }
+        } catch {
+            ; 如果检测出错，直接返回主显示器
+        }
+        
+        ; 如果没有找到，返回主显示器
+        return UltraTooltip.monitors.primary
+    }
+
     ; 重新定位
     _Reposition(X, Y) {
         if (!this.gui)
@@ -357,6 +448,35 @@ class UltraTooltip {
         this._Display(pos.x, pos.y, this.currentSize.w, this.currentSize.h, 255)
 
         return { Hwnd: this.hwnd, X: pos.x, Y: pos.y, W: this.currentSize.w, H: this.currentSize.h }
+    }
+
+    ; 调试方法：显示显示器信息
+    static DebugMonitors() {
+        info := "BTT 显示器信息:`n`n"
+        
+        try {
+            monitorCount := MonitorGet()
+            info .= "检测到 " monitorCount " 个显示器:`n"
+            
+            loop monitorCount {
+                MonitorGet(A_Index, &left, &top, &right, &bottom)
+                info .= "显示器 " A_Index ": " left "," top " - " right "," bottom "`n"
+            }
+            
+            info .= "`n初始化的显示器信息:`n"
+            if (UltraTooltip.monitors) {
+                for key, monitor in UltraTooltip.monitors.OwnProps() {
+                    info .= key ": " monitor.left "," monitor.top " - " monitor.right "," monitor.bottom "`n"
+                }
+            } else {
+                info .= "显示器信息未初始化`n"
+            }
+            
+        } catch Error as e {
+            info .= "获取显示器信息时出错: " e.Message
+        }
+        
+        return info
     }
 
     ; 解析样式
@@ -649,7 +769,7 @@ UpdateLayeredWindow(hwnd, hdc, x := "", y := "", w := "", h := "", Alpha := 255)
 ;===================================================================================
 
 ; 自动消失提示
-bttAutoHide(Text, Timeout := 3000, X := "", Y := "", Style := "") {
+bttAutoHide(Text, Timeout := 1000, X := "", Y := "", Style := "") {
     result := btt(Text, X, Y, 1, Style)
     SetTimer(() => btt(""), -Timeout)
     return result

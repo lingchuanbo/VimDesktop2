@@ -995,7 +995,7 @@ class __vim {
         函数: SetWin
         作用: 设置win对象信息
         参数: winName：窗体名称
-                class：窗体class
+                class：窗体class（支持用|分隔多个class）
                 filepath：窗体进程名
                 title：窗体标题
         返回: win对象信息
@@ -1008,7 +1008,32 @@ class __vim {
             rw := this.WinList[winName]
         else
             rw := this.WinList[winName] := __win(class, filepath, title)
-        this.WinInfo["class`t" class] := winName
+        
+        ; 从配置文件读取窗口特定的设置
+        try {
+            if (INIObject.HasSection(winName)) {
+                ; 读取 enable_show_info 设置
+                if (INIObject.HasKey(winName, "enable_show_info")) {
+                    rw.Info := INIObject[winName].enable_show_info
+                }
+                ; 读取其他窗口特定设置...
+            }
+        } catch {
+            ; 如果读取配置失败，使用默认值
+        }
+        
+        ; 支持多个class，用|分隔
+        if (InStr(class, "|")) {
+            classes := StrSplit(class, "|")
+            for _, singleClass in classes {
+                singleClass := Trim(singleClass)
+                if (singleClass != "")
+                    this.WinInfo["class`t" singleClass] := winName
+            }
+        } else {
+            this.WinInfo["class`t" class] := winName
+        }
+        
         this.WinInfo["filepath`t" filepath] := winName
         this.WinInfo["title`t" title] := winName
         return rw
@@ -1028,6 +1053,37 @@ class __vim {
             return this.WinList[winName]
         else
             return this.WinList["global"]
+    }
+
+    /* SetWinGroup【设置窗口组】
+        函数: SetWinGroup
+        作用: 为一个插件设置多个窗口类，支持不同版本的同一软件
+        参数: winName：窗体名称
+                classArray：窗体class数组
+                filepath：窗体进程名
+                title：窗体标题
+        返回: win对象信息
+        作者: Kiro
+        版本: 1.0
+        AHK版本: 2.0.18
+        示例: vim.SetWinGroup("AfterEffects", ["AE_CApplication_24.6", "AE_CApplication_24.7", "AE_CApplication_24.8"], "AfterFX.exe")
+    */
+    SetWinGroup(winName, classArray, filepath := "", title := "") {
+        if this.WinList.Has(winName)
+            rw := this.WinList[winName]
+        else
+            rw := this.WinList[winName] := __win("", filepath, title)
+        
+        ; 为每个class创建映射
+        for _, singleClass in classArray {
+            singleClass := Trim(singleClass)
+            if (singleClass != "")
+                this.WinInfo["class`t" singleClass] := winName
+        }
+        
+        this.WinInfo["filepath`t" filepath] := winName
+        this.WinInfo["title`t" title] := winName
+        return rw
     }
 
     /* CheckWin【检查并返回当前窗体名称】
@@ -2655,26 +2711,30 @@ class __vimDebug {
     __new(key) {
         this.mode := key
         if key {
-            global vimDebug := Gui()
-            try
-                vimDebug.Destroy
-            ; global vimDebug := Gui("+AlwaysOnTop -Caption +ToolWindow +Border", "_vimDebug") ;+Resize +MaximizeBox -Caption +E0x00000080 不显示任务栏
-            global vimDebug := Gui("+AlwaysOnTop", "_vimDebug") ;+Resize +MaximizeBox -Caption +E0x00000080 不显示任务栏
+            try {
+                if (IsObject(vimDebug) && vimDebug.Hwnd)
+                    vimDebug.Destroy()
+            } catch {
+                ; 忽略销毁错误
+            }
+            
+            global vimDebug := Gui("+AlwaysOnTop", "_vimDebug")
             vimDebug.SetFont("c000000 s10", "Verdana")
-            ; vimDebug.BackColor := 0x454545
             vimDebug.OnEvent("Escape", (*) => vimDebug.Destroy())
             vimDebug.OnEvent("Close", (*) => vimDebug.Destroy())
             vimDebug.Add("Edit", "x-2 y-2 w400 h60 readonly vEdit1")
             vimDebug.Show("w378 h56 y600")
         }
         else {
-            global vimDebug := Gui()
-            try
-                vimDebug.Destroy
-            ; global vimDebug := Gui("+AlwaysOnTop -Caption +ToolWindow +Border", "_vimDebug") ;+Resize +MaximizeBox -Caption +E0x00000080 不显示任务栏
-            global vimDebug := Gui("+AlwaysOnTop", "_vimDebug") ;+Resize +MaximizeBox -Caption +E0x00000080 不显示任务栏
+            try {
+                if (IsObject(vimDebug) && vimDebug.Hwnd)
+                    vimDebug.Destroy()
+            } catch {
+                ; 忽略销毁错误
+            }
+            
+            global vimDebug := Gui("+AlwaysOnTop", "_vimDebug")
             vimDebug.SetFont("c000000 s10", "Verdana")
-            ; vimDebug.BackColor := 0x454545
             vimDebug.OnEvent("Escape", (*) => vimDebug.Destroy())
             vimDebug.OnEvent("Close", (*) => vimDebug.Destroy())
             vimDebug.Add("Edit", "x10 y10 w400 h300 readonly vEdit1")
@@ -2706,14 +2766,22 @@ class __vimDebug {
         AHK版本: 2.0.18
     */
     Set(v) {
-        winName := this.vim.CheckWin()
-        winObj := this.vim.GetWin(winName)
-        if winObj.Count
-            k := " 热键缓存:" winObj.Count winObj.KeyTemp
-        else
-            k := " 热键缓存:" winObj.KeyTemp
-        vimDebug["Edit1"].Value := v
-        vimDebug["Edit2"].Value := k
+        try {
+            winName := this.vim.CheckWin()
+            winObj := this.vim.GetWin(winName)
+            if winObj.Count
+                k := " 热键缓存:" winObj.Count winObj.KeyTemp
+            else
+                k := " 热键缓存:" winObj.KeyTemp
+            
+            ; 检查 GUI 是否存在且有效
+            if (IsObject(vimDebug) && vimDebug.Hwnd) {
+                vimDebug["Edit1"].Value := v
+                vimDebug["Edit2"].Value := k
+            }
+        } catch {
+            ; 如果出现错误，忽略（调试窗口可能已关闭）
+        }
     }
 
     /* Get【获取值】
@@ -2726,7 +2794,15 @@ class __vimDebug {
         AHK版本: 2.0.18
     */
     Get() {
-        return vimDebug["Edit1"].Value
+        try {
+            ; 检查 GUI 是否存在且有效
+            if (IsObject(vimDebug) && vimDebug.Hwnd) {
+                return vimDebug["Edit1"].Value
+            }
+        } catch {
+            ; 如果出现错误，返回空字符串
+        }
+        return ""
     }
 
     /* Add【添加值】

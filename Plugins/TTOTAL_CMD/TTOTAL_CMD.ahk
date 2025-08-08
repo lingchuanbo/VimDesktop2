@@ -9,9 +9,25 @@ Comment=Total Commander
 */
 
 global TC_Global := object()
-TC_Global.TcPath := INIObject.TTOTAL_CMD.HasOwnProp("tc_path") ? INIObject.TTOTAL_CMD.tc_path :
-    "D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
-TC_Global.TcINI := "D:\BoBO\WorkFlow\tools\TotalCMD\WinCMD.ini"
+
+; 从插件配置文件读取TC路径信息
+TC_GetConfig() {
+    ; 优先从插件独立配置文件读取
+    if (PluginConfigs.HasOwnProp("TTOTAL_CMD") && PluginConfigs.TTOTAL_CMD.HasOwnProp("TTOTAL_CMD")) {
+        return PluginConfigs.TTOTAL_CMD.TTOTAL_CMD
+    }
+    ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
+    else if (INIObject.HasOwnProp("TTOTAL_CMD")) {
+        return INIObject.TTOTAL_CMD
+    }
+    ; 如果都没有，返回空对象
+    return {}
+}
+
+tcConfig := TC_GetConfig()
+TC_Global.TcPath := tcConfig.HasOwnProp("tc_path") ? tcConfig.tc_path : "D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
+TC_Global.TcINI := tcConfig.HasOwnProp("tc_ini_path") ? tcConfig.tc_ini_path : "D:\BoBO\WorkFlow\tools\TotalCMD\WinCMD.ini"
+TC_Global.TcDir := tcConfig.HasOwnProp("tc_dir_path") ? tcConfig.tc_dir_path : "D:\BoBO\WorkFlow\tools\TotalCMD"
 TC_Global.TcExe := "TOTALCMD.EXE"
 TC_Global.LastView := ""  ;最后视图
 
@@ -1361,14 +1377,27 @@ TC_OtherPanel_GotoNextDir() {
 */
 
 Run_TotalCommander(*) {
-    ; 从配置文件获取Everything路径
+    ; 从插件配置文件获取TC路径
     tcPath := ""
     try {
-        tcPath := INIObject.TTOTAL_CMD.tc_path
+        ; 优先从插件独立配置文件读取
+        if (PluginConfigs.HasOwnProp("TTOTAL_CMD") && PluginConfigs.TTOTAL_CMD.HasOwnProp("TTOTAL_CMD")) {
+            tcPath := PluginConfigs.TTOTAL_CMD.TTOTAL_CMD.tc_path
+        }
+        ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
+        else if (INIObject.HasOwnProp("TTOTAL_CMD")) {
+            tcPath := INIObject.TTOTAL_CMD.tc_path
+        }
     } catch {
-        ; 如果配置文件中没有路径，尝试默认路径
+        ; 配置读取失败，使用默认路径
+    }
+    
+    ; 如果配置中没有路径，尝试默认路径
+    if (!tcPath) {
         defaultPaths := [
             "C:\Program Files\TotalCMD\TOTALCMD.EXE",
+            "D:\WorkFlow\tools\TotalCMD\TOTALCMD.EXE",
+            "D:\BoBO\WorkFlow\tools\TotalCMD\TOTALCMD.EXE"
         ]
 
         for path in defaultPaths {
@@ -1378,13 +1407,13 @@ Run_TotalCommander(*) {
             }
         }
     }
-    ; 如果找到了Everything路径，运行它
+    
+    ; 如果找到了TC路径，运行它
     if (tcPath && FileExist(tcPath)) {
         LaunchOrShow(tcPath, "TTOTAL_CMD")
     } else {
-        MsgBox("未找到Total Commander程序，请在vimd.ini中设置正确的路径。", "错误", "Icon!")
+        MsgBox("未找到Total Commander程序，请检查插件配置文件或在主配置文件中设置正确的路径。", "错误", "Icon!")
     }
-
 }
 
 /* TC_ToggleMenu【显示/隐藏_菜单栏】

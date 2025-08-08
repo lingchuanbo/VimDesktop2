@@ -19,38 +19,23 @@ Everything() {
     KeyArray.push({ Key: "<capslock>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
 
     ; 搜索功能
-    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
-        Comment: "单击/双击/长按" })
-    KeyArray.push({ Key: "2", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
-        Comment: "单击/双击" })
-    KeyArray.push({ Key: "<c-1>", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
-        Comment: "单击" })
+    ; KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
+    ;     Comment: "单击/双击/长按" })
+    ; KeyArray.push({ Key: "2", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
+    ;     Comment: "单击/双击" })
+    ; KeyArray.push({ Key: "<c-1>", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
+    ;     Comment: "单击" })
+    KeyArray.push({ Key: "/d", Mode: "VIM模式", Group: "网站", Func: "run", Param: "http://www.deepseek.com",
+    Comment: "打开deepseek" })
+    KeyArray.push({ Key: "/g", Mode: "VIM模式", Group: "网站", Func: "run", Param: "http://www.google.com",
+    Comment: "打开google" })
 
-    KeyArray.push({ Key: "4", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
-        Comment: "单击/双击/长按" })
-    KeyArray.push({ Key: "5", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
-        Comment: "单击/双击" })
-    KeyArray.push({ Key: "6", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "3",
-        Comment: "单击" })
 
     ; 帮助
     KeyArray.push({ Key: ":?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
         Comment: "显示所有按键(GUI)" })
-    KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-    KeyArray.push({ Key: ":h", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
-        Comment: "显示所有按键(Markdown)" })
-
-    KeyArray.push({ Key: "i", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
-        Comment: "显示所有按键(GUI)" })
-    KeyArray.push({ Key: "o", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-    KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "A组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
-        Comment: "显示所有按键(Markdown)" })
-
-    KeyArray.push({ Key: "a", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
-        Comment: "显示所有按键(GUI)" })
-    KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelp", Param: "Everything|VIM模式", Comment: "显示所有按键(文本)" })
-    KeyArray.push({ Key: "c", Mode: "VIM模式", Group: "B组", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
-        Comment: "显示所有按键(Markdown)" })
+    KeyArray.push({ Key: "i", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
+        Comment: "显示按键(Markdown)" })
 
     ; 注册窗体
     vim.SetWin("Everything", "EVERYTHING", "Everything.exe")
@@ -72,15 +57,27 @@ Everything_Before() {
 
 ; 运行Everything
 Run_Everything(*) {
-    ; 从配置文件获取Everything路径
+    ; 从插件配置文件获取Everything路径
     everythingPath := ""
     try {
-        everythingPath := INIObject.Everything.everything_path
+        ; 优先从插件独立配置文件读取
+        if (PluginConfigs.HasOwnProp("Everything") && PluginConfigs.Everything.HasOwnProp("Everything")) {
+            everythingPath := PluginConfigs.Everything.Everything.everything_path
+        }
+        ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
+        else if (INIObject.HasOwnProp("Everything")) {
+            everythingPath := INIObject.Everything.everything_path
+        }
     } catch {
-        ; 如果配置文件中没有路径，尝试默认路径
+        ; 配置读取失败，使用默认路径
+    }
+    
+    ; 如果配置中没有路径，尝试默认路径
+    if (!everythingPath) {
         defaultPaths := [
             "C:\Program Files\Everything\Everything.exe",
-            "C:\Program Files (x86)\Everything\Everything.exe"
+            "C:\Program Files (x86)\Everything\Everything.exe",
+            "D:\WorkFlow\tools\TotalCMD\Tools\Everything\Everything.exe"
         ]
 
         for path in defaultPaths {
@@ -96,7 +93,7 @@ Run_Everything(*) {
         ; 使用修改后的 LaunchOrShow 函数，现在可以安全地省略第三个参数
         LaunchOrShow(everythingPath, "EVERYTHING")
     } else {
-        MsgBox("未找到Everything程序，请在vimd.ini中设置正确的路径。", "错误", "Icon!")
+        MsgBox("未找到Everything程序，请检查插件配置文件或在主配置文件中设置正确的路径。", "错误", "Icon!")
     }
 }
 

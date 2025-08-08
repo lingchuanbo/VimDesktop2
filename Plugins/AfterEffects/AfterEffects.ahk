@@ -40,7 +40,8 @@ AfterEffects() {
     ;如果 class 和 exe 同时填写，以 exe 为准
     ;vim.SetWin("PluginName", "ahk_class名")
     ;vim.SetWin("PluginName", "ahk_class名", "PluginName.exe")
-    vim.SetWin("AfterEffects", "", "AfterFX.exe")
+    ; vim.SetWin("AfterEffects", "", "AfterFX.exe")
+    vim.SetWin("AfterEffects", "AE_CApplication_24.6|AE_CApplication_24.7|AE_CApplication_24.8", "AfterFX.exe")
 
     ;设置超时
     vim.SetTimeOut(300, "AfterEffects")

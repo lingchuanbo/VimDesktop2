@@ -14,6 +14,7 @@ SendMode "Input"
 global VimDesktop_Global := Object()
 global Vim := Object()
 global INIObject := Object()
+global PluginConfigs := Object()
 global Lang := Object()
 
 VimDesktop_Global.ConfigPath := A_ScriptDir "\Custom\vimd.ini"
@@ -26,13 +27,64 @@ VimDesktop_Global.showToolTipStatus := 0
 VimDesktop_Global.Current_KeyMap := ""
 
 INIObject := EasyINI(VimDesktop_Global.ConfigPath)
+; 从配置文件读取 default_enable_show_info 设置
+VimDesktop_Global.default_enable_show_info := INIObject.config.default_enable_show_info
+VimDesktop_LoadPluginConfigs() ; 加载插件配置
 LangString := FileRead(A_ScriptDir "\lang\" INIObject.config.lang ".json", "UTF-8")
 Lang := JSON.parse(LangString)
 
 try
     TraySetIcon(".\Custom\vimd.ico")
 
+; 智能加载插件配置
+VimDesktop_LoadPluginConfigs() {
+    global PluginConfigs
+
+    pluginsDir := A_ScriptDir "\plugins"
+
+    ; 如果plugins目录不存在，直接返回
+    if (!DirExist(pluginsDir)) {
+        return
+    }
+
+    ; 遍历plugins目录下的所有子目录
+    loop files, pluginsDir "\*", "D" {
+        pluginName := A_LoopFileName
+        pluginDir := A_LoopFileFullPath
+
+        ; 查找同名的ini文件（支持多种命名方式）
+        possibleConfigFiles := [
+            pluginDir "\" pluginName ".ini",           ; 如：Everything\Everything.ini
+            pluginDir "\" StrLower(pluginName) ".ini", ; 如：Everything\everything.ini
+            pluginDir "\config.ini",                   ; 通用配置文件名
+            pluginDir "\plugin.ini"                    ; 通用插件配置文件名
+        ]
+
+        ; 尝试加载找到的第一个配置文件
+        for configPath in possibleConfigFiles {
+            if (FileExist(configPath)) {
+                try {
+                    PluginConfigs.%pluginName% := EasyIni(configPath)
+
+                    ; 调试信息：成功加载插件配置
+                    if (INIObject.config.enable_debug) {
+                        MsgBox("成功加载插件配置：" pluginName " - " configPath, "调试信息", "OK T2")
+                    }
+                    break ; 找到并加载成功后跳出循环
+                } catch Error as e {
+                    ; 如果加载失败，记录错误但继续尝试其他文件
+                    if (INIObject.config.enable_debug) {
+                        MsgBox("加载插件配置失败：" pluginName " - " configPath " - " e.Message, "调试信息", "OK Icon!")
+                    }
+                }
+            }
+        }
+    }
+}
+
 VimDesktop_TrayMenuCreate() ; 生成托盘菜单
+
+VimDesktop_AutoStartExtensions() ; 自动启动扩展功能
 
 VimDesktop_Run()
 
@@ -44,26 +96,38 @@ VimDesktop_TrayMenuCreate() {
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Setting"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
 
-    ; ; 添加主题子菜单
-    ; themeMenu := Menu()
-    ; themeMenu.Add("明亮模式 ⚪", VimDesktop_ThemeHandler)
-    ; themeMenu.Add("暗黑模式 ⚫", VimDesktop_ThemeHandler)
-    ; themeMenu.Add("跟随系统 🔄", VimDesktop_ThemeHandler)
+    ; 添加扩展功能子菜单
+    extensionsMenu := Menu()
+    extensionCount := 0
 
-    ; 根据当前设置选中对应的主题
-    ; try {
-    ;     currentTheme := INIObject.config.theme_mode
-    ;     if (currentTheme = "light")
-    ;         themeMenu.Check("明亮模式 ⚪")
-    ;     else if (currentTheme = "dark")
-    ;         themeMenu.Check("暗黑模式 ⚫")y
-    ;     else
-    ;         themeMenu.Check("跟随系统 🔄")
-    ; } catch {
-    ;     themeMenu.Check("跟随系统 🔄")
-    ; }
+    try {
+        ; 读取扩展功能配置
+        if (INIObject.HasOwnProp("extensions")) {
+            for key, value in INIObject.extensions.OwnProps() {
+                if (key != "__Class" && key != "EasyIni_KeyComment" && key != "EasyIni_SectionComment") {
+                    ; 解析配置值（脚本路径|自动启动标志）
+                    configParts := StrSplit(value, "|")
+                    scriptPath := configParts[1]
+                    autoStart := (configParts.Length > 1) ? configParts[2] : "0"
 
-    ; VimDesktop_TrayMenu.Add("主题", themeMenu)
+                    ; 添加菜单项，显示自动启动状态
+                    menuText := key . (autoStart = "1" ? " ●" : "")
+                    extensionsMenu.Add(menuText, VimDesktop_ExtensionHandler)
+                    extensionCount++
+                }
+            }
+        }
+    } catch Error as e {
+        ; 如果出错，添加错误提示
+        extensionsMenu.Add("配置读取错误", (*) => MsgBox("错误：" e.Message, "配置错误", "OK Icon!"))
+    }
+
+    ; 如果没有找到任何扩展功能，添加提示项
+    if (extensionCount == 0) {
+        extensionsMenu.Add("暂无扩展功能", (*) => MsgBox("请在配置文件的[extensions]节中添加扩展功能", "提示", "OK"))
+    }
+
+    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Extensions"], extensionsMenu)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["EditCustom"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Reload"], (*) => Reload())
@@ -71,6 +135,63 @@ VimDesktop_TrayMenuCreate() {
     VimDesktop_TrayMenu.ClickCount := 2
     VimDesktop_TrayMenu.default := Lang["TrayMenu"]["Default"]
     A_IconTip := "VimDesktop`n版本:vII_1.0(By_Kawvin)"
+}
+
+; 自动启动扩展功能
+VimDesktop_AutoStartExtensions() {
+    try {
+        if (INIObject.HasOwnProp("extensions")) {
+            autoStartCount := 0
+            for key, value in INIObject.extensions.OwnProps() {
+                if (key != "__Class" && key != "EasyIni_KeyComment" && key != "EasyIni_SectionComment") {
+                    ; 解析配置值（脚本路径|自动启动标志）
+                    configParts := StrSplit(value, "|")
+                    scriptPath := configParts[1]
+                    autoStart := (configParts.Length > 1) ? configParts[2] : "0"
+
+                    ; 如果设置为自动启动
+                    if (autoStart = "1") {
+                        fullScriptPath := A_ScriptDir scriptPath
+
+                        ; 检查文件是否存在
+                        if (FileExist(fullScriptPath)) {
+                            ; 根据文件扩展名选择执行方式
+                            if (InStr(scriptPath, ".exe")) {
+                                ; 直接运行exe文件
+                                Run(Format('"{1}"', fullScriptPath))
+                            } else {
+                                ; 使用AutoHotkey运行ahk文件
+                                ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
+                                Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath))
+                            }
+                            autoStartCount++
+                        }
+                    }
+                }
+            }
+
+            ; 如果有自动启动的扩展，显示提示（可选）
+            if (autoStartCount > 0 && VimDesktop_Global.default_enable_show_info) {
+                ; 使用延时显示，避免阻塞主程序启动
+                SetTimer(VimDesktop_ShowAutoStartInfo.Bind(autoStartCount), -1000) ; 1秒后显示
+            }
+        }
+    } catch Error as e {
+        ; 自动启动失败不影响主程序运行，只记录错误
+        if (INIObject.config.enable_debug) {
+            MsgBox("自动启动扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
+        }
+    }
+}
+
+; 显示自动启动信息
+VimDesktop_ShowAutoStartInfo(count) {
+    try {
+        ; 这里可以使用你的提示系统显示信息
+        ; MsgBox("已自动启动 " count " 个扩展功能", "提示", "OK T2")
+    } catch {
+        ; 忽略显示错误
+    }
 }
 
 #y:: Reload()
@@ -84,6 +205,43 @@ VimDesktop_TrayHandler(Item, *) {
         case Lang["TrayMenu"]["EditCustom"]:
             try
                 run Format("{1} .\Custom\Custom.ahk", VimDesktop_Global.Editor)
+    }
+}
+
+; 扩展功能处理函数
+VimDesktop_ExtensionHandler(ItemName, *) {
+    try {
+        ; 移除菜单项中的自动启动标识符（●）
+        cleanItemName := StrReplace(ItemName, " ●", "")
+
+        ; 从配置中获取对应的脚本路径
+        if (INIObject.HasOwnProp("extensions") && INIObject.extensions.HasOwnProp(cleanItemName)) {
+            configValue := INIObject.extensions.%cleanItemName%
+
+            ; 解析配置值（脚本路径|自动启动标志）
+            configParts := StrSplit(configValue, "|")
+            scriptPath := configParts[1]
+
+            ; 构建完整路径
+            fullScriptPath := A_ScriptDir scriptPath
+
+            ; 检查文件是否存在
+            if (FileExist(fullScriptPath)) {
+                ; 根据文件扩展名选择执行方式
+                if (InStr(scriptPath, ".exe")) {
+                    ; 直接运行exe文件
+                    Run(Format('"{1}"', fullScriptPath))
+                } else {
+                    ; 使用AutoHotkey运行ahk文件
+                    ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
+                    Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath))
+                }
+            } else {
+                MsgBox("文件不存在：" fullScriptPath, "错误", "OK Icon!")
+            }
+        }
+    } catch Error as e {
+        MsgBox("执行扩展功能时出错：" e.Message, "错误", "OK Icon!")
     }
 }
 
@@ -126,8 +284,8 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
 #Include .\core\Main.ahk
 #Include .\core\class_vim.ahk
 #Include .\core\VimDConfig.ahk
-#Include .\Lib\class_Json.ahk
-#Include .\lib\class_EasyINI.ahk
+#Include .\Lib\Class_JSON.Ahk
+#Include .\lib\class_EasyIni.ahk
 #Include .\lib\DynamicFileMenu.ahk
 #Include .\lib\MD_Gen.ahk
 #Include .\lib\SingleDoubleLongPress.ahk
