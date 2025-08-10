@@ -1,0 +1,1 @@
+EverythingWithOpen 配置在everything 打开方式 $exec(...\Plugins\Everything\EverythingWithOpen.ahk "%1")
