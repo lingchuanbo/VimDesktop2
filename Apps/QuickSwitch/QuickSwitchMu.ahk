@@ -1,17 +1,17 @@
 #Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetVersion 1.0
-;@Ahk2Exe-SetName QuickSwitch
+;@Ahk2Exe-SetName QuickSwitchMu
 ;@Ahk2Exe-SetDescription Use opened file manager folders in File dialogs.
 ;@Ahk2Exe-SetCopyright NotNull
 
 /*
-QuickSwitch V2 - Refactored Version
-By: NotNull
-Refactored for AHK V2 with configuration file support
+QuickSwitchV2_BoBO
+By: BoBO
+V1版本地址:
 */
 
 ; ============================================================================
-; INITIALIZATION
+; 初始化
 ; ============================================================================
 
 #Warn
@@ -19,7 +19,7 @@ SendMode("Input")
 SetWorkingDir(A_ScriptDir)
 #SingleInstance Force
 
-; Global variables
+; 全局变量
 global g_Config := {}
 global g_CurrentDialog := {
     WinID: "",
@@ -40,81 +40,163 @@ RegisterHotkey()
 MainLoop()
 
 ; ============================================================================
-; CONFIGURATION MANAGEMENT
+; 配置管理
 ; ============================================================================
 
 InitializeConfig() {
-    ; Get script name for config files
+    ; 获取脚本名称用于配置文件
     SplitPath(A_ScriptFullPath, , , , &name_no_ext)
     g_Config.IniFile := name_no_ext . ".ini"
     g_Config.TempFile := EnvGet("TEMP") . "\dopusinfo.xml"
 
-    ; Load configuration from INI file
+    ; 如果配置文件不存在，创建默认配置文件
+    if (!FileExist(g_Config.IniFile)) {
+        CreateDefaultIniFile()
+    }
+
+    ; 从INI文件加载配置
     LoadConfiguration()
 
-    ; Clean up temp file
+    ; 清理临时文件
     try FileDelete(g_Config.TempFile)
 }
 
+CreateDefaultIniFile() {
+    ; 创建默认的INI配置文件
+    ; 使用字符串连接的方式创建配置内容
+    try {
+        ; 写入各个配置段
+        IniWrite("^q", g_Config.IniFile, "Settings", "Hotkey")
+        
+        IniWrite("C0C59C", g_Config.IniFile, "Display", "MenuColor")
+        IniWrite("16", g_Config.IniFile, "Display", "IconSize")
+        IniWrite("100", g_Config.IniFile, "Display", "MenuPosX")
+        IniWrite("100", g_Config.IniFile, "Display", "MenuPosY")
+        
+        IniWrite("1", g_Config.IniFile, "QuickAccess", "EnableQuickAccess")
+        IniWrite("123456789abcdefghijklmnopqrstuvwxyz", g_Config.IniFile, "QuickAccess", "QuickAccessKeys")
+        
+        IniWrite("1", g_Config.IniFile, "FileManagers", "TotalCommander")
+        IniWrite("1", g_Config.IniFile, "FileManagers", "Explorer")
+        IniWrite("1", g_Config.IniFile, "FileManagers", "XYplorer")
+        IniWrite("1", g_Config.IniFile, "FileManagers", "DirectoryOpus")
+        
+        IniWrite("1", g_Config.IniFile, "CustomPaths", "EnableCustomPaths")
+        IniWrite("收藏路径", g_Config.IniFile, "CustomPaths", "MenuTitle")
+        IniWrite("桌面|%USERPROFILE%\Desktop", g_Config.IniFile, "CustomPaths", "Path1")
+        IniWrite("文档|%USERPROFILE%\Documents", g_Config.IniFile, "CustomPaths", "Path2")
+        IniWrite("下载|%USERPROFILE%\Downloads", g_Config.IniFile, "CustomPaths", "Path3")
+        IniWrite("图片|%USERPROFILE%\Pictures", g_Config.IniFile, "CustomPaths", "Path4")
+        IniWrite("项目文件夹|D:\Projects", g_Config.IniFile, "CustomPaths", "Path5")
+        IniWrite("C:\Windows\System32", g_Config.IniFile, "CustomPaths", "Path6")
+        
+        IniWrite("1", g_Config.IniFile, "RecentPaths", "EnableRecentPaths")
+        IniWrite("最近打开", g_Config.IniFile, "RecentPaths", "MenuTitle")
+        IniWrite("10", g_Config.IniFile, "RecentPaths", "MaxRecentPaths")
+        
+        IniWrite("1", g_Config.IniFile, "Dialogs", "blender.exe___Blender File View")
+        
+        ; 添加配置文件注释（通过在文件开头添加注释）
+        configComment := "; QuickSwitchMu 配置文件`n"
+        . "; 此文件包含 QuickSwitchMu 的所有设置选项`n"
+        . "; 主快捷键设置支持 AutoHotkey 的所有快捷键格式`n"
+        . "; 例如: ^q (Ctrl+Q), ^j (Ctrl+J), !q (Alt+Q), #q (Win+Q)`n"
+        . "; 文件管理器支持设置: 1=启用, 0=禁用`n"
+        . "; 自定义路径格式: 显示名|实际路径 或 直接路径`n"
+        . "; 支持环境变量如 %USERNAME%, %USERPROFILE% 等`n`n"
+        
+        ; 读取现有内容并在前面添加注释
+        existingContent := FileRead(g_Config.IniFile, "UTF-16")
+        FileDelete(g_Config.IniFile)
+        FileAppend(configComment . existingContent, g_Config.IniFile, "UTF-16")
+        
+    } catch as e {
+        MsgBox("创建配置文件失败: " . e.message, "错误", "T5")
+    }
+}
+
 LoadConfiguration() {
-    ; Load hotkey configuration
+    ; 加载快捷键配置
     g_Config.Hotkey := IniRead(g_Config.IniFile, "Settings", "Hotkey", "^q")
 
-    ; Load display settings
+    ; 加载显示设置
     g_Config.MenuColor := IniRead(g_Config.IniFile, "Display", "MenuColor", "C0C59C")
     g_Config.IconSize := IniRead(g_Config.IniFile, "Display", "IconSize", "16")
     g_Config.MenuPosX := IniRead(g_Config.IniFile, "Display", "MenuPosX", "100")
     g_Config.MenuPosY := IniRead(g_Config.IniFile, "Display", "MenuPosY", "100")
 
-    ; Load quick access settings
+    ; 加载快速访问设置
     g_Config.EnableQuickAccess := IniRead(g_Config.IniFile, "QuickAccess", "EnableQuickAccess", "1")
     g_Config.QuickAccessKeys := IniRead(g_Config.IniFile, "QuickAccess", "QuickAccessKeys",
         "123456789abcdefghijklmnopqrstuvwxyz")
 
-    ; Load file manager settings
+    ; 加载文件管理器设置
     g_Config.SupportTC := IniRead(g_Config.IniFile, "FileManagers", "TotalCommander", "1")
     g_Config.SupportExplorer := IniRead(g_Config.IniFile, "FileManagers", "Explorer", "1")
     g_Config.SupportXY := IniRead(g_Config.IniFile, "FileManagers", "XYplorer", "1")
     g_Config.SupportOpus := IniRead(g_Config.IniFile, "FileManagers", "DirectoryOpus", "1")
 
-    ; Load custom paths settings
+    ; 加载自定义路径设置
     g_Config.EnableCustomPaths := IniRead(g_Config.IniFile, "CustomPaths", "EnableCustomPaths", "1")
     g_Config.CustomPathsTitle := IniRead(g_Config.IniFile, "CustomPaths", "MenuTitle", "收藏路径")
 
-    ; Load recent paths settings
+    ; 加载最近路径设置
     g_Config.EnableRecentPaths := IniRead(g_Config.IniFile, "RecentPaths", "EnableRecentPaths", "1")
     g_Config.RecentPathsTitle := IniRead(g_Config.IniFile, "RecentPaths", "MenuTitle", "最近打开")
     g_Config.MaxRecentPaths := IniRead(g_Config.IniFile, "RecentPaths", "MaxRecentPaths", "10")
 
-    ; Total Commander message codes
+    ; Total Commander 消息代码
     g_Config.TC_CopySrcPath := 2029
     g_Config.TC_CopyTrgPath := 2030
 }
 
 RegisterHotkey() {
-    ; Register the hotkey from configuration
-    try {
-        Hotkey(g_Config.Hotkey, ToggleMenu, "On")
-    } catch as e {
-        ; If hotkey registration fails, show error and use default
-        MsgBox("Failed to register hotkey '" . g_Config.Hotkey . "': " . e.message . "`nUsing default Ctrl+Q")
-        try {
-            Hotkey("^q", ToggleMenu, "On")
-            g_Config.Hotkey := "^q"
-        }
-    }
+    ; 不再注册全局热键，改为在文件对话框中动态注册
+    ; 全局热键会在 ProcessFileDialog() 中根据需要注册
 }
 
 ToggleMenu(*) {
-    global g_MenuActive
-    
+    global g_MenuActive, g_CurrentDialog
+
+    ; 检查当前激活窗口是否为文件对话框
+    currentWinID := WinExist("A")
+    if (currentWinID != g_CurrentDialog.WinID) {
+        ; 如果当前窗口不是文件对话框，不显示菜单
+        return
+    }
+
     ; 简单直接显示菜单，不做复杂的切换逻辑
     ; 菜单会在用户点击外部区域或按ESC时自动关闭
     ShowMenu()
 }
 
+CleanupGlobals() {
+    global g_Config, g_CurrentDialog, g_MenuItems, g_MenuActive
+    
+    ; 取消注册热键
+    try {
+        Hotkey(g_Config.Hotkey, "Off")
+    } catch {
+        ; 忽略错误
+    }
+    
+    try {
+        Hotkey("^q", "Off")
+    } catch {
+        ; 忽略错误
+    }
+
+    ; 重置全局变量
+    g_CurrentDialog.WinID := ""
+    g_CurrentDialog.Type := ""
+    g_CurrentDialog.FingerPrint := ""
+    g_CurrentDialog.Action := ""
+    g_MenuItems := []
+    g_MenuActive := false
+}
+
 ; ============================================================================
-; MAIN LOOP
+; 主循环
 ; ============================================================================
 
 MainLoop() {
@@ -171,6 +253,16 @@ ProcessFileDialog() {
     window_title := WinGetTitle("ahk_id " . g_CurrentDialog.WinID)
     g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
 
+    ; 为当前文件对话框注册热键
+    try {
+        Hotkey(g_Config.Hotkey, ToggleMenu, "On")
+    } catch as e {
+        ; 如果快捷键注册失败，使用默认快捷键
+        try {
+            Hotkey("^q", ToggleMenu, "On")
+        }
+    }
+
     ; Check dialog action from INI
     g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
 
@@ -189,13 +281,12 @@ ProcessFileDialog() {
     } else if (g_CurrentDialog.Action = "0") {
         ; Never here mode - do nothing
     } else {
-        ; Show menu mode
-        ShowMenu()
+        ; Show menu mode - 不自动显示菜单，等待用户按热键
     }
 }
 
 ; ============================================================================
-; DIALOG DETECTION AND FEEDING
+; 对话框检测和路径注入
 ; ============================================================================
 
 DetectFileDialog(winID) {
@@ -235,6 +326,19 @@ DetectFileDialog(winID) {
 }
 
 FeedDialog(winID, folderPath, dialogType) {
+    ; 检查是否为 Blender 窗口，使用特殊处理
+    try {
+        exeName := WinGetProcessName("ahk_id " . winID)
+        winTitle := WinGetTitle("ahk_id " . winID)
+        if (exeName = "blender.exe" && InStr(winTitle, "Blender File View")) {
+            ; FeedDialogBlender(winID, folderPath)
+            FeedDialogGeneral(winID, folderPath)
+            return
+        }
+    } catch {
+        ; 如果检测失败，继续使用通用方法
+    }
+    
     switch dialogType {
         case "GENERAL":
             FeedDialogGeneral(winID, folderPath)
@@ -325,8 +429,97 @@ FeedDialogSysListView(winID, folderPath) {
     Send("{Enter}")
 }
 
+FeedDialogBlender(winID, folderPath) {
+    ; Blender 文件对话框的特殊处理
+    ; 避免使用可能导致窗口关闭的快捷键
+
+    ; WinActivate("ahk_id " . winID) 这句使用会意外关闭对话框所以做了特殊处理
+
+    Sleep(300)  ; 给 Blender 更多时间来响应
+
+    oldClipboard := A_Clipboard
+
+    A_Clipboard := folderPath
+
+    ClipWait(1, 0)  ; Wait for clipboard to be ready
+
+    SendInput("^l")
+    Sleep(300)
+    SendInput("^v")  ; Paste from clipboard instead of typing
+    Sleep(100)
+    SendInput("{Enter}")
+    Sleep(500)
+
+    ; Restore original clipboard
+    A_Clipboard := oldClipboard
+
+    ; Focus back to filename field
+    ; try ControlFocus("Edit1", "ahk_id " . winID)
+
+    return
+    
+;     try {
+;         ; 方法1：尝试直接在路径栏输入路径
+;         ; 首先尝试点击路径栏区域（通常在窗口顶部）
+;         WinGetPos(&winX, &winY, &winWidth, &winHeight, "ahk_id " . winID)
+        
+;         ; 点击路径栏区域（估算位置）
+;         pathBarX := winX + winWidth * 0.5  ; 窗口中央
+;         pathBarY := winY + 60  ; 估算路径栏位置
+        
+;         Click(pathBarX, pathBarY)
+;         Sleep(200)
+        
+;         ; 选择所有内容并替换
+;         SendInput("^a")
+;         Sleep(100)
+        
+;         ; 保存剪贴板并设置新路径
+;         oldClipboard := A_Clipboard
+;         A_Clipboard := folderPath
+;         ClipWait(1, 0)
+        
+;         SendInput("^v")
+;         Sleep(200)
+;         SendInput("{Enter}")
+;         Sleep(300)
+        
+;         ; 恢复剪贴板
+;         A_Clipboard := oldClipboard
+        
+;     } catch {
+;         ; 方法2：备用方案 - 尝试使用键盘导航
+;         try {
+;             ; 使用 Tab 键导航到路径输入区域
+;             SendInput("{Tab}")
+;             Sleep(100)
+;             SendInput("{Tab}")
+;             Sleep(100)
+            
+;             ; 选择所有并输入新路径
+;             SendInput("^a")
+;             Sleep(100)
+            
+;             oldClipboard := A_Clipboard
+;             A_Clipboard := folderPath
+;             ClipWait(1, 0)
+            
+;             SendInput("^v")
+;             Sleep(200)
+;             SendInput("{Enter}")
+;             Sleep(300)
+            
+;             A_Clipboard := oldClipboard
+            
+;         } catch {
+;             ; 方法3：最后的备用方案 - 什么都不做，避免破坏窗口
+;             ; 这样至少不会关闭 Blender 窗口
+;         }
+;     }
+}
+
 ; ============================================================================
-; MENU SYSTEM
+; 菜单系统
 ; ============================================================================
 
 ShowMenu() {
@@ -340,9 +533,9 @@ ShowMenu() {
 
     ; Create context menu
     contextMenu := Menu()
-    contextMenu.Add("QuickSwitch Menu", (*) => "")
-    contextMenu.Default := "QuickSwitch Menu"
-    contextMenu.Disable("QuickSwitch Menu")
+    contextMenu.Add("QuickSwitchV2 Menu", (*) => "")
+    contextMenu.Default := "QuickSwitchV2 Menu"
+    contextMenu.Disable("QuickSwitchV2 Menu")
 
     hasMenuItems := false
 
@@ -397,92 +590,75 @@ ShowMenu() {
 }
 
 ; ============================================================================
-; FILE MANAGER DETECTION
+; 文件管理器检测
 ; ============================================================================
 
 GetActiveFileManagerFolder(winID) {
-    ; 使用和菜单相同的逻辑：扫描所有窗口找到文件管理器
-    ; 这样确保AutoSwitch和菜单的行为一致
-    
+    ; 改进的逻辑：根据窗口的Z-order（活动顺序）来选择最合适的文件管理器
+    ; 而不是按照固定的优先级顺序
+
     allWindows := WinGetList()
-    
-    ; 优先检查Total Commander
-    if g_Config.SupportTC = "1" {
-        for id in allWindows {
-            try {
-                winClass := WinGetClass("ahk_id " . id)
-                if (winClass = "TTOTAL_CMD") {
-                    folderPath := GetTCActiveFolder(id)
-                    if IsValidFolder(folderPath) {
-                        return folderPath
-                    }
+    fileManagerCandidates := []
+
+    ; 收集所有可用的文件管理器窗口及其路径
+    for id in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . id)
+            
+            ; 检查Total Commander
+            if (g_Config.SupportTC = "1" && winClass = "TTOTAL_CMD") {
+                folderPath := GetTCActiveFolder(id)
+                if IsValidFolder(folderPath) {
+                    fileManagerCandidates.Push({id: id, path: folderPath, type: "TC"})
                 }
-            } catch {
-                continue
             }
-        }
-    }
-    
-    ; 检查Windows Explorer
-    if g_Config.SupportExplorer = "1" {
-        for id in allWindows {
-            try {
-                winClass := WinGetClass("ahk_id " . id)
-                if (winClass = "CabinetWClass") {
-                    for explorerWindow in ComObject("Shell.Application").Windows {
-                        try {
-                            if (id = explorerWindow.hwnd) {
-                                explorerPath := explorerWindow.Document.Folder.Self.Path
-                                if IsValidFolder(explorerPath) {
-                                    return explorerPath
-                                }
+            ; 检查Windows Explorer
+            else if (g_Config.SupportExplorer = "1" && winClass = "CabinetWClass") {
+                for explorerWindow in ComObject("Shell.Application").Windows {
+                    try {
+                        if (id = explorerWindow.hwnd) {
+                            explorerPath := explorerWindow.Document.Folder.Self.Path
+                            if IsValidFolder(explorerPath) {
+                                fileManagerCandidates.Push({id: id, path: explorerPath, type: "Explorer"})
                             }
-                        } catch {
-                            continue
                         }
+                    } catch {
+                        continue
                     }
                 }
-            } catch {
-                continue
             }
-        }
-    }
-    
-    ; 检查XYplorer
-    if g_Config.SupportXY = "1" {
-        for id in allWindows {
-            try {
-                winClass := WinGetClass("ahk_id " . id)
-                if (winClass = "ThunderRT6FormDC") {
-                    folderPath := GetXYActiveFolder(id)
-                    if IsValidFolder(folderPath) {
-                        return folderPath
-                    }
+            ; 检查XYplorer
+            else if (g_Config.SupportXY = "1" && winClass = "ThunderRT6FormDC") {
+                folderPath := GetXYActiveFolder(id)
+                if IsValidFolder(folderPath) {
+                    fileManagerCandidates.Push({id: id, path: folderPath, type: "XY"})
                 }
-            } catch {
-                continue
             }
-        }
-    }
-    
-    ; 检查Directory Opus
-    if g_Config.SupportOpus = "1" {
-        for id in allWindows {
-            try {
-                winClass := WinGetClass("ahk_id " . id)
-                if (winClass = "dopus.lister") {
-                    folderPath := GetOpusActiveFolder(id)
-                    if IsValidFolder(folderPath) {
-                        return folderPath
-                    }
+            ; 检查Directory Opus
+            else if (g_Config.SupportOpus = "1" && winClass = "dopus.lister") {
+                folderPath := GetOpusActiveFolder(id)
+                if IsValidFolder(folderPath) {
+                    fileManagerCandidates.Push({id: id, path: folderPath, type: "Opus"})
                 }
-            } catch {
-                continue
             }
+        } catch {
+            continue
         }
     }
-    
-    return ""
+
+    ; 如果没有找到任何文件管理器，返回空
+    if (fileManagerCandidates.Length = 0) {
+        return ""
+    }
+
+    ; 如果只有一个候选，直接返回
+    if (fileManagerCandidates.Length = 1) {
+        return fileManagerCandidates[1].path
+    }
+
+    ; 多个候选时，选择Z-order最高的（最近活动的）
+    ; WinGetList() 返回的窗口列表已经按Z-order排序，第一个是最前面的
+    return fileManagerCandidates[1].path
 }
 
 GetTCActiveFolder(winID) {
@@ -492,7 +668,7 @@ GetTCActiveFolder(winID) {
     ; 方法1：使用PostMessage + ClipWait (基于V1代码修复)
     try {
         PostMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
-        
+
         if ClipWait(1) {
             if (A_Clipboard != "") {
                 folderPath := A_Clipboard
@@ -508,7 +684,7 @@ GetTCActiveFolder(winID) {
     A_Clipboard := ""
     try {
         PostMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
-        
+
         if ClipWait(1) {
             if (A_Clipboard != "") {
                 folderPath := A_Clipboard
@@ -525,7 +701,7 @@ GetTCActiveFolder(winID) {
     try {
         result := SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
         Sleep(200)
-        
+
         if (result != 0 && A_Clipboard != "") {
             folderPath := A_Clipboard
             A_Clipboard := clipSaved
@@ -551,16 +727,7 @@ GetXYActiveFolder(winID) {
     return result
 }
 
-GetExplorerActiveFolder(winID) {
-    for explorerWindow in ComObject("Shell.Application").Windows {
-        try {
-            if (winID = explorerWindow.hwnd) {
-                return explorerWindow.Document.Folder.Self.Path
-            }
-        }
-    }
-    return ""
-}
+
 
 GetOpusActiveFolder(winID) {
     thisPID := WinGetPID("ahk_id " . winID)
@@ -582,7 +749,7 @@ GetOpusActiveFolder(winID) {
 }
 
 ; ============================================================================
-; MENU FUNCTIONS
+; 菜单功能
 ; ============================================================================
 
 AddTotalCommanderFolders(contextMenu) {
@@ -596,7 +763,7 @@ AddTotalCommanderFolders(contextMenu) {
                 thisPID := WinGetPID("ahk_id " . winID)
                 tcExe := GetModuleFileName(thisPID)
 
-                ; Get source path
+                ; 获取 源路径
                 clipSaved := ClipboardAll()
                 A_Clipboard := ""
 
@@ -608,7 +775,7 @@ AddTotalCommanderFolders(contextMenu) {
                     added := true
                 }
 
-                ; Get target path
+                ; 获取 目标路径
                 SendMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
                 Sleep(50)  ; Wait for clipboard update
                 if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
@@ -734,18 +901,18 @@ AddOpusFolders(contextMenu) {
 
 AddCustomPaths(contextMenu) {
     added := false
-    
+
     ; Create submenu for custom paths
     customPathsMenu := Menu()
-    
+
     ; Read all custom paths from INI file
     customPaths := []
-    
+
     ; Try to read custom paths (Path1, Path2, etc.)
     loop 20 {  ; Support up to 20 custom paths
         pathKey := "Path" . A_Index
         pathValue := IniRead(g_Config.IniFile, "CustomPaths", pathKey, "")
-        
+
         if (pathValue != "") {
             ; Parse path entry: "DisplayName|ActualPath" or just "ActualPath"
             if InStr(pathValue, "|") {
@@ -763,18 +930,18 @@ AddCustomPaths(contextMenu) {
                 displayName := folderName != "" ? folderName : pathValue
                 actualPath := pathValue
             }
-            
+
             ; Expand environment variables in path
             expandedPath := ExpandEnvironmentVariables(actualPath)
-            
+
             ; Validate path exists
             if IsValidFolder(expandedPath) {
-                customPaths.Push({display: displayName, path: expandedPath})
+                customPaths.Push({ display: displayName, path: expandedPath })
                 added := true
             }
         }
     }
-    
+
     ; Add custom paths to submenu
     if (customPaths.Length > 0) {
         for pathInfo in customPaths {
@@ -782,31 +949,31 @@ AddCustomPaths(contextMenu) {
             ; Set folder icon
             try customPathsMenu.SetIcon(pathInfo.display, "shell32.dll", 4, g_Config.IconSize)
         }
-        
+
         ; Add submenu to main menu
         contextMenu.Add()
         contextMenu.Add(g_Config.CustomPathsTitle, customPathsMenu)
         try contextMenu.SetIcon(g_Config.CustomPathsTitle, "shell32.dll", 43, g_Config.IconSize)
     }
-    
+
     return added
 }
 
 AddRecentPaths(contextMenu) {
     added := false
-    
+
     ; Create submenu for recent paths
     recentPathsMenu := Menu()
-    
+
     ; Read recent paths from INI file
     recentPaths := []
     maxPaths := Integer(g_Config.MaxRecentPaths)
-    
+
     ; Try to read recent paths (Recent1, Recent2, etc.)
     loop maxPaths {
         recentKey := "Recent" . A_Index
         recentValue := IniRead(g_Config.IniFile, "RecentPaths", recentKey, "")
-        
+
         if (recentValue != "") {
             ; Parse recent entry: "Timestamp|Path"
             if InStr(recentValue, "|") {
@@ -820,7 +987,7 @@ AddRecentPaths(contextMenu) {
             } else {
                 pathValue := recentValue
             }
-            
+
             ; Validate path exists
             if IsValidFolder(pathValue) {
                 recentPaths.Push(pathValue)
@@ -828,7 +995,7 @@ AddRecentPaths(contextMenu) {
             }
         }
     }
-    
+
     ; Add recent paths to submenu
     if (recentPaths.Length > 0) {
         for pathValue in recentPaths {
@@ -837,55 +1004,55 @@ AddRecentPaths(contextMenu) {
             ; Set folder icon
             try recentPathsMenu.SetIcon(pathValue, "shell32.dll", 4, g_Config.IconSize)
         }
-        
+
         ; Add submenu to main menu
         contextMenu.Add()
         contextMenu.Add(g_Config.RecentPathsTitle, recentPathsMenu)
         try contextMenu.SetIcon(g_Config.RecentPathsTitle, "shell32.dll", 269, g_Config.IconSize)
     }
-    
+
     return added
 }
 
 AddSendToFileManagerMenu(contextMenu) {
     ; Get current dialog path
     currentPath := GetCurrentDialogPath()
-    
+
     if (currentPath != "") {
         ; Add separator and send to file manager options
         contextMenu.Add()
         contextMenu.Add("发送路径到...", (*) => "")
         contextMenu.Disable("发送路径到...")
-        
+
         ; Add send to Total Commander option
         if g_Config.SupportTC = "1" {
             contextMenu.Add("发送到 Total Commander", SendToTCHandler.Bind(currentPath))
             try contextMenu.SetIcon("发送到 Total Commander", "shell32.dll", 5, g_Config.IconSize)
         }
-        
+
         ; Add send to Explorer option
         if g_Config.SupportExplorer = "1" {
-            contextMenu.Add("发送到资源管理器", SendToExplorerHandler.Bind(currentPath))
-            try contextMenu.SetIcon("发送到资源管理器", "shell32.dll", 4, g_Config.IconSize)
+            contextMenu.Add("发送到 资源管理器", SendToExplorerHandler.Bind(currentPath))
+            try contextMenu.SetIcon("发送到 资源管理器", "shell32.dll", 4, g_Config.IconSize)
         }
     }
 }
 
 AddSettingsMenu(contextMenu) {
     contextMenu.Add()
-    contextMenu.Add("Settings for this dialog", (*) => "")
-    contextMenu.Disable("Settings for this dialog")
+    ; contextMenu.Add("Settings for this dialog", (*) => "")
+    ; contextMenu.Disable("Settings for this dialog")
 
-    contextMenu.Add("Allow AutoSwitch", AutoSwitchHandler)
-    contextMenu.Add("Never here", NeverHandler)
+    contextMenu.Add("自动跳转", AutoSwitchHandler)
+    ; contextMenu.Add("Never here", NeverHandler)
     contextMenu.Add("Not now", NotNowHandler)
 
     ; Set current selection
     switch g_CurrentDialog.Action {
         case "1":
-            contextMenu.Check("Allow AutoSwitch")
+            contextMenu.Check("自动跳转")
         case "0":
-            contextMenu.Check("Never here")
+            ; contextMenu.Check("Never here")
         default:
             contextMenu.Check("Not now")
     }
@@ -917,45 +1084,12 @@ AddMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex :=
 
 SetupQuickAccessHotkeys() {
     ; Setup hotkeys for each menu item
-    Loop g_MenuItems.Length {
+    loop g_MenuItems.Length {
         if A_Index > StrLen(g_Config.QuickAccessKeys)
             break
 
         key := SubStr(g_Config.QuickAccessKeys, A_Index, 1)
-        try {
-            ; Use Ctrl+key to avoid conflicts and menu issues
-            ; hotkeyCombo := "^" . key  ; ^ means Ctrl
-            ; Hotkey(hotkeyCombo, QuickAccessHandler.Bind(A_Index), "On")
-            ; Debug: Show which hotkeys are being set up
-            ; ToolTip("Setting up hotkey: " . key . " for index " . A_Index, 0, 20 * A_Index)
-            SetTimer(() => ToolTip(, 0, 20 * A_Index), -500)  ; Clear after 0.5 seconds
-        } catch as e {
-            ; Debug: Show if hotkey setup failed
-            ; ToolTip("Failed to set hotkey: " . key . " - " . e.message, 0, 20 * A_Index)
-            SetTimer(() => ToolTip(, 0, 20 * A_Index), -1000)
-        }
-    }
-}
 
-QuickAccessHandler(index, *) {
-    ; Debug: Show that hotkey was pressed
-    ToolTip("Hotkey pressed: " . index, 0, 0)
-    SetTimer(() => ToolTip(), -1000)  ; Clear tooltip after 1 second
-
-    ; Close any open menu first
-    try {
-        SendInput("{Esc}")
-        Sleep(50)
-    }
-
-    ; Get the folder path for this index
-    if index <= g_MenuItems.Length {
-        folderPath := g_MenuItems[index]
-        if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
-            ; Clean up hotkeys before feeding dialog
-
-            FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
-        }
     }
 }
 
@@ -1014,7 +1148,7 @@ GetCurrentDialogPath() {
     try {
         ; Get all text from the dialog window
         winText := WinGetText("ahk_id " . g_CurrentDialog.WinID)
-        
+
         ; Parse the text to find address line (基于V1代码的逻辑)
         lines := StrSplit(winText, "`n", "`r")
         for line in lines {
@@ -1029,7 +1163,7 @@ GetCurrentDialogPath() {
                 return Trim(match[1])
             }
         }
-        
+
         ; Alternative method: try to get path from Edit1 control
         try {
             editText := ControlGetText("Edit1", "ahk_id " . g_CurrentDialog.WinID)
@@ -1041,7 +1175,7 @@ GetCurrentDialogPath() {
                 }
             }
         }
-        
+
         ; Alternative method: try to get path from address bar controls
         controlList := WinGetControls("ahk_id " . g_CurrentDialog.WinID)
         for control in controlList {
@@ -1054,34 +1188,34 @@ GetCurrentDialogPath() {
                 }
             }
         }
-        
+
     } catch {
         ; If all methods fail, return empty
     }
-    
+
     return ""
 }
 
 SendToTCHandler(dialogPath, *) {
-    ; Send current dialog path to Total Commander (基于V1代码)
+
     try {
-        ; Find Total Commander window
+
         tcWindow := WinExist("ahk_class TTOTAL_CMD")
+
         if (tcWindow) {
-            ; Activate Total Commander
+
             WinActivate("ahk_class TTOTAL_CMD")
             Sleep(100)
-            
-            ; Send path using PostMessage (基于V1代码的方法)
+
+
             PostMessage(1075, 3001, 0, , "ahk_class TTOTAL_CMD")
             Sleep(100)
-            
-            ; Set path in command line and execute
+
+
             ControlSetText("cd " . dialogPath, "Edit1", "ahk_class TTOTAL_CMD")
             Sleep(400)
             ControlSend("Edit1", "{Enter}", "ahk_class TTOTAL_CMD")
-            
-            ; Record this path as recently used
+
             RecordRecentPath(dialogPath)
         } else {
             MsgBox("未找到 Total Commander 窗口", "发送路径", "T3")
@@ -1092,12 +1226,12 @@ SendToTCHandler(dialogPath, *) {
 }
 
 SendToExplorerHandler(dialogPath, *) {
-    ; Send current dialog path to Windows Explorer (基于V1代码)
+
     try {
-        ; Open new Explorer window at the specified path
+
         Run("explorer.exe `"" . dialogPath . "`"")
-        
-        ; Record this path as recently used
+
+
         RecordRecentPath(dialogPath)
     } catch as e {
         MsgBox("发送路径到资源管理器失败: " . e.message, "错误", "T5")
@@ -1113,17 +1247,17 @@ RecordRecentPath(folderPath) {
     if (!IsValidFolder(folderPath)) {
         return
     }
-    
+
     maxPaths := Integer(g_Config.MaxRecentPaths)
     currentTime := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
     newEntry := currentTime . "|" . folderPath
-    
+
     ; Read existing recent paths
     existingPaths := []
     loop maxPaths {
         recentKey := "Recent" . A_Index
         recentValue := IniRead(g_Config.IniFile, "RecentPaths", recentKey, "")
-        
+
         if (recentValue != "") {
             ; Parse existing entry
             if InStr(recentValue, "|") {
@@ -1136,17 +1270,17 @@ RecordRecentPath(folderPath) {
             } else {
                 existingPath := recentValue
             }
-            
+
             ; Only keep if it's different from the new path and still exists
             if (existingPath != folderPath && IsValidFolder(existingPath)) {
                 existingPaths.Push(recentValue)
             }
         }
     }
-    
+
     ; Write new entry at top, followed by existing entries
     IniWrite(newEntry, g_Config.IniFile, "RecentPaths", "Recent1")
-    
+
     ; Shift existing entries down
     entryIndex := 2
     for existingEntry in existingPaths {
@@ -1156,7 +1290,7 @@ RecordRecentPath(folderPath) {
         IniWrite(existingEntry, g_Config.IniFile, "RecentPaths", "Recent" . entryIndex)
         entryIndex++
     }
-    
+
     ; Clear any remaining entries
     while (entryIndex <= maxPaths) {
         try IniDelete(g_Config.IniFile, "RecentPaths", "Recent" . entryIndex)
@@ -1223,12 +1357,7 @@ SendXYplorerMessage(xyHwnd, message) {
     DllCall("User32.dll\SendMessageW", "Ptr", xyHwnd, "UInt", 74, "Ptr", 0, "Ptr", copyData, "Ptr")
 }
 
-CleanupGlobals() {
-    g_CurrentDialog.WinID := ""
-    g_CurrentDialog.Type := ""
-    g_CurrentDialog.FingerPrint := ""
-    g_CurrentDialog.Action := ""
-}
+
 
 HasValue(haystack, needle) {
     for value in haystack {
