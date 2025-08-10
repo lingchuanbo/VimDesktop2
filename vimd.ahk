@@ -134,7 +134,7 @@ VimDesktop_TrayMenuCreate() {
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Exit"], (*) => ExitApp())
     VimDesktop_TrayMenu.ClickCount := 2
     VimDesktop_TrayMenu.default := Lang["TrayMenu"]["Default"]
-    A_IconTip := "VimDesktop`n版本:vII_1.0(By_Kawvin)"
+    A_IconTip := "VimDesktopV2_BoBO`n版本:1.1(By_Kawvin Mod_BoBO)"
 }
 
 ; 自动启动扩展功能
@@ -291,6 +291,8 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
 #Include .\lib\SingleDoubleLongPress.ahk
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\BTT.ahk
+#Include .\lib\IME.ahk
+#Include .\lib\AutoIMESwitcher.ahk
 #Include .\lib\ToolTipManager.ahk
 #Include .\lib\Run.ahk
 #Include .\lib\Script.ahk
