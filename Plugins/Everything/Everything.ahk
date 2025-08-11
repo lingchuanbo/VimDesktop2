@@ -1,12 +1,91 @@
 ﻿/*
 [PluginInfo]
 PluginName=Everything
-Author=Kiro
+Author= BoBO
 Version=1.0
 Comment=Everything搜索工具
 */
 
 ; 引入 SingleDoubleLongPress.ahk 库
+; 引入 Acc.ahk 库用于辅助功能检测 主要判断能否获取acname，还有常规的检测方式，前后颜色变化，如果发生改变则点了图标 没变化就是空白区域
+#Include <Acc>
+
+; 读取Everything配置
+ReadEverythingConfig() {
+    global EverythingConfig := {}
+
+    ; 配置文件路径
+    configFile := A_ScriptDir . "\Plugins\Everything\everything.ini"
+
+    ; 默认配置
+    EverythingConfig.everything_path := ""
+    EverythingConfig.enable_double_click := true
+    EverythingConfig.show_debug_info := false
+
+    ; 读取配置文件
+    if FileExist(configFile) {
+        try {
+            ; 读取Everything路径
+            path := IniRead(configFile, "Everything", "everything_path", "")
+            if (path != "") {
+                EverythingConfig.everything_path := path
+            }
+
+            ; 读取双击启动开关
+            enableDoubleClick := IniRead(configFile, "Everything", "enable_double_click", "true")
+            EverythingConfig.enable_double_click := (enableDoubleClick = "true")
+
+            ; 读取调试信息开关
+            showDebugInfo := IniRead(configFile, "Everything", "show_debug_info", "false")
+            EverythingConfig.show_debug_info := (showDebugInfo = "true")
+
+        } catch as e {
+            ; 配置文件读取失败，使用默认值
+            MsgBox("读取Everything配置文件失败: " . e.message . "`n使用默认配置", "配置警告")
+        }
+    }
+
+    return EverythingConfig
+}
+
+; 初始化配置
+EverythingConfig := ReadEverythingConfig()
+
+; 保存配置到文件
+SaveEverythingConfig() {
+    configFile := A_ScriptDir . "\Plugins\Everything\everything.ini"
+
+    try {
+        ; 写入配置
+        IniWrite(EverythingConfig.everything_path, configFile, "Everything", "everything_path")
+        IniWrite(EverythingConfig.enable_double_click ? "true" : "false", configFile, "Everything",
+            "enable_double_click")
+        IniWrite(EverythingConfig.show_debug_info ? "true" : "false", configFile, "Everything", "show_debug_info")
+
+        return true
+    } catch as e {
+        MsgBox("保存Everything配置文件失败: " . e.message, "配置错误")
+        return false
+    }
+}
+
+; 切换双击启动功能
+ToggleDoubleClickFeature() {
+    EverythingConfig.enable_double_click := !EverythingConfig.enable_double_click
+    if (SaveEverythingConfig()) {
+        status := EverythingConfig.enable_double_click ? "启用" : "禁用"
+        MsgBox("桌面双击启动Everything功能已" . status, "配置更新")
+    }
+}
+
+; 切换调试信息显示
+ToggleDebugInfo() {
+    EverythingConfig.show_debug_info := !EverythingConfig.show_debug_info
+    if (SaveEverythingConfig()) {
+        status := EverythingConfig.show_debug_info ? "启用" : "禁用"
+        MsgBox("调试信息显示已" . status, "配置更新")
+    }
+}
 
 Everything() {
     ; 热键映射数组
@@ -18,15 +97,19 @@ Everything() {
     KeyArray.push({ Key: "<esc>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
     KeyArray.push({ Key: "<capslock>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
 
-
     ; 帮助
     ; KeyArray.push({ Key: ":?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Everything",
     ;     Comment: "显示所有按键(GUI)" })
     KeyArray.push({ Key: "i", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpMD", Param: "Everything|VIM模式",
         Comment: "显示按键(Markdown)" })
 
+    ; 配置管理
+    KeyArray.push({ Key: "cd", Mode: "VIM模式", Group: "配置", Func: "ToggleDoubleClickFeature", Param: "",
+        Comment: "切换桌面双击启动功能" })
+    KeyArray.push({ Key: "ci", Mode: "VIM模式", Group: "配置", Func: "ToggleDebugInfo", Param: "",
+        Comment: "切换调试信息显示" })
 
-        ; 测试
+    ; 测试
     ; KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",
     ;     Comment: "单击/双击/长按" })
     ; KeyArray.push({ Key: "2", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "2|Everything_1|Everything_2",
@@ -37,7 +120,6 @@ Everything() {
         Comment: "打开deepseek" })
     KeyArray.push({ Key: "/g", Mode: "VIM模式", Group: "网站", Func: "run", Param: "http://www.google.com",
         Comment: "打开google" })
-
 
     ; 注册窗体
     vim.SetWin("Everything", "EVERYTHING", "Everything.exe")
@@ -52,26 +134,30 @@ Everything() {
 ; 对符合条件的控件使用【normal模式】，而不是【Vim模式】
 Everything_Before() {
     ctrl := ControlGetClassNN(ControlGetFocus("ahk_class EVERYTHING"), "ahk_exe Everything.exe")
-    if RegExMatch(ctrl, "Edit")||RegExMatch(ctrl,"Edit1") 
+    if RegExMatch(ctrl, "Edit") || RegExMatch(ctrl, "Edit1")
         return true
     return false
 }
 
 ; 运行Everything
 Run_Everything(*) {
-    ; 从插件配置文件获取Everything路径
-    everythingPath := ""
-    try {
-        ; 优先从插件独立配置文件读取
-        if (PluginConfigs.HasOwnProp("Everything") && PluginConfigs.Everything.HasOwnProp("Everything")) {
-            everythingPath := PluginConfigs.Everything.Everything.everything_path
+    ; 优先从everything.ini配置文件获取路径
+    everythingPath := EverythingConfig.everything_path
+
+    ; 如果配置文件中没有路径，尝试从其他配置源读取
+    if (!everythingPath) {
+        try {
+            ; 从插件独立配置文件读取
+            if (PluginConfigs.HasOwnProp("Everything") && PluginConfigs.Everything.HasOwnProp("Everything")) {
+                everythingPath := PluginConfigs.Everything.Everything.everything_path
+            }
+            ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
+            else if (INIObject.HasOwnProp("Everything")) {
+                everythingPath := INIObject.Everything.everything_path
+            }
+        } catch {
+            ; 配置读取失败，使用默认路径
         }
-        ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
-        else if (INIObject.HasOwnProp("Everything")) {
-            everythingPath := INIObject.Everything.everything_path
-        }
-    } catch {
-        ; 配置读取失败，使用默认路径
     }
 
     ; 如果配置中没有路径，尝试默认路径
@@ -234,6 +320,11 @@ AccUnderMouse(WinID, &child) {
 ; 桌面双击启动Everything - 使用Accessibility API检测空白区域
 ~LButton::
 {
+    ; 检查是否启用了双击功能
+    if (!EverythingConfig.enable_double_click) {
+        return
+    }
+
     global LTickCount, RTickCount, DblClickTime
     static LastClickTime := 0
     static LastClickPos := ""
@@ -272,7 +363,7 @@ AccUnderMouse(WinID, &child) {
                     ; 在桌面空白处，accName通常返回"桌面"或空值
                     ; 如果返回具体文件名，说明点击了图标
                     if (AccName = "桌面" || AccName = "Desktop" || AccName = "" ||
-                        InStr(AccName, "桌面") || InStr(AccName, "Desktop")||InStr(AccName, "运行中的应用程序")) {
+                        InStr(AccName, "桌面") || InStr(AccName, "Desktop") || InStr(AccName, "运行中的应用程序")) {
                         ShouldLaunch := true
                     }
                 }
@@ -305,9 +396,8 @@ AccUnderMouse(WinID, &child) {
                         AccName := Acc.accName(child)
                         ; 在空白区域时，accName通常为空或返回通用名称
                         ; 如果返回具体文件名（包含扩展名），说明点击了文件
-                        if (AccName = "" ||InStr(AccName, "项目视图")
+                        if (AccName = "" || InStr(AccName, "项目视图")) {
                             ; (!InStr(AccName, ".") && !RegExMatch(AccName, "\.(txt|doc|pdf|jpg|png|exe|zip|rar)$", "i")||InStr(AccName, "项目视图"))
-                          ){
                             ShouldLaunch := true
                         }
                     }
@@ -315,11 +405,13 @@ AccUnderMouse(WinID, &child) {
             }
         }
 
-        ; 调试信息（测试时启用）
-        ; ToolTip("Class: " . WinClass . "`nControl: " . Control .
-        ;     "`nAccName: '" . AccName . "'" .
-        ;     "`nShouldLaunch: " . ShouldLaunch, x + 10, y + 10)
-        ; SetTimer(() => ToolTip(), -3000)
+        ; 调试信息（根据配置显示）
+        if (EverythingConfig.show_debug_info) {
+            ToolTip("Class: " . WinClass . "`nControl: " . Control .
+                "`nAccName: '" . AccName . "'" .
+                "`nShouldLaunch: " . ShouldLaunch, x + 10, y + 10)
+            SetTimer(() => ToolTip(), -3000)
+        }
 
         ; 启动Everything
         if (ShouldLaunch) {
