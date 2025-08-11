@@ -57,9 +57,65 @@ InitializeCurrentWindows()
 ; 启动窗口监控
 StartWindowMonitoring()
 
-; 主循环
+; 主循环 GetWindowsFolderActivePath 应用程序控件
 MainLoop()
 
+; 添加双击直接执行 GetWindowsFolderActivePath 函数
+~LButton::{
+    ; 检查是否启用了双击功能
+    LTickCount := 0
+    RTickCount := 0
+
+    global LTickCount, RTickCount, DblClickTime
+    static LastClickTime := 0
+    static LastClickPos := ""
+
+    MouseGetPos(&x, &y, &WinID, &Control)
+    WinClass := WinGetClass("ahk_id " . WinID)
+
+    ; 获取当前时间和位置
+    CurrentTime := A_TickCount
+    CurrentPos := x . "," . y
+
+    ; 更严格的双击检测：时间间隔、位置相近、且是连续的LButton事件
+    DblClickTime := DllCall("GetDoubleClickTime", "UInt") ; 从系统获取双击时间间隔
+    IsDoubleClick := (A_PriorHotKey = "~LButton" &&
+        A_TimeSincePriorHotkey < DblClickTime &&
+        A_TimeSincePriorHotkey > 50 &&  ; 避免过快的重复触发
+        CurrentPos = LastClickPos)      ; 位置必须相同
+
+    ; 更新记录
+    LastClickTime := CurrentTime
+    LastClickPos := CurrentPos
+    LTickCount := CurrentTime
+
+    ; 只有真正的双击才处理
+    if (IsDoubleClick && LTickCount > RTickCount) {
+        ShouldLaunch := false
+        AccName := ""
+
+        ; 只在目标窗口类型中检测
+        currentWinID := WinExist("A")
+
+        if (IsFileDialog(currentWinID)){
+            ; 桌面：使用Accessibility API获取对象名称
+            child := 0
+            try {
+                Acc := AccUnderMouse(WinID, &child)
+                if (IsObject(Acc)) {
+                    AccName := Acc.accName(child)
+                    ; 在桌面空白处，accName通常返回"桌面"或空值
+                    ; 如果返回具体文件名，说明点击了图标
+                    if (AccName = "应用程序控件" || InStr(AccName, "应用程序控件") || InStr(AccName, "项目视图")) {
+                        ShouldLaunch := true
+                        GetWindowsFolderActivePath()
+                    }
+                }
+            }
+        }
+    }
+    LTickCount := A_TickCount
+}
 ; ============================================================================
 ; 配置管理
 ; ============================================================================
@@ -87,6 +143,7 @@ CreateDefaultIniFile() {
         ; 基本设置
         IniWrite("^q", g_Config.IniFile, "Settings", "MainHotkey")
         IniWrite("^Tab", g_Config.IniFile, "Settings", "QuickSwitchHotkey")
+        IniWrite("!w", g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey")
         IniWrite("10", g_Config.IniFile, "Settings", "MaxHistoryCount")
         IniWrite("1", g_Config.IniFile, "Settings", "EnableQuickAccess")
         IniWrite("123456789abcdefghijklmnopqrstuvwxyz", g_Config.IniFile, "Settings", "QuickAccessKeys")
@@ -104,7 +161,7 @@ CreateDefaultIniFile() {
         IniWrite("100", g_Config.IniFile, "WindowSwitchMenu", "FixedPosY")
 
         ; 路径切换菜单位置设置
-        IniWrite("fixed", g_Config.IniFile, "PathSwitchMenu", "Position")
+        IniWrite("mouse", g_Config.IniFile, "PathSwitchMenu", "Position")
         IniWrite("200", g_Config.IniFile, "PathSwitchMenu", "FixedPosX")
         IniWrite("200", g_Config.IniFile, "PathSwitchMenu", "FixedPosY")
 
@@ -173,6 +230,7 @@ LoadConfiguration() {
     ; 加载基本设置
     g_Config.MainHotkey := IniRead(g_Config.IniFile, "Settings", "MainHotkey", "^q")
     g_Config.QuickSwitchHotkey := IniRead(g_Config.IniFile, "Settings", "QuickSwitchHotkey", "^Tab")
+    g_Config.GetWindowsFolderActivePathKey := IniRead(g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey", "!w")
     g_Config.MaxHistoryCount := Integer(IniRead(g_Config.IniFile, "Settings", "MaxHistoryCount", "10"))
     g_Config.EnableQuickAccess := IniRead(g_Config.IniFile, "Settings", "EnableQuickAccess", "1")
     g_Config.QuickAccessKeys := IniRead(g_Config.IniFile, "Settings", "QuickAccessKeys",
@@ -255,15 +313,18 @@ RegisterHotkeys() {
         ; 注册快速切换热键
         Hotkey(g_Config.QuickSwitchHotkey, QuickSwitchLastTwo, "On")
 
+        Hotkey(g_Config.GetWindowsFolderActivePathKey, GetWindowsFolderActivePath, "On")
+
     } catch as e {
         MsgBox("注册热键失败: " . e.message . "`n使用默认热键 Ctrl+Q 和 Ctrl+Tab", "警告", "T5")
         try {
             Hotkey("^q", ShowSmartMenu, "On")
             Hotkey("^Tab", QuickSwitchLastTwo, "On")
+            Hotkey("!w", GetWindowsFolderActivePath, "On")
         }
     }
 }
-
+;LButton::GetWindowsFolderActivePath()
 ; ============================================================================
 ; 任务栏图标管理
 ; ============================================================================
@@ -1012,6 +1073,7 @@ ReorganizePinnedAppsInIni() {
 ; ============================================================================
 
 ShowFileDialogMenu(winID) {
+
     global g_MenuItems, g_MenuActive
 
     ; 如果菜单已经激活，则不重复显示
@@ -1321,11 +1383,11 @@ FeedDialogGeneral(winID, folderPath) {
         ClipWait(1, 0)
 
         SendInput("^l")
-        Sleep(300)
+        Sleep(200)
         SendInput("^v")
         Sleep(100)
         SendInput("{Enter}")
-        Sleep(500)
+        Sleep(200)
 
         A_Clipboard := oldClipboard
 
@@ -1558,6 +1620,20 @@ AutoSwitchHandler(*) {
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
     }
 }
+
+
+GetWindowsFolderActivePath(*){
+
+    folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
+
+    if IsValidFolder(folderPath) {
+
+        FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+
+    } 
+
+}
+
 
 NotNowHandler(*) {
     global g_MenuActive
@@ -1959,8 +2035,8 @@ SetRunMode(mode, *) {
 }
 
 ShowAbout(*) {
-    aboutText := "QuickSwitch v1.1`n"
-        . "统一的快速切换工具`n"
+    aboutText := "QuickSwitch v1.2`n"
+        . "快速切换【对话框&程序】工具`n"
         . "作者: BoBO`n`n"
         . "功能特性:`n"
         . "• 程序窗口切换：显示最近打开的程序`n"
@@ -1972,6 +2048,7 @@ ShowAbout(*) {
         . "• 快速切换最近两个程序`n`n"
         . "热键:`n"
         . "• " . g_Config.MainHotkey . " - 智能菜单显示`n"
+        . "• " . g_Config.GetWindowsFolderActivePathKey . " - 直接载入最近打开的窗口，双击对话框也可以哦n"
         . "• " . g_Config.QuickSwitchHotkey . " - 快速切换最近两个程序"
 
     MsgBox(aboutText, "关于 QuickSwitch", "T10")
@@ -2200,4 +2277,37 @@ CleanupFileDialogGlobals() {
     g_CurrentDialog.Action := ""
     g_MenuItems := []
     g_MenuActive := false
+}
+
+; 使用Accessibility API获取鼠标下的对象名称
+AccUnderMouse(WinID, &child) {
+    static h := 0
+    if (!h)
+        h := DllCall("LoadLibrary", "Str", "oleacc", "Ptr")
+
+    pt := 0
+    DllCall("GetCursorPos", "Int64*", &pt)
+    pacc := 0
+    varChild := Buffer(8 + 2 * A_PtrSize, 0)
+
+    if (DllCall("oleacc\AccessibleObjectFromPoint", "Int64", pt, "Ptr*", &pacc, "Ptr", varChild.ptr) = 0) {
+        try {
+            ; 在AutoHotkey v2中使用ComValue包装IDispatch接口
+            Acc := ComValue(9, pacc, 1)
+            if (IsObject(Acc)) {
+                child := NumGet(varChild, 8, "UInt")
+                return Acc
+            }
+        } catch {
+            ; 如果ComValue失败，尝试使用ComObjActive的替代方法
+            try {
+                Acc := ComObjActive(pacc)
+                if (IsObject(Acc)) {
+                    child := NumGet(varChild, 8, "UInt")
+                    return Acc
+                }
+            }
+        }
+    }
+    return ""
 }
