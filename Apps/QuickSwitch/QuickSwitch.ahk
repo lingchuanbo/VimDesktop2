@@ -1,5 +1,4 @@
 #Requires AutoHotkey v2.0
-;@Ahk2Exe-SetVersion 1.1
 ;@Ahk2Exe-SetName QuickSwitch
 ;@Ahk2Exe-SetDescription 快速切换工具 - 程序窗口切换 + 文件对话框路径切换
 ;@Ahk2Exe-SetCopyright BoBO
@@ -144,6 +143,9 @@ CreateDefaultIniFile() {
         ; 主题设置
         IniWrite("0", g_Config.IniFile, "Theme", "DarkMode")
 
+        ; 文件对话框默认行为设置
+        IniWrite("manual", g_Config.IniFile, "FileDialog", "DefaultAction")
+
         ; 添加配置文件注释
         configComment := "; QuickSwitch 配置文件`n"
             . "; 快速切换工具 - By BoBO`n"
@@ -152,9 +154,9 @@ CreateDefaultIniFile() {
             . "; MaxHistoryCount: 最大历史记录数量`n"
             . "; RunMode: 运行模式 - 0=全部运行(智能判断), 1=只运行路径跳转, 2=只运行程序切换`n"
             . "; ExcludedApps: 排除的程序列表`n"
-            . "; PinnedApps: 置顶显示的程序列表`n`n"
+            . "; PinnedApps: 置顶显示的程序列表`n"
+            . "; DefaultAction: 文件对话框默认行为 - manual=手动按键, auto_menu=自动弹出菜单, auto_switch=自动切换, never=从不显示`n`n"
             . "; Position: mouse鼠标  fixed固定n"
-
 
         ; 读取现有内容并在前面添加注释
         existingContent := FileRead(g_Config.IniFile, "UTF-16")
@@ -214,6 +216,9 @@ LoadConfiguration() {
 
     ; 加载主题设置
     g_DarkMode := IniRead(g_Config.IniFile, "Theme", "DarkMode", "0") = "1"
+
+    ; 加载文件对话框默认行为设置
+    g_Config.FileDialogDefaultAction := IniRead(g_Config.IniFile, "FileDialog", "DefaultAction", "manual")
 
     ; 应用主题设置
     WindowsTheme.SetAppMode(g_DarkMode)
@@ -337,6 +342,11 @@ ExitApplication(*) {
 ; ============================================================================
 
 ShowSmartMenu(*) {
+    ; 如果菜单已经激活，则不重复显示
+    if (g_MenuActive) {
+        return
+    }
+
     ; 获取当前活动窗口
     currentWinID := WinExist("A")
 
@@ -345,20 +355,21 @@ ShowSmartMenu(*) {
         case 0:  ; 全部运行 - 智能判断
             ; 检查是否为文件对话框
             if (IsFileDialog(currentWinID)) {
-                ; 显示文件对话框路径切换菜单
+                ; 统一使用 ShowFileDialogMenu 处理所有文件对话框情况
                 ShowFileDialogMenu(currentWinID)
             } else {
                 ; 显示程序窗口切换菜单
                 ShowWindowSwitchMenu()
             }
         case 1:  ; 只运行路径跳转
-            ShowFileDialogMenu(currentWinID)
+            if (IsFileDialog(currentWinID)) {
+                ShowFileDialogMenu(currentWinID)
+            }
         case 2:  ; 只运行程序切换
             ShowWindowSwitchMenu()
         default: ; 默认为全部运行
             ; 检查是否为文件对话框
             if (IsFileDialog(currentWinID)) {
-                ; 显示文件对话框路径切换菜单
                 ShowFileDialogMenu(currentWinID)
             } else {
                 ; 显示程序窗口切换菜单
@@ -631,7 +642,7 @@ ShowWindowSwitchMenu(*) {
         }
     }
 
-    SetTimer(() => g_MenuActive := false, -100)
+    SetTimer(() => g_MenuActive := false, -200)
 }
 
 AddPinnedWindows(contextMenu) {
@@ -869,6 +880,10 @@ QuickSwitchLastTwo(*) {
 }
 
 WindowChoiceHandler(winID, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     try {
         WinActivate("ahk_id " . winID)
         WinShow("ahk_id " . winID)
@@ -883,6 +898,10 @@ WindowChoiceHandler(winID, *) {
 }
 
 CloseAppHandler(processName, winID, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     try {
         WinClose("ahk_id " . winID)
         MsgBox("程序已关闭: " . processName, "信息", "T2")
@@ -995,33 +1014,42 @@ ReorganizePinnedAppsInIni() {
 ShowFileDialogMenu(winID) {
     global g_MenuItems, g_MenuActive
 
-    ; 设置当前对话框信息
-    g_CurrentDialog.WinID := winID
-    g_CurrentDialog.Type := DetectFileDialog(winID)
-
-    if (!g_CurrentDialog.Type) {
-        ; 如果不是有效的文件对话框，显示程序切换菜单
-        ShowWindowSwitchMenu()
+    ; 如果菜单已经激活，则不重复显示
+    if (g_MenuActive) {
         return
     }
 
-    ; 获取对话框指纹
-    ahk_exe := WinGetProcessName("ahk_id " . winID)
-    window_title := WinGetTitle("ahk_id " . winID)
-    g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
-    g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
+    ; 如果不是当前监控的对话框，需要重新设置信息
+    if (winID != g_CurrentDialog.WinID) {
+        g_CurrentDialog.WinID := winID
+        g_CurrentDialog.Type := DetectFileDialog(winID)
 
-    ; 检查是否为自动切换模式
-    if (g_CurrentDialog.Action = "1") {
-        folderPath := GetActiveFileManagerFolder(winID)
-        if IsValidFolder(folderPath) {
-            RecordRecentPath(folderPath)
-            FeedDialog(winID, folderPath, g_CurrentDialog.Type)
+        if (!g_CurrentDialog.Type) {
+            ; 如果不是有效的文件对话框，显示程序切换菜单
+            ShowWindowSwitchMenu()
             return
         }
+
+        ; 获取对话框指纹
+        ahk_exe := WinGetProcessName("ahk_id " . winID)
+        window_title := WinGetTitle("ahk_id " . winID)
+        g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
+        g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
     }
 
+    ; 当用户手动按快捷键时，总是显示菜单（不执行自动切换）
     ; 显示文件对话框菜单
+    ShowFileDialogMenuInternal()
+}
+
+ShowFileDialogMenuInternal() {
+    global g_MenuItems, g_MenuActive
+
+    ; 双重检查：如果菜单已经激活，则不重复显示
+    if (g_MenuActive) {
+        return
+    }
+
     g_MenuActive := true
     g_MenuItems := []
 
@@ -1083,7 +1111,7 @@ ShowFileDialogMenu(winID) {
         }
     }
 
-    SetTimer(() => g_MenuActive := false, -100)
+    SetTimer(() => g_MenuActive := false, -200)
 }
 
 DetectFileDialog(winID) {
@@ -1182,6 +1210,7 @@ GetTCActiveFolder(winID) {
     clipSaved := ClipboardAll()
     A_Clipboard := ""
 
+    ; 方法1：使用PostMessage + ClipWait (基于V1代码修复)
     try {
         PostMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
 
@@ -1196,6 +1225,7 @@ GetTCActiveFolder(winID) {
         ; 忽略错误，继续尝试其他方法
     }
 
+    ; 方法2：尝试目标路径 (右窗格)
     A_Clipboard := ""
     try {
         PostMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
@@ -1206,6 +1236,21 @@ GetTCActiveFolder(winID) {
                 A_Clipboard := clipSaved
                 return folderPath
             }
+        }
+    } catch {
+        ; 忽略错误，继续尝试其他方法
+    }
+
+    ; 方法3：备选方案 - 使用SendMessage
+    A_Clipboard := ""
+    try {
+        result := SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
+        Sleep(200)
+
+        if (result != 0 && A_Clipboard != "") {
+            folderPath := A_Clipboard
+            A_Clipboard := clipSaved
+            return folderPath
         }
     } catch {
         ; 忽略错误
@@ -1331,147 +1376,6 @@ FeedDialogSysListView(winID, folderPath) {
     Send("{Enter}")
 }
 
-AddTotalCommanderFolders(contextMenu) {
-    added := false
-    allWindows := WinGetList()
-
-    for winID in allWindows {
-        try {
-            winClass := WinGetClass("ahk_id " . winID)
-            if (winClass = "TTOTAL_CMD") {
-                thisPID := WinGetPID("ahk_id " . winID)
-                tcExe := GetModuleFileName(thisPID)
-
-                clipSaved := ClipboardAll()
-                A_Clipboard := ""
-
-                SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
-                Sleep(50)
-                if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
-                    folderPath := A_Clipboard
-                    AddFileMenuItemWithQuickAccess(contextMenu, folderPath, tcExe, 0)
-                    added := true
-                }
-
-                SendMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
-                Sleep(50)
-                if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
-                    folderPath := A_Clipboard
-                    AddFileMenuItemWithQuickAccess(contextMenu, folderPath, tcExe, 0)
-                    added := true
-                }
-
-                A_Clipboard := clipSaved
-            }
-        }
-    }
-
-    return added
-}
-
-AddExplorerFolders(contextMenu) {
-    added := false
-    allWindows := WinGetList()
-
-    for winID in allWindows {
-        try {
-            winClass := WinGetClass("ahk_id " . winID)
-            if (winClass = "CabinetWClass") {
-                for explorerWindow in ComObject("Shell.Application").Windows {
-                    try {
-                        if (winID = explorerWindow.hwnd) {
-                            explorerPath := explorerWindow.Document.Folder.Self.Path
-                            if IsValidFolder(explorerPath) {
-                                AddFileMenuItemWithQuickAccess(contextMenu, explorerPath, "shell32.dll", 5)
-                                added := true
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return added
-}
-
-AddXYplorerFolders(contextMenu) {
-    added := false
-    allWindows := WinGetList()
-
-    for winID in allWindows {
-        try {
-            winClass := WinGetClass("ahk_id " . winID)
-            if (winClass = "ThunderRT6FormDC") {
-                thisPID := WinGetPID("ahk_id " . winID)
-                xyExe := GetModuleFileName(thisPID)
-
-                clipSaved := ClipboardAll()
-                A_Clipboard := ""
-
-                SendXYplorerMessage(winID, "::copytext get('path', a);")
-                if IsValidFolder(A_Clipboard) {
-                    folderPath := A_Clipboard
-                    AddFileMenuItemWithQuickAccess(contextMenu, folderPath, xyExe, 0)
-                    added := true
-                }
-
-                SendXYplorerMessage(winID, "::copytext get('path', i);")
-                if IsValidFolder(A_Clipboard) {
-                    folderPath := A_Clipboard
-                    AddFileMenuItemWithQuickAccess(contextMenu, folderPath, xyExe, 0)
-                    added := true
-                }
-
-                A_Clipboard := clipSaved
-            }
-        }
-    }
-
-    return added
-}
-
-AddOpusFolders(contextMenu) {
-    added := false
-    allWindows := WinGetList()
-
-    for winID in allWindows {
-        try {
-            winClass := WinGetClass("ahk_id " . winID)
-            if (winClass = "dopus.lister") {
-                thisPID := WinGetPID("ahk_id " . winID)
-                dopusExe := GetModuleFileName(thisPID)
-
-                RunWait('"' . dopusExe . '\..\dopusrt.exe" /info "' . g_Config.TempFile . '",paths', , , &dummy)
-                Sleep(100)
-
-                try {
-                    opusInfo := FileRead(g_Config.TempFile)
-                    FileDelete(g_Config.TempFile)
-
-                    if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="1".*>(.*)</path>', &match) {
-                        folderPath := match[1]
-                        if IsValidFolder(folderPath) {
-                            AddFileMenuItemWithQuickAccess(contextMenu, folderPath, dopusExe, 0)
-                            added := true
-                        }
-                    }
-
-                    if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="2".*>(.*)</path>', &match) {
-                        folderPath := match[1]
-                        if IsValidFolder(folderPath) {
-                            AddFileMenuItemWithQuickAccess(contextMenu, folderPath, dopusExe, 0)
-                            added := true
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return added
-}
-
 AddCustomPaths(contextMenu) {
     added := false
     customPathsMenu := Menu()
@@ -1586,13 +1490,19 @@ AddSendToFileManagerMenu(contextMenu) {
 AddFileDialogSettingsMenu(contextMenu) {
     contextMenu.Add()
     contextMenu.Add("自动跳转", AutoSwitchHandler)
-    contextMenu.Add("Not now", NotNowHandler)
+    contextMenu.Add("自动弹出菜单", AutoMenuHandler)
+    contextMenu.Add("手动按键", ManualHandler)
+    contextMenu.Add("从不显示", NeverHandler)
 
     switch g_CurrentDialog.Action {
         case "1":
             contextMenu.Check("自动跳转")
+        case "2":
+            contextMenu.Check("自动弹出菜单")
+        case "0":
+            contextMenu.Check("从不显示")
         default:
-            contextMenu.Check("Not now")
+            contextMenu.Check("手动按键")
     }
 }
 
@@ -1613,6 +1523,10 @@ AddFileMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconInde
 }
 
 FolderChoiceHandler(folderPath, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
@@ -1620,6 +1534,10 @@ FolderChoiceHandler(folderPath, *) {
 }
 
 RecentPathChoiceHandler(folderPath, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
@@ -1627,6 +1545,10 @@ RecentPathChoiceHandler(folderPath, *) {
 }
 
 AutoSwitchHandler(*) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     IniWrite("1", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "1"
 
@@ -1638,8 +1560,39 @@ AutoSwitchHandler(*) {
 }
 
 NotNowHandler(*) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     try IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := ""
+}
+
+AutoMenuHandler(*) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
+    IniWrite("2", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+    g_CurrentDialog.Action := "2"
+}
+
+ManualHandler(*) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
+    try IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+    g_CurrentDialog.Action := ""
+}
+
+NeverHandler(*) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
+    IniWrite("0", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
+    g_CurrentDialog.Action := "0"
 }
 
 GetCurrentDialogPath() {
@@ -1688,6 +1641,10 @@ GetCurrentDialogPath() {
 }
 
 SendToTCHandler(dialogPath, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     try {
         tcWindow := WinExist("ahk_class TTOTAL_CMD")
 
@@ -1712,6 +1669,10 @@ SendToTCHandler(dialogPath, *) {
 }
 
 SendToExplorerHandler(dialogPath, *) {
+    global g_MenuActive
+    ; 立即重置菜单状态
+    g_MenuActive := false
+    
     try {
         Run("explorer.exe `"" . dialogPath . "`"")
         RecordRecentPath(dialogPath)
@@ -1768,6 +1729,193 @@ RecordRecentPath(folderPath) {
         entryIndex++
     }
 }
+; ============================================================================
+; 文件对话框菜单功能
+; ============================================================================
+
+AddTotalCommanderFolders(contextMenu) {
+    added := false
+    allWindows := WinGetList()
+
+    for winID in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . winID)
+            if (winClass = "TTOTAL_CMD") {
+                thisPID := WinGetPID("ahk_id " . winID)
+                tcExe := GetModuleFileName(thisPID)
+
+                ; 获取源路径
+                clipSaved := ClipboardAll()
+                A_Clipboard := ""
+
+                SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
+                Sleep(50)
+                if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
+                    folderPath := A_Clipboard
+                    AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, tcExe, 0)
+                    added := true
+                }
+
+                ; 获取目标路径
+                SendMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
+                Sleep(50)
+                if (A_Clipboard != "" && IsValidFolder(A_Clipboard)) {
+                    folderPath := A_Clipboard
+                    AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, tcExe, 0)
+                    added := true
+                }
+
+                A_Clipboard := clipSaved
+            }
+        }
+    }
+
+    return added
+}
+
+AddExplorerFolders(contextMenu) {
+    added := false
+    allWindows := WinGetList()
+
+    for winID in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . winID)
+            if (winClass = "CabinetWClass") {
+                for explorerWindow in ComObject("Shell.Application").Windows {
+                    try {
+                        if (winID = explorerWindow.hwnd) {
+                            explorerPath := explorerWindow.Document.Folder.Self.Path
+                            if IsValidFolder(explorerPath) {
+                                AddFileDialogMenuItemWithQuickAccess(contextMenu, explorerPath, "shell32.dll", 5)
+                                added := true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return added
+}
+
+AddXYplorerFolders(contextMenu) {
+    added := false
+    allWindows := WinGetList()
+
+    for winID in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . winID)
+            if (winClass = "ThunderRT6FormDC") {
+                thisPID := WinGetPID("ahk_id " . winID)
+                xyExe := GetModuleFileName(thisPID)
+
+                clipSaved := ClipboardAll()
+                A_Clipboard := ""
+
+                ; 获取活动路径
+                SendXYplorerMessage(winID, "::copytext get('path', a);")
+                if IsValidFolder(A_Clipboard) {
+                    folderPath := A_Clipboard
+                    AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, xyExe, 0)
+                    added := true
+                }
+
+                ; 获取非活动路径
+                SendXYplorerMessage(winID, "::copytext get('path', i);")
+                if IsValidFolder(A_Clipboard) {
+                    folderPath := A_Clipboard
+                    AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, xyExe, 0)
+                    added := true
+                }
+
+                A_Clipboard := clipSaved
+            }
+        }
+    }
+
+    return added
+}
+
+AddOpusFolders(contextMenu) {
+    added := false
+    allWindows := WinGetList()
+
+    for winID in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . winID)
+            if (winClass = "dopus.lister") {
+                thisPID := WinGetPID("ahk_id " . winID)
+                dopusExe := GetModuleFileName(thisPID)
+
+                ; 获取Opus信息
+                RunWait('"' . dopusExe . '\..\dopusrt.exe" /info "' . g_Config.TempFile . '",paths', , , &dummy)
+                Sleep(100)
+
+                try {
+                    opusInfo := FileRead(g_Config.TempFile)
+                    FileDelete(g_Config.TempFile)
+
+                    ; 解析活动和被动路径
+                    if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="1".*>(.*)</path>', &match) {
+                        folderPath := match[1]
+                        if IsValidFolder(folderPath) {
+                            AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, dopusExe, 0)
+                            added := true
+                        }
+                    }
+
+                    if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="2".*>(.*)</path>', &match) {
+                        folderPath := match[1]
+                        if IsValidFolder(folderPath) {
+                            AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, dopusExe, 0)
+                            added := true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return added
+}
+
+
+
+
+
+
+
+
+
+AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex := 0) {
+    ; 添加到菜单项数组用于快速访问
+    g_MenuItems.Push(folderPath)
+
+    ; 创建带快速访问快捷键的显示文本（如果启用）
+    displayText := folderPath
+    if g_Config.EnableQuickAccess = "1" && g_MenuItems.Length <= StrLen(g_Config.QuickAccessKeys) {
+        shortcutKey := SubStr(g_Config.QuickAccessKeys, g_MenuItems.Length, 1)
+        displayText := "[" "&" . shortcutKey . "] " . folderPath
+    }
+
+    ; 添加菜单项
+    contextMenu.Add(displayText, FolderChoiceHandler.Bind(folderPath))
+
+    ; 设置图标（如果提供）
+    if iconPath != "" {
+        try contextMenu.SetIcon(displayText, iconPath, iconIndex, g_Config.IconSize)
+    }
+}
+
+
+
+; ============================================================================
+; 对话框检测和路径注入
+; ============================================================================
+
+
+
 ; ============================================================================
 ; 设置功能
 ; ============================================================================
@@ -1941,8 +2089,127 @@ MainLoop() {
         ExitApp()
     }
 
+    ; 启动文件对话框监控
+    SetTimer(MonitorFileDialogs, 200)
+
     ; 主事件循环
     loop {
         Sleep(100)
     }
+}
+
+MonitorFileDialogs() {
+    static lastDialogID := ""
+    static dialogProcessed := false
+
+    ; 如果菜单正在显示，暂停监控
+    if (g_MenuActive) {
+        return
+    }
+
+    ; 获取当前激活窗口
+    currentWinID := WinExist("A")
+
+    ; 检查窗口ID是否有效
+    if (!currentWinID) {
+        return
+    }
+
+    try {
+        winClass := WinGetClass("ahk_id " . currentWinID)
+        exeName := WinGetProcessName("ahk_id " . currentWinID)
+        winTitle := WinGetTitle("ahk_id " . currentWinID)
+    } catch {
+        return
+    }
+
+    ; 检查是否为标准文件对话框或Blender文件视图窗口
+    isStandardDialog := (winClass = "#32770")
+    isBlenderFileView := (winClass = "GHOST_WindowClass" and exeName = "blender.exe" and InStr(winTitle,
+        "Blender File View"))
+
+    if (isStandardDialog || isBlenderFileView) {
+        ; 如果是新的对话框或者之前没有处理过
+        if (currentWinID != lastDialogID || !dialogProcessed) {
+            lastDialogID := currentWinID
+            dialogProcessed := true
+
+            ; 设置当前对话框信息
+            g_CurrentDialog.WinID := currentWinID
+            g_CurrentDialog.Type := DetectFileDialog(currentWinID)
+
+            if (g_CurrentDialog.Type) {
+                ProcessFileDialog()
+            }
+        }
+    } else {
+        ; 如果不是文件对话框，重置状态
+        if (currentWinID != lastDialogID) {
+            lastDialogID := ""
+            dialogProcessed := false
+            CleanupFileDialogGlobals()
+        }
+    }
+}
+
+ProcessFileDialog() {
+    ; 获取对话框指纹
+    ahk_exe := WinGetProcessName("ahk_id " . g_CurrentDialog.WinID)
+    window_title := WinGetTitle("ahk_id " . g_CurrentDialog.WinID)
+    g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
+
+    ; 检查对话框动作设置（优先使用特定对话框的设置）
+    g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
+    
+    ; 如果没有特定设置，使用默认行为
+    if (g_CurrentDialog.Action = "") {
+        switch g_Config.FileDialogDefaultAction {
+            case "auto_switch":
+                g_CurrentDialog.Action := "1"
+            case "never":
+                g_CurrentDialog.Action := "0"
+            case "auto_menu":
+                g_CurrentDialog.Action := "2"
+            default: ; "manual"
+                g_CurrentDialog.Action := ""
+        }
+    }
+
+    if (g_CurrentDialog.Action = "1") {
+        ; 自动切换模式
+        folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
+
+        if IsValidFolder(folderPath) {
+            ; 自动切换成功：记录路径并切换到文件夹
+            RecordRecentPath(folderPath)
+            FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+        }
+        ; 注意：自动切换失败时不显示菜单，等待用户手动按快捷键
+    } else if (g_CurrentDialog.Action = "0") {
+        ; Never here mode - 什么都不做
+    } else if (g_CurrentDialog.Action = "2") {
+        ; 自动弹出菜单模式
+        ; 延迟一点时间确保对话框完全加载
+        SetTimer(DelayedShowMenu, -300)
+    } else {
+        ; Show menu mode - 不自动显示菜单，等待用户按热键
+    }
+}
+
+DelayedShowMenu() {
+    if (g_CurrentDialog.WinID != "" && WinExist("ahk_id " . g_CurrentDialog.WinID)) {
+        ShowFileDialogMenuInternal()
+    }
+}
+
+CleanupFileDialogGlobals() {
+    global g_CurrentDialog, g_MenuItems, g_MenuActive
+
+    ; 重置全局变量
+    g_CurrentDialog.WinID := ""
+    g_CurrentDialog.Type := ""
+    g_CurrentDialog.FingerPrint := ""
+    g_CurrentDialog.Action := ""
+    g_MenuItems := []
+    g_MenuActive := false
 }
