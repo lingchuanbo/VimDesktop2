@@ -99,12 +99,12 @@ CreateDefaultIniFile() {
         IniWrite("1", g_Config.IniFile, "Display", "ShowProcessName")
 
         ; 程序切换菜单位置设置
-        IniWrite("mouse", g_Config.IniFile, "WindowSwitchMenu", "Position")
+        IniWrite("fixed", g_Config.IniFile, "WindowSwitchMenu", "Position")
         IniWrite("100", g_Config.IniFile, "WindowSwitchMenu", "FixedPosX")
         IniWrite("100", g_Config.IniFile, "WindowSwitchMenu", "FixedPosY")
 
         ; 路径切换菜单位置设置
-        IniWrite("mouse", g_Config.IniFile, "PathSwitchMenu", "Position")
+        IniWrite("fixed", g_Config.IniFile, "PathSwitchMenu", "Position")
         IniWrite("200", g_Config.IniFile, "PathSwitchMenu", "FixedPosX")
         IniWrite("200", g_Config.IniFile, "PathSwitchMenu", "FixedPosY")
 
@@ -186,7 +186,7 @@ LoadConfiguration() {
     g_Config.ShowProcessName := IniRead(g_Config.IniFile, "Display", "ShowProcessName", "1")
 
     ; 加载程序切换菜单位置设置
-    g_Config.WindowSwitchPosition := IniRead(g_Config.IniFile, "WindowSwitchMenu", "Position", "mouse")
+    g_Config.WindowSwitchPosition := IniRead(g_Config.IniFile, "WindowSwitchMenu", "Position", "fixed")
     g_Config.WindowSwitchPosX := Integer(IniRead(g_Config.IniFile, "WindowSwitchMenu", "FixedPosX", "100"))
     g_Config.WindowSwitchPosY := Integer(IniRead(g_Config.IniFile, "WindowSwitchMenu", "FixedPosY", "100"))
 
@@ -883,7 +883,7 @@ WindowChoiceHandler(winID, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try {
         WinActivate("ahk_id " . winID)
         WinShow("ahk_id " . winID)
@@ -901,7 +901,7 @@ CloseAppHandler(processName, winID, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try {
         WinClose("ahk_id " . winID)
         MsgBox("程序已关闭: " . processName, "信息", "T2")
@@ -1526,7 +1526,7 @@ FolderChoiceHandler(folderPath, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
@@ -1537,7 +1537,7 @@ RecentPathChoiceHandler(folderPath, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
@@ -1548,7 +1548,7 @@ AutoSwitchHandler(*) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     IniWrite("1", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "1"
 
@@ -1563,7 +1563,7 @@ NotNowHandler(*) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := ""
 }
@@ -1572,7 +1572,7 @@ AutoMenuHandler(*) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     IniWrite("2", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "2"
 }
@@ -1581,7 +1581,7 @@ ManualHandler(*) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := ""
 }
@@ -1590,7 +1590,7 @@ NeverHandler(*) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     IniWrite("0", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "0"
 }
@@ -1644,7 +1644,7 @@ SendToTCHandler(dialogPath, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try {
         tcWindow := WinExist("ahk_class TTOTAL_CMD")
 
@@ -1672,7 +1672,7 @@ SendToExplorerHandler(dialogPath, *) {
     global g_MenuActive
     ; 立即重置菜单状态
     g_MenuActive := false
-    
+
     try {
         Run("explorer.exe `"" . dialogPath . "`"")
         RecordRecentPath(dialogPath)
@@ -1880,14 +1880,6 @@ AddOpusFolders(contextMenu) {
     return added
 }
 
-
-
-
-
-
-
-
-
 AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex := 0) {
     ; 添加到菜单项数组用于快速访问
     g_MenuItems.Push(folderPath)
@@ -1908,13 +1900,9 @@ AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", ic
     }
 }
 
-
-
 ; ============================================================================
 ; 对话框检测和路径注入
 ; ============================================================================
-
-
 
 ; ============================================================================
 ; 设置功能
@@ -2160,7 +2148,7 @@ ProcessFileDialog() {
 
     ; 检查对话框动作设置（优先使用特定对话框的设置）
     g_CurrentDialog.Action := IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
-    
+
     ; 如果没有特定设置，使用默认行为
     if (g_CurrentDialog.Action = "") {
         switch g_Config.FileDialogDefaultAction {
@@ -2190,7 +2178,7 @@ ProcessFileDialog() {
     } else if (g_CurrentDialog.Action = "2") {
         ; 自动弹出菜单模式
         ; 延迟一点时间确保对话框完全加载
-        SetTimer(DelayedShowMenu, -300)
+        SetTimer(DelayedShowMenu, -200)
     } else {
         ; Show menu mode - 不自动显示菜单，等待用户按热键
     }
