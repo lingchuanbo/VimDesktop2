@@ -8,7 +8,6 @@ Comment=Everything搜索工具
 
 ; 引入 SingleDoubleLongPress.ahk 库
 ; 引入 Acc.ahk 库用于辅助功能检测 主要判断能否获取acname，还有常规的检测方式，前后颜色变化，如果发生改变则点了图标 没变化就是空白区域
-#Include <Acc>
 
 ; 读取Everything配置
 ReadEverythingConfig() {

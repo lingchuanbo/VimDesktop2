@@ -49,7 +49,7 @@ vim_TimeOut() {
 */
 VIMD_清除输入键() {
     vim.clear()
-    HideInfo()
+    HideInfo(true)  ; 强制隐藏，忽略配置规则
     ; 确保CapsLock状态被关闭，防止卡在大写状态
     SetCapsLockState "AlwaysOff"
 
@@ -185,11 +185,11 @@ VIMD_ShowKeyHelp(param := "") {
 
 /* ShowInfo【显示热键信息】
     函数:  ShowInfo
-    作用:  显示热键信息
+    作用:  显示热键信息，支持配置的自动隐藏规则
     参数:
     返回:
     作者:  Kawvin
-    版本:  1.0
+    版本:  2.0
     AHK版本: 2.0.18
 */
 ShowInfo() {
@@ -213,22 +213,33 @@ ShowInfo() {
 
     ; 初始化ToolTip管理器
     ToolTipManager.Init()
-    ToolTipManager.Show(np)        ; show a ToolTip
+
+    ; 使用增强的提示信息管理器
+    ToolTipInfoManager.Show(np)
 
 }
 
 /* HideInfo【隐藏热键信息】
     函数: HideInfo
-    作用:  隐藏热键信息
-    参数:
+    作用:  隐藏热键信息，支持配置的自动隐藏规则
+    参数: force - 强制隐藏，忽略配置规则 (默认false)
     返回:
     作者:  Kawvin
-    版本:  1.0
+    版本:  2.0
     AHK版本: 2.0.18
 */
-HideInfo() {
+HideInfo(force := false) {
     if (!VimDesktop_Global.showToolTipStatus) ; 当屏幕有非快捷键补全帮助信息时，不清理
         ToolTipManager.Hide()
+
+    ; 如果强制隐藏，直接执行
+    if (force) {
+        ToolTipInfoManager.ForceHide()
+        return
+    }
+
+    ; 否则使用配置的隐藏规则
+    ToolTipInfoManager.Hide()
 
     ; BTT提示关闭后进行内存优化，清理累积的内存
     try {
@@ -237,6 +248,329 @@ HideInfo() {
         }
     } catch {
         ; 忽略内存优化错误，不影响主功能
+    }
+}
+
+/*
+类: ToolTipInfoManager
+作用: 管理按键提示信息的显示和隐藏，支持配置的自动隐藏规则
+作者: Kiro
+版本: 1.0
+AHK版本: 2.0.18
+*/
+class ToolTipInfoManager {
+    static isShowing := false
+    static hideTimer := 0
+    static mouseHook := 0
+    static windowHook := 0
+    static lastActiveWindow := 0
+    static tooltipRect := { x: 0, y: 0, w: 0, h: 0 }
+    
+    ; 全局窗口监控（独立于提示显示状态）
+    static globalWindowHook := 0
+    static globalLastActiveWindow := 0
+    static globalWindowMonitorEnabled := false
+
+    ; 显示提示信息并启动监控
+    static Show(text, x := "", y := "", whichToolTip := 1) {
+        ; 先显示提示
+        ToolTipManager.Show(text, x, y, whichToolTip)
+        this.isShowing := true
+
+        ; 记录提示框位置（用于鼠标检测）
+        this._UpdateTooltipRect(x, y, text)
+
+        ; 根据配置启动相应的监控
+        this._StartMonitoring()
+    }
+
+    ; 隐藏提示信息
+    static Hide() {
+        if (!this.isShowing)
+            return
+
+        ; 检查配置是否允许自动隐藏
+        try {
+            if (!INIObject.config.tooltip_auto_hide)
+                return
+        } catch {
+            ; 如果读取配置失败，默认允许隐藏
+        }
+
+        this._DoHide()
+    }
+
+    ; 强制隐藏（忽略配置）
+    static ForceHide() {
+        this._DoHide()
+    }
+
+    ; 执行实际的隐藏操作
+    static _DoHide() {
+        if (!this.isShowing)
+            return
+
+        ToolTipManager.Hide()
+        this.isShowing := false
+        this._StopMonitoring()
+        
+        ; 清除按键缓存，避免后续按键继续执行组合功能
+        this._ClearKeyCache()
+    }
+    
+    ; 清除按键缓存
+    static _ClearKeyCache(reason := "自动隐藏") {
+        try {
+            ; 检查配置是否启用按键缓存清除
+            clearKeyCache := true
+            try {
+                clearKeyCache := INIObject.config.tooltip_clear_key_cache_on_hide
+            } catch {
+                ; 如果读取配置失败，默认启用
+            }
+            
+            if (!clearKeyCache)
+                return
+            
+            ; 获取当前窗口和对象
+            global vim
+            winName := vim.CheckWin()
+            winObj := vim.GetWin(winName)
+            
+            ; 清除按键缓存
+            if (winObj && winObj.KeyTemp != "") {
+                oldKeyTemp := winObj.KeyTemp
+                winObj.KeyTemp := ""
+                winObj.Count := 0
+                
+                ; 如果启用调试，记录清除操作
+                try {
+                    if (INIObject.config.enable_debug) {
+                        vim._Debug.Add(reason "时清除按键缓存: " winName " (原缓存: " oldKeyTemp ")")
+                    }
+                } catch {
+                    ; 忽略调试记录错误
+                }
+            }
+        } catch {
+            ; 忽略清除按键缓存时的错误，不影响主功能
+        }
+    }
+
+    ; 启动监控
+    static _StartMonitoring() {
+        try {
+            ; 启动超时定时器
+            timeoutMs := INIObject.config.tooltip_hide_timeout
+            if (timeoutMs > 0) {
+                this.hideTimer := SetTimer(() => ToolTipInfoManager._OnTimeout(), -timeoutMs)
+            }
+
+            ; 启动鼠标监控
+            if (INIObject.config.tooltip_hide_on_mouse_leave || INIObject.config.tooltip_hide_on_click_outside) {
+                this._StartMouseMonitoring()
+            }
+
+            ; 启动窗口监控
+            if (INIObject.config.tooltip_hide_on_window_change) {
+                this._StartWindowMonitoring()
+            }
+        } catch {
+            ; 如果读取配置失败，使用默认行为
+            this.hideTimer := SetTimer(() => ToolTipInfoManager._OnTimeout(), -5000)
+            this._StartMouseMonitoring()
+            this._StartWindowMonitoring()
+        }
+    }
+
+    ; 停止监控
+    static _StopMonitoring() {
+        ; 停止定时器
+        if (this.hideTimer) {
+            SetTimer(this.hideTimer, 0)
+            this.hideTimer := 0
+        }
+
+        ; 停止鼠标监控
+        this._StopMouseMonitoring()
+
+        ; 停止窗口监控
+        this._StopWindowMonitoring()
+    }
+
+    ; 启动鼠标监控
+    static _StartMouseMonitoring() {
+        if (this.mouseHook)
+            return
+
+        ; 使用低级鼠标钩子监控鼠标事件
+        this.mouseHook := SetTimer(() => ToolTipInfoManager._CheckMouse(), 100)
+    }
+
+    ; 停止鼠标监控
+    static _StopMouseMonitoring() {
+        if (this.mouseHook) {
+            SetTimer(this.mouseHook, 0)
+            this.mouseHook := 0
+        }
+    }
+
+    ; 启动窗口监控
+    static _StartWindowMonitoring() {
+        if (this.windowHook)
+            return
+
+        this.lastActiveWindow := WinGetID("A")
+        this.windowHook := SetTimer(() => ToolTipInfoManager._CheckWindow(), 200)
+    }
+
+    ; 停止窗口监控
+    static _StopWindowMonitoring() {
+        if (this.windowHook) {
+            SetTimer(this.windowHook, 0)
+            this.windowHook := 0
+        }
+    }
+
+    ; 检查鼠标状态
+    static _CheckMouse() {
+        if (!this.isShowing)
+            return
+
+        try {
+            ; 获取鼠标位置
+            MouseGetPos(&mouseX, &mouseY)
+
+            ; 检查是否点击了鼠标（左键或右键）
+            if (INIObject.config.tooltip_hide_on_click_outside) {
+                if (GetKeyState("LButton", "P") || GetKeyState("RButton", "P")) {
+                    ; 检查点击是否在提示框外
+                    if (!this._IsMouseInTooltip(mouseX, mouseY)) {
+                        this.Hide()
+                        return
+                    }
+                }
+            }
+
+            ; 检查鼠标是否离开提示区域
+            if (INIObject.config.tooltip_hide_on_mouse_leave) {
+                if (!this._IsMouseInTooltip(mouseX, mouseY)) {
+                    ; 给一个小的延迟，避免鼠标快速移动时误触发
+                    SetTimer(() => ToolTipInfoManager._DelayedHideCheck(), -500)
+                }
+            }
+        } catch {
+            ; 忽略鼠标检测错误
+        }
+    }
+
+    ; 检查窗口状态
+    static _CheckWindow() {
+        if (!this.isShowing)
+            return
+
+        try {
+            currentWindow := WinGetID("A")
+            if (currentWindow != this.lastActiveWindow) {
+                this.Hide()
+            }
+        } catch {
+            ; 忽略窗口检测错误
+        }
+    }
+
+    ; 超时回调
+    static _OnTimeout() {
+        this.Hide()
+    }
+
+    ; 延迟隐藏检查
+    static _DelayedHideCheck() {
+        if (this.isShowing) {
+            MouseGetPos(&newX, &newY)
+            if (!this._IsMouseInTooltip(newX, newY)) {
+                this.Hide()
+            }
+        }
+    }
+
+    ; 更新提示框矩形区域
+    static _UpdateTooltipRect(x, y, text) {
+        ; 如果没有指定位置，使用默认位置（鼠标附近）
+        if (x = "" || y = "") {
+            MouseGetPos(&mouseX, &mouseY)
+            this.tooltipRect.x := (x = "") ? mouseX + 10 : x
+            this.tooltipRect.y := (y = "") ? mouseY + 10 : y
+        } else {
+            this.tooltipRect.x := x
+            this.tooltipRect.y := y
+        }
+
+        ; 估算提示框大小（基于文本长度）
+        lines := StrSplit(text, "`n")
+        maxLineLength := 0
+        for line in lines {
+            if (StrLen(line) > maxLineLength)
+                maxLineLength := StrLen(line)
+        }
+
+        ; 估算尺寸（每个字符约8像素宽，每行约20像素高）
+        this.tooltipRect.w := maxLineLength * 8 + 20
+        this.tooltipRect.h := lines.Length * 20 + 10
+    }
+
+    ; 检查鼠标是否在提示框区域内
+    static _IsMouseInTooltip(mouseX, mouseY) {
+        ; 添加一些边距，让检测区域稍大一些
+        margin := 20
+        return (mouseX >= this.tooltipRect.x - margin &&
+            mouseX <= this.tooltipRect.x + this.tooltipRect.w + margin &&
+            mouseY >= this.tooltipRect.y - margin &&
+            mouseY <= this.tooltipRect.y + this.tooltipRect.h + margin)
+    }
+    
+    ; 启动全局窗口监控
+    static StartGlobalWindowMonitor() {
+        try {
+            ; 检查配置是否启用全局窗口监控
+            if (!INIObject.config.tooltip_global_window_monitor)
+                return
+            ; 检查配置是否启用按键缓存清除
+            if (!INIObject.config.tooltip_clear_key_cache_on_hide)
+                return
+        } catch {
+            ; 如果读取配置失败，默认启用
+        }
+        
+        if (this.globalWindowHook)
+            return
+            
+        this.globalLastActiveWindow := WinGetID("A")
+        this.globalWindowHook := SetTimer(() => ToolTipInfoManager._CheckGlobalWindow(), 200)
+        this.globalWindowMonitorEnabled := true
+    }
+    
+    ; 停止全局窗口监控
+    static StopGlobalWindowMonitor() {
+        if (this.globalWindowHook) {
+            SetTimer(this.globalWindowHook, 0)
+            this.globalWindowHook := 0
+        }
+        this.globalWindowMonitorEnabled := false
+    }
+    
+    ; 检查全局窗口状态
+    static _CheckGlobalWindow() {
+        try {
+            currentWindow := WinGetID("A")
+            if (currentWindow != this.globalLastActiveWindow) {
+                ; 窗口切换了，清除按键缓存
+                this._ClearKeyCache("窗口切换")
+                this.globalLastActiveWindow := currentWindow
+            }
+        } catch {
+            ; 忽略窗口检测错误
+        }
     }
 }
 
@@ -467,10 +801,10 @@ OpenMarkdownWithInlyne(markdownContent, title) {
     }
 
     ; 等待inlyne窗口出现并设置窗口属性
-    SetTimer(() => SetInlyneWindowProperties(inlynePID, title), -500)
+    SetTimer(SetInlyneWindowProperties.Bind(inlynePID, title), -500)
 
     ; 设置定时器清理临时文件（30秒后）
-    SetTimer(() => CleanupTempFile(tempFile), -30000)
+    SetTimer(CleanupTempFile.Bind(tempFile), -30000)
 }
 
 /*
@@ -1008,7 +1342,7 @@ class __vim {
             rw := this.WinList[winName]
         else
             rw := this.WinList[winName] := __win(class, filepath, title)
-        
+
         ; 从配置文件读取窗口特定的设置
         try {
             if (INIObject.HasSection(winName)) {
@@ -1021,7 +1355,7 @@ class __vim {
         } catch {
             ; 如果读取配置失败，使用默认值
         }
-        
+
         ; 支持多个class，用|分隔
         if (InStr(class, "|")) {
             classes := StrSplit(class, "|")
@@ -1033,7 +1367,7 @@ class __vim {
         } else {
             this.WinInfo["class`t" class] := winName
         }
-        
+
         this.WinInfo["filepath`t" filepath] := winName
         this.WinInfo["title`t" title] := winName
         return rw
@@ -1073,14 +1407,14 @@ class __vim {
             rw := this.WinList[winName]
         else
             rw := this.WinList[winName] := __win("", filepath, title)
-        
+
         ; 为每个class创建映射
         for _, singleClass in classArray {
             singleClass := Trim(singleClass)
             if (singleClass != "")
                 this.WinInfo["class`t" singleClass] := winName
         }
-        
+
         this.WinInfo["filepath`t" filepath] := winName
         this.WinInfo["title`t" title] := winName
         return rw
@@ -2717,7 +3051,7 @@ class __vimDebug {
             } catch {
                 ; 忽略销毁错误
             }
-            
+
             global vimDebug := Gui("+AlwaysOnTop", "_vimDebug")
             vimDebug.SetFont("c000000 s10", "Verdana")
             vimDebug.OnEvent("Escape", (*) => vimDebug.Destroy())
@@ -2732,7 +3066,7 @@ class __vimDebug {
             } catch {
                 ; 忽略销毁错误
             }
-            
+
             global vimDebug := Gui("+AlwaysOnTop", "_vimDebug")
             vimDebug.SetFont("c000000 s10", "Verdana")
             vimDebug.OnEvent("Escape", (*) => vimDebug.Destroy())
@@ -2773,7 +3107,7 @@ class __vimDebug {
                 k := " 热键缓存:" winObj.Count winObj.KeyTemp
             else
                 k := " 热键缓存:" winObj.KeyTemp
-            
+
             ; 检查 GUI 是否存在且有效
             if (IsObject(vimDebug) && vimDebug.Hwnd) {
                 vimDebug["Edit1"].Value := v

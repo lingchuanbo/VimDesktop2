@@ -59,6 +59,13 @@ VimDesktop_Run() {
     CheckPlugin()
     CheckHotKey()
 
+    ; 启动全局窗口监控（用于清除按键缓存）
+    try {
+        ToolTipInfoManager.StartGlobalWindowMonitor()
+    } catch {
+        ; 忽略全局窗口监控启动错误
+    }
+
     ; 用于接收来自 check.ahk 的信息
     OnMessage 0x4a, ReceiveWMCopyData
 }
