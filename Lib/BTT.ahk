@@ -290,7 +290,13 @@ class UltraTooltip {
         }
 
         hFont := Gdip_FontCreate(hFamily, style.fontSize * UltraTooltip.monitors.primary.dpi, 0)
-        hFormat := Gdip_StringFormatGetGeneric(1)
+        hFormat := Gdip_StringFormatGetGeneric(0)  ; 使用默认格式保持一致
+
+        ; 设置相同的字符串格式标志
+        Gdip_SetStringFormatFlags(hFormat, 0x4000 | 0x1000 | 0x0800)  ; NoFitBlackBox | MeasureTrailingSpaces | NoClip
+
+        ; 设置制表符停止位
+        this._SetTabStops(hFormat, style.fontSize)
 
         ; 创建测量矩形
         CreateRectF(&rect, 0, 0, 800, 600)
@@ -351,18 +357,35 @@ class UltraTooltip {
         }
 
         hFont := Gdip_FontCreate(hFamily, style.fontSize * UltraTooltip.monitors.primary.dpi, 0)
-        hFormat := Gdip_StringFormatGetGeneric(1)
+        hFormat := Gdip_StringFormatGetGeneric(0)  ; 使用默认格式而不是排版格式
         textBrush := Gdip_BrushCreateSolid(style.textColor)
 
-        ; 设置对齐
+        ; 设置对齐和行对齐
         Gdip_SetStringFormatAlign(hFormat, style.align)
+        Gdip_SetStringFormatLineAlign(hFormat, 0)  ; 顶部对齐，与ToolTipOptions保持一致
 
-        ; 计算文本位置
+        ; 设置字符串格式标志以改善文字渲染和对齐
+        ; 0x4000 = StringFormatFlagsNoFitBlackBox (改善字符间距)
+        ; 0x1000 = StringFormatFlagsMeasureTrailingSpaces (包含尾随空格)
+        ; 0x0800 = StringFormatFlagsNoClip (不裁剪文本)
+        Gdip_SetStringFormatFlags(hFormat, 0x4000 | 0x1000 | 0x0800)
+
+        ; 设置制表符停止位以支持制表符对齐
+        ; 设置8个字符宽度的制表位
+        this._SetTabStops(hFormat, style.fontSize)
+
+        ; 计算文本位置 - 使用完整的可用区域
         textX := style.border + style.margin
         textY := style.border + style.margin
+        textW := textSize.w
+        textH := textSize.h
 
-        ; 创建文本矩形
-        CreateRectF(&textRect, textX, textY, textSize.w, textSize.h)
+        ; 为了更好的文字对齐，稍微调整文本矩形
+        ; 添加小量的垂直偏移以匹配系统tooltip的行为
+        textY := textY + 1  ; 微调垂直位置
+
+        ; 创建文本矩形 - 确保有足够的空间
+        CreateRectF(&textRect, textX, textY, textW, textH)
 
         ; 绘制文本
         Gdip_DrawString(this.graphics, text, hFont, hFormat, textBrush, &textRect)
@@ -372,6 +395,31 @@ class UltraTooltip {
         Gdip_DeleteStringFormat(hFormat)
         Gdip_DeleteFont(hFont)
         Gdip_DeleteFontFamily(hFamily)
+    }
+
+    ; 设置制表符停止位
+    _SetTabStops(hFormat, fontSize) {
+        ; 计算制表符宽度（8个字符的宽度）
+        ; 根据字体大小估算字符宽度
+        charWidth := fontSize * 0.6  ; 大约的字符宽度
+        tabWidth := charWidth * 8     ; 8个字符的宽度
+        
+        ; 设置制表符停止位
+        ; GDI+支持设置制表符位置
+        try {
+            ; 创建制表符数组（最多32个制表位）
+            tabStops := Buffer(32 * 4, 0)  ; 32个float值
+            
+            ; 设置多个制表位，间隔为tabWidth
+            Loop 8 {
+                NumPut("Float", tabWidth * A_Index, tabStops, (A_Index - 1) * 4)
+            }
+            
+            ; 调用GDI+函数设置制表符
+            DllCall("gdiplus\GdipSetStringFormatTabStops", "UPtr", hFormat, "Float", 0, "Int", 8, "UPtr", tabStops.Ptr)
+        } catch {
+            ; 如果设置制表符失败，忽略错误
+        }
     }
 
     ; 计算显示位置
@@ -730,8 +778,9 @@ Gdip_StringFormatGetGeneric(whichFormat := 0) {
 }
 
 Gdip_DeleteStringFormat(hFormat) => DllCall("gdiplus\GdipDeleteStringFormat", "UPtr", hFormat)
-Gdip_SetStringFormatAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatAlign", "UPtr", hFormat, "Int",
-    Align)
+Gdip_SetStringFormatAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatAlign", "UPtr", hFormat, "Int", Align)
+Gdip_SetStringFormatLineAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatLineAlign", "UPtr", hFormat, "Int", Align)
+Gdip_SetStringFormatFlags(hFormat, Flags) => DllCall("gdiplus\GdipSetStringFormatFlags", "UPtr", hFormat, "Int", Flags)
 
 CreateRectF(&RectF, x, y, w, h) {
     RectF := Buffer(16)

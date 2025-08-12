@@ -122,10 +122,15 @@ class ToolTipManager {
     static _ShowBTT(text, x := "", y := "", whichToolTip := 1) {
         ; 获取主题相关的样式
         style := this._GetBTTStyle()
-        
-        ; BTT使用GDI+绘制，需要将制表符转换为空格以正确显示对齐
-        ; 将制表符替换为8个空格，确保key和comment之间有足够间隔
-        text := StrReplace(text, "`t", "        ")
+
+        ; 对于包含制表符的文本，使用等宽字体以确保更好的对齐效果
+        if (InStr(text, "`t")) {
+            style.Font := "Consolas"  ; 使用等宽字体
+        }
+
+        ; BTT使用GDI+绘制，需要更精确地处理制表符对齐
+        ; 使用更智能的制表符处理方式
+        text := this._ProcessTabAlignment(text, style)
 
         ; 处理空字符串参数，转换为unset以使用默认位置
         xParam := (x = "") ? unset : x
@@ -210,6 +215,110 @@ class ToolTipManager {
         style.Margin := 5
 
         return style
+    }
+
+    ; 处理制表符对齐，使BTT的显示效果与ToolTipOptions一致
+    static _ProcessTabAlignment(text, style) {
+        ; 如果文本中没有制表符，直接返回
+        if (!InStr(text, "`t")) {
+            return text
+        }
+
+        ; 分行处理
+        lines := StrSplit(text, "`n")
+        processedLines := []
+
+        for lineIndex, line in lines {
+            if (!InStr(line, "`t")) {
+                processedLines.Push(line)
+                continue
+            }
+
+            ; 处理包含制表符的行
+            parts := StrSplit(line, "`t")
+            if (parts.Length < 2) {
+                processedLines.Push(line)
+                continue
+            }
+
+            ; 计算第一部分（通常是按键）的显示宽度
+            firstPart := parts[1]
+
+            ; 更精确地计算字符显示宽度
+            estimatedWidth := this._CalculateTextWidth(firstPart)
+
+            ; 使用更简单但更可靠的对齐方法
+            ; 根据按键长度确定空格数量，模拟ToolTipOptions的效果
+            if (estimatedWidth <= 4) {
+                spacesNeeded := 2  ; 短按键用12个空格
+            } else if (estimatedWidth <= 8) {
+                spacesNeeded := 2   ; 中等按键用8个空格
+            } else if (estimatedWidth <= 12) {
+                spacesNeeded := 2   ; 较长按键用6个空格
+            } else {
+                spacesNeeded := 2   ; 很长按键用4个空格
+            }
+
+            ; 重建行，使用计算出的空格数
+            newLine := firstPart . this.StrRepeat(" ", spacesNeeded)
+
+            ; 添加剩余部分
+            Loop parts.Length - 1 {
+                i := A_Index + 1
+                if (i > 2) {
+                    newLine .= "    "  ; 后续制表符用4个空格
+                }
+                newLine .= parts[i]
+            }
+
+            processedLines.Push(newLine)
+        }
+
+        return this.StrJoin(processedLines, "`n")
+    }
+
+    ; 字符串重复函数
+    static StrRepeat(str, count) {
+        result := ""
+        loop count {
+            result .= str
+        }
+        return result
+    }
+
+    ; 字符串连接函数
+    static StrJoin(array, separator) {
+        result := ""
+        for index, item in array {
+            if (index > 1) {
+                result .= separator
+            }
+            result .= item
+        }
+        return result
+    }
+
+    ; 计算文本显示宽度（字符单位）
+    static _CalculateTextWidth(text) {
+        width := 0
+        for i, char in StrSplit(text, "") {
+            charCode := Ord(char)
+            if (charCode > 127) {
+                ; 中文字符和其他宽字符
+                width += 2
+            } else if (charCode >= 32) {
+                ; 普通ASCII字符
+                switch char {
+                    case "i", "l", "I", "1", ".", ",", ";", ":", "'", "`"", "|":
+                        width += 0.5  ; 窄字符
+                    case "m", "M", "w", "W":
+                        width += 1.5  ; 宽字符
+                    default:
+                        width += 1    ; 标准字符
+                }
+            }
+        }
+        return Ceil(width)
     }
 
     ; 颜色转换辅助函数
