@@ -16,6 +16,7 @@ global Vim := Object()
 global INIObject := Object()
 global PluginConfigs := Object()
 global Lang := Object()
+global VimDesktop_ExtensionPIDs := Map() ; 存储扩展功能的进程ID
 
 VimDesktop_Global.ConfigPath := A_ScriptDir "\Custom\vimd.ini"
 VimDesktop_Global.Editor := FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ?
@@ -131,7 +132,7 @@ VimDesktop_TrayMenuCreate() {
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["EditCustom"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Reload"], (*) => Reload())
-    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Exit"], (*) => ExitApp())
+    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Exit"], VimDesktop_ExitHandler)
     VimDesktop_TrayMenu.ClickCount := 2
     VimDesktop_TrayMenu.default := Lang["TrayMenu"]["Default"]
     A_IconTip := "VimDesktopV2_BoBO`n版本:1.1(By_Kawvin Mod_BoBO)"
@@ -139,6 +140,8 @@ VimDesktop_TrayMenuCreate() {
 
 ; 自动启动扩展功能
 VimDesktop_AutoStartExtensions() {
+    global VimDesktop_ExtensionPIDs ; 使用全局的进程ID映射表
+    
     try {
         if (INIObject.HasOwnProp("extensions")) {
             autoStartCount := 0
@@ -155,16 +158,24 @@ VimDesktop_AutoStartExtensions() {
 
                         ; 检查文件是否存在
                         if (FileExist(fullScriptPath)) {
-                            ; 根据文件扩展名选择执行方式
-                            if (InStr(scriptPath, ".exe")) {
-                                ; 直接运行exe文件
-                                Run(Format('"{1}"', fullScriptPath))
-                            } else {
-                                ; 使用AutoHotkey运行ahk文件
-                                ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
-                                Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath))
+                            try {
+                                ; 根据文件扩展名选择执行方式
+                                if (InStr(scriptPath, ".exe")) {
+                                    ; 直接运行exe文件
+                                    pid := Run(Format('"{1}"', fullScriptPath), , , &processId)
+                                    VimDesktop_ExtensionPIDs[key] := processId
+                                } else {
+                                    ; 使用AutoHotkey运行ahk文件
+                                    ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
+                                    pid := Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath), , , &processId)
+                                    VimDesktop_ExtensionPIDs[key] := processId
+                                }
+                                autoStartCount++
+                            } catch Error as runError {
+                                if (INIObject.config.enable_debug) {
+                                    MsgBox("启动扩展功能失败：" key " - " runError.Message, "调试信息", "OK Icon!")
+                                }
                             }
-                            autoStartCount++
                         }
                     }
                 }
@@ -243,6 +254,48 @@ VimDesktop_ExtensionHandler(ItemName, *) {
     } catch Error as e {
         MsgBox("执行扩展功能时出错：" e.Message, "错误", "OK Icon!")
     }
+}
+
+; 退出处理函数 - 关闭所有自动启动的扩展功能
+VimDesktop_ExitHandler(*) {
+    try {
+        ; 关闭所有自动启动的扩展功能进程
+        if (IsSet(VimDesktop_ExtensionPIDs)) {
+            for extensionName, pid in VimDesktop_ExtensionPIDs {
+                try {
+                    ; 尝试优雅关闭进程
+                    if (ProcessExist(pid)) {
+                        ProcessClose(pid)
+                        ; 等待一小段时间让进程正常关闭
+                        Sleep(100)
+                        
+                        ; 如果进程仍然存在，强制终止
+                        if (ProcessExist(pid)) {
+                            Run("taskkill /F /PID " pid, , "Hide")
+                        }
+                    }
+                } catch {
+                    ; 忽略关闭进程时的错误，继续处理下一个
+                }
+            }
+        }
+        
+        ; 清理临时文件
+        try {
+            FileDelete(A_Temp "\vimd_auto.ini")
+        } catch {
+            ; 忽略删除临时文件的错误
+        }
+        
+    } catch Error as e {
+        ; 即使清理失败也要退出程序
+        if (INIObject.config.enable_debug) {
+            MsgBox("清理扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
+        }
+    }
+    
+    ; 退出主程序
+    ExitApp()
 }
 
 VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
