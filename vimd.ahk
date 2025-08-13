@@ -292,7 +292,8 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
 #Include .\lib\ToolTipOptions.ahk
 #Include .\lib\BTT.ahk
 #Include .\lib\IME.ahk
-#Include .\lib\ACC.ahk
+#Include .\lib\UIA.ahk
+#Include .\lib\UIA_Browser.ahk
 #Include .\lib\AutoIMESwitcher.ahk
 #Include .\lib\ToolTipManager.ahk
 #Include .\lib\Run.ahk

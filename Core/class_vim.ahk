@@ -1383,10 +1383,16 @@ class __vim {
         AHK版本: 2.0.18
     */
     GetWin(winName := "") {
-        if strlen(winName)
-            return this.WinList[winName]
-        else
+        if strlen(winName) {
+            if (this.WinList.Has(winName)) {
+                return this.WinList[winName]
+            } else {
+                ; 如果窗口不存在，返回null而不是抛出错误
+                return ""
+            }
+        } else {
             return this.WinList["global"]
+        }
     }
 
     /* SetWinGroup【设置窗口组】

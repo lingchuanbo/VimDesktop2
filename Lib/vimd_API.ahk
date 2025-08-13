@@ -14,35 +14,175 @@ ModeChange(modeName) {
     ; 设置模式
     vim.mode(modeName, vim.LastFoundWin)
 
-    ; 检查当前窗口是否启用了显示提示
-    winObj := vim.GetWin(vim.LastFoundWin)
-    if (!winObj.Info) {
-        return  ; 如果没有启用显示提示，直接返回
-    }
+    ; 创建一个自定义的GUI窗口作为提示
+    static modeGui := 0
 
-    ; 使用ToolTipManager显示模式切换提示
-    ToolTipManager.Init()
-
-    ; 构建提示文本
-    modeText := "当前模式: " modeName
-
-    ; 获取最佳显示位置
-    pos := GetOptimalTooltipPosition()
-    
-    ; 调试信息（如果启用了调试模式）
-    try {
-        if (INIObject.config.enable_debug) {
-            MouseGetPos(&mouseX, &mouseY)
-            monitorIndex := GetMonitorFromPoint(mouseX, mouseY)
-            debugInfo := "鼠标位置: " mouseX "," mouseY "`n"
-            debugInfo .= "检测到显示器: " monitorIndex "`n"
-            debugInfo .= "提示位置: " pos.x "," pos.y
-            MsgBox(debugInfo, "模式切换调试", "OK T2")
+    ; 如果已经有一个GUI存在，先销毁它
+    if (modeGui != 0) {
+        try {
+            modeGui.Destroy()
+            modeGui := 0
         }
     }
+
+    ; 获取主题相关的颜色设置
+    bgColor := ""
+    textColor := ""
+    fontName := "Microsoft YaHei"
+    fontSize := 12
+
+    try {
+        currentTheme := INIObject.config.theme_mode
+        fontName := INIObject.config.tooltip_font_name
+        fontSize := INIObject.config.tooltipswitch_font_size
+
+        if (currentTheme = "light") {
+            bgColor := INIObject.config.tooltip_light_bg_color
+            textColor := INIObject.config.tooltip_light_text_color
+        } else if (currentTheme = "dark") {
+            bgColor := INIObject.config.tooltip_dark_bg_color
+            textColor := INIObject.config.tooltip_dark_text_color
+        } else {
+            ; 跟随系统主题
+            try {
+                ; 检测系统是否处于深色模式
+                isDarkMode := RegRead(
+                    "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                    "AppsUseLightTheme")
+                if (isDarkMode = 0) {
+                    bgColor := INIObject.config.tooltip_dark_bg_color
+                    textColor := INIObject.config.tooltip_dark_text_color
+                } else {
+                    bgColor := INIObject.config.tooltip_light_bg_color
+                    textColor := INIObject.config.tooltip_light_text_color
+                }
+            } catch {
+                ; 如果无法读取注册表，默认使用亮色主题
+                bgColor := INIObject.config.tooltip_light_bg_color
+                textColor := INIObject.config.tooltip_light_text_color
+            }
+        }
+    } catch {
+        ; 使用默认设置
+        bgColor := "White"
+        textColor := "0x381255"
+        fontName := "Microsoft YaHei"
+        fontSize := 12
+    }
+
+    ; 处理颜色格式转换
+    if (bgColor is String) {
+        ; 如果是颜色名称或十六进制字符串，直接使用
+        guiBgColor := bgColor
+    } else {
+        ; 如果是数字，转换为十六进制字符串
+        guiBgColor := Format("0x{:06X}", bgColor)
+    }
+
+    ; 处理文本颜色
+    if (textColor is String) {
+        if (RegExMatch(textColor, "^0x([0-9a-fA-F]+)$")) {
+            guiTextColor := textColor
+        } else {
+            guiTextColor := textColor
+        }
+    } else {
+        guiTextColor := Format("0x{:06X}", textColor)
+    }
+
+    ; 创建一个新的GUI
+    modeGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
+    modeGui.BackColor := guiBgColor
+
+    ; 计算文本尺寸以自适应背景大小
+    textWidth := CalculateTextWidth("当前模式: " modeName, fontName, fontSize)
+    textHeight := fontSize + 8  ; 字体大小加上一些边距
+
+    ; 计算GUI尺寸（添加边距）
+    guiWidth := textWidth + 40   ; 左右各20像素边距
+    guiHeight := textHeight + 20  ; 上下各10像素边距
+
+    ; 确保最小尺寸
+    if (guiWidth < 120)
+        guiWidth := 120
+    if (guiHeight < 35)
+        guiHeight := 35
+
+    ; 添加文本控件，使用最简单可靠的方式
+    modeGui.SetFont("s" fontSize " bold", fontName)
     
-    ; 显示模式切换提示，1秒后自动隐藏
-    ToolTipManager.ShowWithTimeout(modeText, pos.x, pos.y, 2, 300)
+    ; 先尝试最基本的设置，确保文字可见
+    if (guiTextColor = "" || guiTextColor = "0x") {
+        ; 如果颜色有问题，使用默认黑色
+        textCtrl := modeGui.Add("Text", "cBlack Center x10 y10 w" (guiWidth-20) " h" (guiHeight-20), "当前模式: " modeName)
+    } else {
+        textCtrl := modeGui.Add("Text", "c" guiTextColor " Center x10 y10 w" (guiWidth-20) " h" (guiHeight-20), "当前模式: " modeName)
+    }
+
+    ; 获取最佳显示位置（支持双屏幕）
+    pos := GetOptimalDisplayPosition()
+
+    ; 计算居中位置
+    centerX := pos.x - (guiWidth // 2)
+    centerY := pos.y - (guiHeight // 2)
+
+    ; 显示GUI在最佳位置
+    modeGui.Show("x" . centerX . " y" . centerY . " w" . guiWidth . " h" . guiHeight . " NoActivate")
+
+    ; 设置淡出效果和自动关闭
+    ; 初始化透明度为255（完全不透明）
+    WinSetTransparent(255, modeGui)
+
+    ; 设置淡出效果
+    SetTimer(FadeOutModeGui, -100)
+
+    FadeOutModeGui() {
+        static fadeSteps := 2  ; 淡出步骤数
+        static fadeDelay := 100  ; 每步延迟（毫秒）
+        static transparency := 255  ; 初始透明度
+        static fadeStep := 0  ; 当前步骤
+
+        ; 如果GUI已经不存在，则退出
+        if (modeGui = 0)
+            return
+
+        ; 计算每步透明度减少量
+        stepAmount := 255 / fadeSteps
+
+        ; 创建淡出定时器
+        SetTimer(DoFade, fadeDelay)
+
+        DoFade() {
+            fadeStep++
+
+            ; 计算新的透明度值
+            transparency := 255 - (stepAmount * fadeStep)
+
+            ; 如果GUI已经不存在，则停止定时器
+            if (modeGui = 0) {
+                SetTimer(, 0)
+                fadeStep := 0
+                transparency := 255
+                return
+            }
+
+            ; 应用新的透明度
+            if (transparency > 0) {
+                try {
+                    WinSetTransparent(Round(transparency), modeGui)
+                }
+            } else {
+                ; 淡出完成，销毁GUI并重置变量
+                try {
+                    modeGui.Destroy()
+                    modeGui := 0
+                }
+                SetTimer(, 0)
+                fadeStep := 0
+                transparency := 255
+            }
+        }
+    }
 }
 
 /* GetOptimalTooltipPosition【获取最佳提示显示位置】
@@ -56,7 +196,7 @@ ModeChange(modeName) {
 */
 GetOptimalTooltipPosition() {
     ; 优先级：活动窗口 > 鼠标位置 > 主屏幕
-    
+
     ; 方法1: 尝试获取活动窗口所在的显示器
     try {
         activeHwnd := WinGetID("A")
@@ -64,7 +204,7 @@ GetOptimalTooltipPosition() {
             WinGetPos(&winX, &winY, &winW, &winH, "ahk_id " activeHwnd)
             winCenterX := winX + winW // 2
             winCenterY := winY + winH // 2
-            
+
             ; 检查窗口中心点在哪个显示器
             monitorIndex := GetMonitorFromPoint(winCenterX, winCenterY)
             if (monitorIndex > 0) {
@@ -72,14 +212,14 @@ GetOptimalTooltipPosition() {
             }
         }
     }
-    
+
     ; 方法2: 使用鼠标位置
     MouseGetPos(&mouseX, &mouseY)
     monitorIndex := GetMonitorFromPoint(mouseX, mouseY)
     if (monitorIndex > 0) {
         return GetMonitorCenter(monitorIndex)
     }
-    
+
     ; 方法3: 使用主显示器
     return GetMonitorCenter(1)
 }
@@ -99,7 +239,7 @@ GetMonitorFromPoint(x, y) {
         if (monitorCount <= 0) {
             return 1  ; 如果无法获取显示器信息，返回主显示器
         }
-        
+
         ; 遍历所有显示器，找到包含该点的显示器
         loop monitorCount {
             ; 使用 MonitorGet 获取显示器的完整区域（不是工作区域）
@@ -108,23 +248,23 @@ GetMonitorFromPoint(x, y) {
                 return A_Index
             }
         }
-        
+
         ; 如果没有找到精确匹配，找最近的显示器
         minDistance := 999999
         closestMonitor := 1
-        
+
         loop monitorCount {
             MonitorGet(A_Index, &left, &top, &right, &bottom)
             centerX := (left + right) // 2
             centerY := (top + bottom) // 2
-            distance := Sqrt((x - centerX)**2 + (y - centerY)**2)
-            
+            distance := Sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
+
             if (distance < minDistance) {
                 minDistance := distance
                 closestMonitor := A_Index
             }
         }
-        
+
         return closestMonitor
     } catch {
         ; 如果出现任何错误，返回主显示器
@@ -148,20 +288,20 @@ GetMonitorCenter(monitorIndex) {
         if (monitorIndex < 1 || monitorIndex > monitorCount) {
             monitorIndex := 1  ; 使用主显示器
         }
-        
+
         ; 使用工作区域，避免任务栏等区域
         MonitorGetWorkArea(monitorIndex, &left, &top, &right, &bottom)
-        
+
         centerX := (left + right) // 2
         centerY := (top + bottom) // 2
-        
+
         ; 稍微向上偏移，避免正中心可能被其他窗口遮挡
         centerY := centerY - 50
-        
-        return {x: centerX - 90, y: centerY}  ; -90 是为了让文本居中
+
+        return { x: centerX - 90, y: centerY }  ; -90 是为了让文本居中
     } catch {
         ; 如果出现错误，返回屏幕中心的默认位置
-        return {x: A_ScreenWidth // 2 - 90, y: A_ScreenHeight // 2 - 50}
+        return { x: A_ScreenWidth // 2 - 90, y: A_ScreenHeight // 2 - 50 }
     }
 }
 
@@ -375,4 +515,89 @@ EscapeRegex(str) {
 
 MsgBoxTest(a) {
     MsgBox a
+}
+
+/* CalculateTextWidth【计算文本宽度】
+    函数:  CalculateTextWidth
+    作用:  计算指定字体和大小的文本显示宽度
+    参数:  text - 文本内容
+           fontName - 字体名称
+           fontSize - 字体大小
+    返回:  文本宽度（像素）
+    作者:  BoBO
+    版本:  1.0
+    AHK版本: 2.0.18
+*/
+CalculateTextWidth(text, fontName, fontSize) {
+    ; 简化版本：使用估算方法，避免复杂的API调用
+    ; 这个方法更稳定，适用于大多数情况
+
+    textLength := StrLen(text)
+
+    ; 基础字符宽度估算（像素）
+    baseCharWidth := fontSize * 0.6  ; 大致估算
+
+    ; 计算中文字符和英文字符
+    chineseChars := 0
+    englishChars := 0
+
+    ; 遍历每个字符
+    loop textLength {
+        char := SubStr(text, A_Index, 1)
+        charCode := Ord(char)
+
+        if (charCode > 127) {
+            ; 中文或其他宽字符
+            chineseChars++
+        } else {
+            ; 英文字符
+            englishChars++
+        }
+    }
+
+    ; 中文字符通常比英文字符宽1.5-2倍
+    estimatedWidth := (englishChars * baseCharWidth) + (chineseChars * baseCharWidth * 1.8)
+
+    ; 添加一些缓冲空间
+    return Round(estimatedWidth * 1.1)
+}
+
+/* GetOptimalDisplayPosition【获取最佳显示位置】
+    函数:  GetOptimalDisplayPosition
+    作用:  获取最佳的显示位置，支持多屏幕
+    参数:  无
+    返回:  {x: 中心x坐标, y: 中心y坐标}
+    作者:  BoBO
+    版本:  1.0
+    AHK版本: 2.0.18
+*/
+GetOptimalDisplayPosition() {
+    ; 优先级：鼠标所在显示器 > 活动窗口所在显示器 > 主显示器
+
+    ; 方法1: 获取鼠标位置所在的显示器
+    MouseGetPos(&mouseX, &mouseY)
+    monitorIndex := GetMonitorFromPoint(mouseX, mouseY)
+
+    if (monitorIndex > 0) {
+        return GetMonitorCenter(monitorIndex)
+    }
+
+    ; 方法2: 尝试获取活动窗口所在的显示器
+    try {
+        activeHwnd := WinGetID("A")
+        if (activeHwnd) {
+            WinGetPos(&winX, &winY, &winW, &winH, "ahk_id " activeHwnd)
+            winCenterX := winX + winW // 2
+            winCenterY := winY + winH // 2
+
+            ; 检查窗口中心点在哪个显示器
+            monitorIndex := GetMonitorFromPoint(winCenterX, winCenterY)
+            if (monitorIndex > 0) {
+                return GetMonitorCenter(monitorIndex)
+            }
+        }
+    }
+
+    ; 方法3: 使用主显示器
+    return GetMonitorCenter(1)
 }

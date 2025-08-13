@@ -104,6 +104,9 @@ class ToolTipManager {
 
         switch this.currentLibrary {
             case "ToolTipOptions":
+                ; 确保ToolTipOptions已正确初始化和配置
+                this._EnsureToolTipOptionsConfigured()
+                
                 if (x = "" && y = "") {
                     ToolTip(text, , , whichToolTip)
                 } else if (x = "") {
@@ -115,6 +118,55 @@ class ToolTipManager {
                 }
             case "BTT":
                 this._ShowBTT(text, x, y, whichToolTip)
+        }
+    }
+
+    ; 确保ToolTipOptions已正确配置
+    static _EnsureToolTipOptionsConfigured() {
+        ; 重新应用样式设置，确保每次显示时都有正确的样式
+        try {
+            currentTheme := INIObject.config.theme_mode
+            bgColor := ""
+            textColor := ""
+
+            if (currentTheme = "light") {
+                bgColor := INIObject.config.tooltip_light_bg_color
+                textColor := INIObject.config.tooltip_light_text_color
+            } else if (currentTheme = "dark") {
+                bgColor := INIObject.config.tooltip_dark_bg_color
+                textColor := INIObject.config.tooltip_dark_text_color
+            } else {
+                ; 跟随系统主题
+                try {
+                    ; 检测系统是否处于深色模式
+                    isDarkMode := RegRead(
+                        "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                        "AppsUseLightTheme")
+                    if (isDarkMode = 0) {
+                        bgColor := INIObject.config.tooltip_dark_bg_color
+                        textColor := INIObject.config.tooltip_dark_text_color
+                    } else {
+                        bgColor := INIObject.config.tooltip_light_bg_color
+                        textColor := INIObject.config.tooltip_light_text_color
+                    }
+                } catch {
+                    ; 如果无法读取注册表，默认使用亮色主题
+                    bgColor := INIObject.config.tooltip_light_bg_color
+                    textColor := INIObject.config.tooltip_light_text_color
+                }
+            }
+
+            ToolTipOptions.SetColors(bgColor, textColor)
+
+            ; 设置字体
+            fontName := INIObject.config.tooltip_font_name
+            fontSize := INIObject.config.tooltip_font_size
+            ToolTipOptions.SetFont("s" fontSize, fontName)
+
+        } catch {
+            ; 使用默认设置
+            ToolTipOptions.SetColors("White", "0x381255")
+            ToolTipOptions.SetFont("s12", "Microsoft YaHei")
         }
     }
 
