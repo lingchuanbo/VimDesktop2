@@ -21,39 +21,41 @@ class IME {
      * @returns {1 | 0} 1:中文，0:英文
      */
     static GetInputMode(hwnd := this.GetFocusedWindow()) {
-        if (this.mode = 1) {
-            if (!this.GetOpenStatus(hwnd)) {
-                return 0
+        ; 使用多种方法检测输入法状态，提高准确性
+        return this.GetInputModeRobust(hwnd)
+    }
+
+    /**
+     * 修复的输入法状态检测方法
+     * 针对小狼毫输入法的特殊逻辑
+     * @param hwnd 窗口句柄
+     * @returns {1 | 0} 1:中文，0:英文
+     */
+    static GetInputModeRobust(hwnd := this.GetFocusedWindow()) {
+        try {
+            ; 获取基本状态
+            openStatus := this.GetOpenStatus(hwnd)
+            conversionMode := this.GetConversionMode(hwnd)
+            
+            ; 对于小狼毫输入法，可能需要特殊处理
+            ; 如果转换模式是144或145，使用精确匹配
+            if (conversionMode == 144) {
+                return 0  ; 144 = 英文
+            } else if (conversionMode == 145) {
+                return 1  ; 145 = 中文
             }
-            return this.GetConversionMode(hwnd) & 1
-        }
-
-        ; 存储默认状态，如果都不匹配，就返回预先指定的默认状态
-        status := this.baseStatus
-
-        ; 系统返回的状态码
-        statusMode := this.GetOpenStatus(hwnd)
-        ; 系统返回的切换码
-        conversionMode := this.GetConversionMode(hwnd)
-
-        for v in this.modeRules {
-            r := StrSplit(v, "*")
-
-            ; 状态码规则
-            sm := r[1]
-            ; 切换码规则
-            cm := r[2]
-            ; 匹配状态
-            s := r[3]
-
-            if (this.matchRule(statusMode, sm) && this.matchRule(conversionMode, cm)) {
-                ; 匹配成功
-                status := s
-                break
+            
+            ; 对于其他情况，使用传统检测
+            if (!openStatus) {
+                return 0  ; 输入法未开启，肯定是英文
             }
+            
+            ; 检查位0，但可能需要反转逻辑
+            return conversionMode & 1
+        } catch {
+            ; 如果出错，返回英文状态
+            return 0
         }
-
-        return status
     }
 
     /**
@@ -275,11 +277,50 @@ switch_CN() {
  * switch_EN()
  */
 switch_EN() {
+    ; 处理大写锁定
     if (GetKeyState("CapsLock", "T")) {
         SendInput("{CapsLock}")
     }
     Sleep(50)
-    IME.SetInputMode(0)
+    
+    ; 优先使用有效的方法，减少等待时间提高响应速度
+    ; 方法1: 使用Shift键切换（小狼毫的有效方法）
+    try {
+        SendInput("{Shift}")
+        Sleep(150)  ; 减少等待时间
+        
+        if (IME.GetInputMode() == 0) {
+            return true
+        }
+    } catch {
+        ; 忽略错误
+    }
+    
+    ; 方法2: 直接设置转换模式为144（小狼毫英文模式）
+    try {
+        IME.SetConversionMode(144)
+        Sleep(100)  ; 进一步减少等待时间
+        
+        if (IME.GetInputMode() == 0) {
+            return true
+        }
+    } catch {
+        ; 忽略错误
+    }
+    
+    ; 备用方法: 传统的SetInputMode（为其他输入法保留）
+    try {
+        IME.SetInputMode(0)
+        Sleep(100)
+        
+        if (IME.GetInputMode() == 0) {
+            return true
+        }
+    } catch {
+        ; 忽略错误
+    }
+    
+    return false
 }
 
 /**
@@ -295,4 +336,240 @@ IME_Toggle() {
  */
 getIMEStatus() {
     return IME.CheckInputMode()
+}
+
+/**
+ * 测试IME切换功能
+ * 显示当前输入法状态并尝试切换
+ */
+TestIMESwitch() {
+    ; 获取当前状态
+    currentMode := IME.GetInputMode()
+    currentStatus := currentMode ? "中文" : "英文"
+
+    ; 显示当前状态
+    MsgBox("当前输入法状态: " . currentStatus . "`n点击确定后将尝试切换到英文", "IME测试", "T3")
+
+    ; 尝试切换到英文
+    result := switch_EN()
+
+    ; 等待一下让切换生效
+    Sleep(200)
+
+    ; 检查切换后的状态
+    newMode := IME.GetInputMode()
+    newStatus := newMode ? "中文" : "英文"
+
+    ; 显示结果
+    resultText := "切换结果: " . (result ? "成功" : "失败") . "`n"
+    resultText .= "切换前: " . currentStatus . "`n"
+    resultText .= "切换后: " . newStatus . "`n"
+
+    if (result && newMode == 0) {
+        resultText .= "`n✓ 切换成功！"
+    } else if (!result) {
+        resultText .= "`n✗ 切换函数返回失败"
+    } else {
+        resultText .= "`n✗ 切换后状态验证失败"
+    }
+
+    MsgBox(resultText, "IME切换测试结果", "T5")
+}
+
+/**
+ * 获取详细的IME状态信息
+ */
+GetIMEStatusInfo() {
+    try {
+        hwnd := IME.GetFocusedWindow()
+        inputMode := IME.GetInputMode(hwnd)
+        openStatus := IME.GetOpenStatus(hwnd)
+        conversionMode := IME.GetConversionMode(hwnd)
+        keyboardLayout := IME.GetKeyboardLayout(hwnd)
+
+        info := "=== IME状态详情 ===`n"
+        info .= "窗口句柄: " . hwnd . "`n"
+        info .= "输入模式: " . (inputMode ? "中文" : "英文") . " (" . inputMode . ")`n"
+        info .= "开启状态: " . openStatus . "`n"
+        info .= "转换模式: " . conversionMode . "`n"
+        info .= "键盘布局: 0x" . Format("{:08X}", keyboardLayout) . "`n"
+
+        return info
+    } catch Error as e {
+        return "获取IME状态时出错: " . e.Message
+    }
+}
+/**
+ * 获取详细的IME状态信息（增强版）
+ */
+GetIMEStatusInfoEnhanced() {
+    try {
+        hwnd := IME.GetFocusedWindow()
+        inputMode := IME.GetInputMode(hwnd)
+        openStatus := IME.GetOpenStatus(hwnd)
+        conversionMode := IME.GetConversionMode(hwnd)
+        keyboardLayout := IME.GetKeyboardLayout(hwnd)
+
+        ; 获取当前线程的键盘布局
+        threadId := DllCall("GetWindowThreadProcessId", "ptr", hwnd, "ptr", 0, "uint")
+        currentLayout := DllCall("GetKeyboardLayout", "uint", threadId, "ptr")
+
+        info := "=== IME状态详情 ===`n"
+        info .= "窗口句柄: " . hwnd . "`n"
+        info .= "线程ID: " . threadId . "`n"
+        info .= "输入模式: " . (inputMode ? "中文" : "英文") . " (" . inputMode . ")`n"
+        info .= "开启状态: " . openStatus . "`n"
+        info .= "转换模式: " . conversionMode . " (二进制: " . Format("{:08b}", conversionMode) . ")`n"
+        info .= "键盘布局: 0x" . Format("{:08X}", keyboardLayout) . "`n"
+        info .= "当前布局: 0x" . Format("{:08X}", currentLayout) . "`n"
+        info .= "布局低位: 0x" . Format("{:04X}", currentLayout & 0xFFFF) . "`n"
+        info .= "布局高位: 0x" . Format("{:04X}", (currentLayout >> 16) & 0xFFFF) . "`n"
+
+        ; 分析转换模式各位的含义
+        info .= "`n=== 转换模式分析 ===`n"
+        info .= "位0 (中文/英文): " . (conversionMode & 1 ? "中文" : "英文") . "`n"
+        info .= "位1 (全角/半角): " . (conversionMode & 2 ? "全角" : "半角") . "`n"
+        info .= "位3 (片假名): " . (conversionMode & 8 ? "是" : "否") . "`n"
+        info .= "位4 (平假名): " . (conversionMode & 16 ? "是" : "否") . "`n"
+
+        ; 判断输入法类型
+        info .= "`n=== 输入法类型判断 ===`n"
+        layoutLow := currentLayout & 0xFFFF
+        if (layoutLow == 0x0804) {
+            info .= "输入法类型: 简体中文 (中国)`n"
+        } else if (layoutLow == 0x0404) {
+            info .= "输入法类型: 繁体中文 (台湾)`n"
+        } else if (layoutLow == 0x1004) {
+            info .= "输入法类型: 繁体中文 (新加坡)`n"
+        } else if (layoutLow == 0x0C04) {
+            info .= "输入法类型: 繁体中文 (香港)`n"
+        } else if (layoutLow == 0x0409) {
+            info .= "输入法类型: 英文 (美国)`n"
+        } else {
+            info .= "输入法类型: 其他 (0x" . Format("{:04X}", layoutLow) . ")`n"
+        }
+
+        return info
+    } catch Error as e {
+        return "获取IME状态时出错: " . e.Message
+    }
+}
+
+/**
+ * 专门针对小狼毫输入法的英文切换函数（增强版）
+ * 增加重试机制和更好的时序控制
+ * @param maxRetries 最大重试次数，默认3次
+ * @returns {Boolean} 切换是否成功
+ */
+switch_EN_Rime(maxRetries := 3) {
+    ; 处理大写锁定
+    if (GetKeyState("CapsLock", "T")) {
+        SendInput("{CapsLock}")
+        Sleep(50)
+    }
+
+    ; 定义切换方法数组
+    switchMethods := [{ name: "SetConversionMode", func: () => IME.SetConversionMode(144) }, { name: "SetInputMode",
+        func: () => IME.SetInputMode(0) }, { name: "SetOpenStatus", func: () => IME.SetOpenStatus(false) }, { name: "ShiftKey",
+            func: () => SendInput("{Shift}") }, { name: "CtrlSpace", func: () => SendInput("^{Space}") }, { name: "PostMessage",
+                func: () => PostMessage(0x283, 0, 0x0409, , "A") }
+    ]
+
+    ; 对每种方法进行重试
+    for method in switchMethods {
+        loop maxRetries {
+            retry := A_Index
+            try {
+                ; 执行切换方法
+                method.func.Call()
+
+                ; 等待切换生效，根据重试次数调整等待时间
+                waitTime := 100 + (retry - 1) * 50
+                Sleep(waitTime)
+
+                ; 验证是否切换成功
+                if (IME.GetInputMode() == 0) {
+                    return true
+                }
+
+                ; 如果不是最后一次重试，稍等再试
+                if (retry < maxRetries) {
+                    Sleep(50)
+                }
+            } catch {
+                ; 忽略错误，继续下一次重试
+                Sleep(50)
+            }
+        }
+    }
+
+    ; 如果所有方法和重试都失败，返回false
+    return false
+}
+
+/**
+ * 强健的英文切换函数（通用版）
+ * 增加重试机制和更好的错误处理
+ * @param maxRetries 最大重试次数，默认3次
+ * @returns {Boolean} 切换是否成功
+ */
+switch_EN_Robust(maxRetries := 3) {
+    ; 处理大写锁定
+    if (GetKeyState("CapsLock", "T")) {
+        SendInput("{CapsLock}")
+        Sleep(50)
+    }
+
+    ; 首先尝试小狼毫专用方法
+    if (switch_EN_Rime(maxRetries)) {
+        return true
+    }
+
+    ; 如果小狼毫方法失败，尝试通用方法
+    loop maxRetries {
+        retry := A_Index
+        try {
+            ; 方法1: 使用IME.SetInputMode
+            IME.SetInputMode(0)
+            waitTime := 100 + (retry - 1) * 50
+            Sleep(waitTime)
+
+            if (IME.GetInputMode() == 0) {
+                return true
+            }
+        } catch {
+            ; 忽略错误
+        }
+
+        try {
+            ; 方法2: 设置开启状态
+            IME.SetOpenStatus(false)
+            Sleep(waitTime)
+
+            if (IME.GetInputMode() == 0) {
+                return true
+            }
+        } catch {
+            ; 忽略错误
+        }
+
+        try {
+            ; 方法3: 使用PostMessage
+            PostMessage(0x283, 0, 0x0409, , "A")
+            Sleep(waitTime)
+
+            if (IME.GetInputMode() == 0) {
+                return true
+            }
+        } catch {
+            ; 忽略错误
+        }
+
+        ; 如果不是最后一次重试，等待更长时间
+        if (retry < maxRetries) {
+            Sleep(100)
+        }
+    }
+
+    return false
 }

@@ -8,14 +8,21 @@ Comment=Everything搜索工具
 
 ; 引入 UIA.ahk 库用于UI自动化检测
 
+; 全局变量声明和初始化
+global EverythingConfig := {
+    everything_path: "",
+    enable_double_click: true,
+    show_debug_info: false
+}
+
 ; 读取Everything配置
 ReadEverythingConfig() {
-    global EverythingConfig := {}
+    global EverythingConfig
 
     ; 配置文件路径
     configFile := A_ScriptDir . "\Plugins\Everything\everything.ini"
 
-    ; 默认配置
+    ; 重置为默认配置
     EverythingConfig.everything_path := ""
     EverythingConfig.enable_double_click := true
     EverythingConfig.show_debug_info := false
@@ -368,8 +375,18 @@ DetectBlankAreaByUIA(x, y, WinID, WinClass) {
 ; 桌面双击启动Everything - 使用UIA检测空白区域
 ~LButton::
 {
-    ; 检查是否启用了双击功能
-    if (!EverythingConfig.enable_double_click) {
+    ; 确保EverythingConfig已初始化并且有必要的属性
+    try {
+        if (!IsObject(EverythingConfig) || !EverythingConfig.HasOwnProp("enable_double_click")) {
+            return
+        }
+        
+        ; 检查是否启用了双击功能
+        if (!EverythingConfig.enable_double_click) {
+            return
+        }
+    } catch {
+        ; 如果访问EverythingConfig出错，直接返回
         return
     }
 
