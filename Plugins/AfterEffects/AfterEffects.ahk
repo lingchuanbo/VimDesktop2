@@ -19,31 +19,30 @@ AfterEffects() {
     ;SendKeyInput 为内置函数，用于send指定键盘输入
     ;Script_AfterEffects 为运行AE脚本函数Param里面填写 脚本文件名
 
-    KeyArray.push({ Key: "as", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "Test.jsx", Comment: "脚本测试" })
-    KeyArray.push({ Key: "t1", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "OrganizeProjectAssets.jsx",
-        Comment: "整理" })
-    KeyArray.push({ Key: "t2", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",
-        Comment: "快速渲染" })
+
+    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "OrganizeProjectAssets.jsx", Comment: "整理" })
+    KeyArray.push({ Key: "q", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",Comment: "快速渲染" })
+
+    ; 基本控制 位置 旋转 缩放 透明
+    KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "p|AfterEffects_位置|Everything_2|AfterEffects_位置K帧", Comment: "位置/双击/位置K帧" })
+    KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "r|AfterEffects_旋转|Everything_2|AfterEffects_旋转K帧", Comment: "旋转/双击/旋转K帧" })
+    KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "s|AfterEffects_缩放|Everything_2|AfterEffects_缩放K帧", Comment: "缩放/双击/缩放K帧" })
+    KeyArray.push({ Key: "t", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "t|AfterEffects_透明|Everything_2|AfterEffects_透明K帧", Comment: "透明/双击/透明K帧" })
+
+    KeyArray.push({ Key: "d", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "d|AfterEffects_图层切换到Add|AfterEffects_克隆图层|AfterEffects_删除", Comment: "Add/克隆/透明K帧" })
+    KeyArray.push({ Key: "g", Mode: "VIM模式", Group: "基本控制", Func: "SingleDoubleFullHandlers", Param: "g|AfterEffects_图层转为网格层|AfterEffects_图层定位项目位置|AfterEffects_素材本地位置", Comment: "图层转为网格层/定位/所在位置" })
+
 
     ; 添加效果
-    KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx",
-        Comment: "添加 Tint" })
-    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx",
-        Comment: "添加 RoughenEdges" })
-    KeyArray.push({ Key: "<LB-g>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Glow.jsx",
-        Comment: "添加 Glow" })
-    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Sharpen.jsx",
-        Comment: "添加 Sharpen" })
-    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&UnMult.jsx",
-        Comment: "添加 UnMult" })
-    KeyArray.push({ Key: "<LB-w>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearWipe.jsx",
-        Comment: "添加 LinearWipe" })
-    KeyArray.push({ Key: "<LB-k>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearColorKey.jsx",
-        Comment: "添加 LinearColorKey" })
-    KeyArray.push({ Key: "<LB-i>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Invert.jsx",
-        Comment: "添加 Invert" })
-    KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx",
-        Comment: "添加 Curves" })
+    KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx", Comment: "添加 Tint" })
+    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx", Comment: "添加 RoughenEdges" })
+    KeyArray.push({ Key: "<LB-g>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Glow.jsx", Comment: "添加 Glow" })
+    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Sharpen.jsx", Comment: "添加 Sharpen" })
+    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&UnMult.jsx", Comment: "添加 UnMult" })
+    KeyArray.push({ Key: "<LB-w>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearWipe.jsx", Comment: "添加 LinearWipe" })
+    KeyArray.push({ Key: "<LB-k>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearColorKey.jsx", Comment: "添加 LinearColorKey" })
+    KeyArray.push({ Key: "<LB-i>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Invert.jsx", Comment: "添加 Invert" })
+    KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx", Comment: "添加 Curves" })
 
     ; 帮助
     KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "AfterEffects",
@@ -184,4 +183,95 @@ AfterEffects_Initialization() {
         FileDelete setPreset
     if FileExist(successFile)
         FileDelete successFile
+}
+
+
+AfterEffects_位置(){
+    Send("{p}")
+}
+AfterEffects_位置K帧(){
+    Send ("!+P")
+}
+AfterEffects_旋转(){
+    Send("r")
+}
+AfterEffects_旋转K帧(){
+    Send("!+r")
+}
+AfterEffects_缩放(){
+    Send("s")
+}
+AfterEffects_缩放K帧(){
+    Send("!+s")
+}
+AfterEffects_透明(){
+    Send("t")
+}
+AfterEffects_透明K帧(){
+    Send("!+t")
+}
+
+
+AfterEffects_克隆图层(){
+    Send("^d")
+}
+
+AfterEffects_图层切换到Add(){
+    Script_AfterEffects("DifferenceToggleAdd.jsx")
+}
+
+AfterEffects_删除(){
+    Send("^{{Delete}}")
+}
+
+
+; 基本功能(快捷键)
+
+AfterEffects_预合成(){
+    Send "^+c"
+}
+
+AfterEffects_新建合成(){
+    send "^n"
+}
+
+AfterEffects_固态层(){
+    send "^y"
+}
+
+AfterEffects_调节层(){
+    send "^!y"
+}
+
+AfterEffects_Null(){
+    send "^!+y"
+}
+
+AfterEffects_优化合成时间(){
+    send "^+x"
+}
+
+
+; 时间轴 图层
+
+; 图层 上移一层
+AfterEffects_LayerMoveUp(){
+    send ("^{]}")
+}
+; 图层 下移一层
+AfterEffects_LayerMoveDown(){
+    send ("^{[}")
+}
+
+AfterEffects_图层转为网格层(){
+    Script_AfterEffects("LayerGuideLayer.jsx")
+}
+
+
+AfterEffects_图层定位项目位置(){
+    Script_AfterEffects("RevealLayerSourceInProject.jsx")
+}
+
+AfterEffects_素材本地位置(){
+    Script_AfterEffects("RevealLayerSourceInExplorer.jsx")
 }
