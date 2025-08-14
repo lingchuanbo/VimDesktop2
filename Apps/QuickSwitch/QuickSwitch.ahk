@@ -5,6 +5,8 @@
 
 ; 包含WindowsTheme库
 #Include "../../Lib/WindowsTheme.ahk"
+; 引入 UIA.ahk 库用于UI自动化检测
+#Include "../../Lib/UIA.ahk"
 
 /*
 QuickSwitch - 统一的快速切换工具
@@ -42,6 +44,11 @@ global g_CurrentDialog := {
     Action: ""
 }
 
+; 双击检测相关变量
+global LTickCount := 0
+global RTickCount := 0
+global DblClickTime := DllCall("GetDoubleClickTime", "UInt") ; 从系统获取双击时间间隔
+
 ; 初始化配置
 InitializeConfig()
 
@@ -60,12 +67,73 @@ StartWindowMonitoring()
 ; 主循环 GetWindowsFolderActivePath 应用程序控件
 MainLoop()
 
-; 添加双击直接执行 GetWindowsFolderActivePath 函数
-~LButton::{
-    ; 检查是否启用了双击功能
-    LTickCount := 0
-    RTickCount := 0
+; 使用 UIA 检测文件对话框中的空白区域
+DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
+    try {
+        ; 使用 UIA 获取鼠标位置的元素
+        element := UIA.ElementFromPoint(x, y)
 
+        if (!element) {
+            ; 如果没有获取到元素，认为是空白区域
+            return true
+        }
+
+        ; 获取元素的名称和类型
+        elementName := ""
+        elementType := ""
+
+        try {
+            elementName := element.Name
+        }
+        try {
+            elementType := UIA.Type[element.Type]
+        }
+
+        ; 根据不同窗口类型判断是否为空白区域
+        isBlankArea := false
+
+        if (WinClass = "#32770") {
+            ; 标准文件对话框：选中文件元素类型为 Edit，空白区域为 List 且名称为 "项目视图"
+            if (elementType = "List" && elementName = "项目视图") {
+                isBlankArea := true
+            } else if (elementType = "Edit" && elementName != "" && elementName != "项目视图") {
+                isBlankArea := false
+            } else {
+                ; 其他情况根据元素类型判断
+                if (elementType = "List" || elementType = "Pane" || elementName = "项目视图") {
+                    isBlankArea := true
+                } else {
+                    isBlankArea := false
+                }
+            }
+        } else if (WinClass = "GHOST_WindowClass") {
+            ; Blender文件视图：根据元素类型和名称判断
+            if (elementType = "List" || elementName = "项目视图" || elementName = "") {
+                isBlankArea := true
+            } else {
+                isBlankArea := false
+            }
+        } else {
+            ; 其他文件对话框类型的通用判断
+            if (elementType = "List" || elementType = "Pane" || elementName = "项目视图" || elementName = "应用程序控件") {
+                isBlankArea := true
+            } else {
+                isBlankArea := false
+            }
+        }
+
+        ; 返回 true 表示应该启动功能（即是空白区域）
+        return isBlankArea
+
+    } catch as e {
+        ; UIA 检测失败，默认返回 false（不启动）
+        return false
+    }
+}
+
+; 添加双击直接执行 GetWindowsFolderActivePath 函数
+~LButton:: {
+    ; 检查是否启用了双击功能
     global LTickCount, RTickCount, DblClickTime
     static LastClickTime := 0
     static LastClickPos := ""
@@ -78,7 +146,7 @@ MainLoop()
     CurrentPos := x . "," . y
 
     ; 更严格的双击检测：时间间隔、位置相近、且是连续的LButton事件
-    DblClickTime := DllCall("GetDoubleClickTime", "UInt") ; 从系统获取双击时间间隔
+
     IsDoubleClick := (A_PriorHotKey = "~LButton" &&
         A_TimeSincePriorHotkey < DblClickTime &&
         A_TimeSincePriorHotkey > 50 &&  ; 避免过快的重复触发
@@ -92,25 +160,22 @@ MainLoop()
     ; 只有真正的双击才处理
     if (IsDoubleClick && LTickCount > RTickCount) {
         ShouldLaunch := false
-        AccName := ""
 
-        ; 只在目标窗口类型中检测
+        ; 只在目标窗口类型中检测GetWindowsFolderActivePath()
         currentWinID := WinExist("A")
 
-        if (IsFileDialog(currentWinID)){
-            ; 桌面：使用Accessibility API获取对象名称
-            child := 0
+        if (IsFileDialog(currentWinID)) {
+            ; 使用 UIA 检测文件对话框中的空白区域
+            WinClass := WinGetClass("ahk_id " . WinID)
             try {
-                Acc := AccUnderMouse(WinID, &child)
-                if (IsObject(Acc)) {
-                    AccName := Acc.accName(child)
-                    ; 在桌面空白处，accName通常返回"桌面"或空值
-                    ; 如果返回具体文件名，说明点击了图标
-                    if (AccName = "应用程序控件" || InStr(AccName, "应用程序控件") || InStr(AccName, "项目视图")) {
-                        ShouldLaunch := true
-                        GetWindowsFolderActivePath()
-                    }
+                ; 使用 UIA 检测是否点击了空白区域
+                if (DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass)) {
+                    ShouldLaunch := true
+                    GetWindowsFolderActivePath()
                 }
+            } catch as e {
+                ; UIA 检测失败时的备用处理
+                ; 可以选择不执行任何操作，或者使用其他检测方法
             }
         }
     }
@@ -230,7 +295,8 @@ LoadConfiguration() {
     ; 加载基本设置
     g_Config.MainHotkey := IniRead(g_Config.IniFile, "Settings", "MainHotkey", "^q")
     g_Config.QuickSwitchHotkey := IniRead(g_Config.IniFile, "Settings", "QuickSwitchHotkey", "^Tab")
-    g_Config.GetWindowsFolderActivePathKey := IniRead(g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey", "!w")
+    g_Config.GetWindowsFolderActivePathKey := IniRead(g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey",
+        "!w")
     g_Config.MaxHistoryCount := Integer(IniRead(g_Config.IniFile, "Settings", "MaxHistoryCount", "10"))
     g_Config.EnableQuickAccess := IniRead(g_Config.IniFile, "Settings", "EnableQuickAccess", "1")
     g_Config.QuickAccessKeys := IniRead(g_Config.IniFile, "Settings", "QuickAccessKeys",
@@ -1621,8 +1687,7 @@ AutoSwitchHandler(*) {
     }
 }
 
-
-GetWindowsFolderActivePath(*){
+GetWindowsFolderActivePath(*) {
 
     folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
 
@@ -1630,10 +1695,9 @@ GetWindowsFolderActivePath(*){
 
         FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
 
-    } 
+    }
 
 }
-
 
 NotNowHandler(*) {
     global g_MenuActive
