@@ -42,6 +42,9 @@ Max3D() {
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
 
+    KeyArray.push({ Key: "/ct", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTexture.ms", Comment: "收集 贴图到文件目录下" })
+    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms", Comment: "收集 贴图到文件目录下" })
+
     ; 注册窗体
     vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")
 
