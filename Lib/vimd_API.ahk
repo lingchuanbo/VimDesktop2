@@ -491,11 +491,6 @@ KyFunc_AutoAligned(iText, iSplit := "`t", iStrLen := 90, iStrFront := "", iStrBe
 TC_SendPos(Number) {
     PostMessage 1075, Number, 0, , "AHK_CLASS TTOTAL_CMD"
 }
-; 用法 TC_Command("tem(`cm_MkDir`)")
-TC_Command(CommandName) {
-    ; 使用TC_Global中的配置路径
-    Run(TC_Global.TCDirPath . "\Tools\TCFS2\TCFS2.exe /ef " . CommandName)
-}
 /*EscapeRegex【正则字符转义】
     函数: EscapeRegex
     作用: 正则字符转义
