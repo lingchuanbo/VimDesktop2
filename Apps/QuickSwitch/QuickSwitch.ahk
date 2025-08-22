@@ -15,7 +15,7 @@ By: BoBO
 1. 程序窗口切换：显示最近打开的程序，支持置顶显示和快速切换
 2. 文件对话框路径切换：在文件对话框中快速切换到文件管理器路径
 3. 同一快捷键触发不同菜单：在普通窗口显示程序切换菜单，在文件对话框显示路径切换菜单
-4. 性能优化：避免内存泄露，合理管理资源
+4. 性能优Apps/QuickSwitch/QuickSwitch.ini化：避免内存泄露，合理管理资源
 */
 ; ============================================================================
 ; 初始化
@@ -491,9 +491,17 @@ ShowSmartMenu(*) {
         case 1:  ; 只运行路径跳转
             if (IsFileDialog(currentWinID)) {
                 ShowFileDialogMenu(currentWinID)
+            } else {
+                ; 如果不是文件对话框，不显示任何菜单
+                return
             }
         case 2:  ; 只运行程序切换
-            ShowWindowSwitchMenu()
+            if (!IsFileDialog(currentWinID)) {
+                ShowWindowSwitchMenu()
+            } else {
+                ; 如果是文件对话框，不显示任何菜单
+                return
+            }
         default: ; 默认为全部运行
             ; 检查是否为文件对话框
             if (IsFileDialog(currentWinID)) {
