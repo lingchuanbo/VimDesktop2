@@ -417,6 +417,15 @@ CreateTrayMenu() {
     A_TrayMenu.Add("设置", OpenConfigFile)
     A_TrayMenu.Add("切换主题", ToggleThemeFromTray)
     A_TrayMenu.Add()  ; 分隔符
+    
+    ; 添加运行模式子菜单
+    runModeMenu := Menu()
+    runModeMenu.Add("全部运行", SetRunModeFromTray.Bind(0))
+    runModeMenu.Add("只运行路径跳转", SetRunModeFromTray.Bind(1))
+    runModeMenu.Add("只运行程序切换", SetRunModeFromTray.Bind(2))
+    A_TrayMenu.Add("运行模式", runModeMenu)
+    
+    A_TrayMenu.Add()  ; 分隔符
     A_TrayMenu.Add("重启", RestartApplication)
     A_TrayMenu.Add("退出", ExitApplication)
 
@@ -425,6 +434,8 @@ CreateTrayMenu() {
 
     ; 根据当前主题状态设置菜单项显示
     UpdateTrayMenuThemeStatus()
+    ; 根据当前运行模式设置菜单项选中状态
+    UpdateTrayMenuRunModeStatus()
 }
 
 UpdateTrayMenuThemeStatus() {
@@ -437,6 +448,27 @@ UpdateTrayMenuThemeStatus() {
     }
 }
 
+UpdateTrayMenuRunModeStatus() {
+    ; 更新运行模式菜单项的选中状态
+    try {
+        runModeMenu := A_TrayMenu.Handle("运行模式")
+        runModeMenu.Uncheck("全部运行")
+        runModeMenu.Uncheck("只运行路径跳转")
+        runModeMenu.Uncheck("只运行程序切换")
+        
+        switch g_Config.RunMode {
+            case 0:
+                runModeMenu.Check("全部运行")
+            case 1:
+                runModeMenu.Check("只运行路径跳转")
+            case 2:
+                runModeMenu.Check("只运行程序切换")
+        }
+    } catch {
+        ; 如果更新失败，忽略错误
+    }
+}
+
 ; 任务栏菜单处理函数
 OpenConfigFile(*) {
     EditConfigFile()
@@ -446,6 +478,12 @@ ToggleThemeFromTray(*) {
     ToggleTheme()
     ; 更新任务栏菜单显示
     UpdateTrayMenuThemeStatus()
+}
+
+SetRunModeFromTray(mode, *) {
+    SetRunMode(mode)
+    ; 更新任务栏菜单显示
+    UpdateTrayMenuRunModeStatus()
 }
 
 RestartApplication(*) {
@@ -1625,21 +1663,25 @@ AddSendToFileManagerMenu(contextMenu) {
 
 AddFileDialogSettingsMenu(contextMenu) {
     contextMenu.Add()
-    contextMenu.Add("自动跳转", AutoSwitchHandler)
-    contextMenu.Add("自动弹出菜单", AutoMenuHandler)
-    contextMenu.Add("手动按键", ManualHandler)
-    contextMenu.Add("从不显示", NeverHandler)
+    ; // 创建设置子菜单
+    settingsSubMenu := Menu()
+    settingsSubMenu.Add("自动跳转", AutoSwitchHandler)
+    settingsSubMenu.Add("自动弹出菜单", AutoMenuHandler)
+    settingsSubMenu.Add("手动按键", ManualHandler)
+    settingsSubMenu.Add("从不显示", NeverHandler)
 
     switch g_CurrentDialog.Action {
         case "1":
-            contextMenu.Check("自动跳转")
+            settingsSubMenu.Check("自动跳转")
         case "2":
-            contextMenu.Check("自动弹出菜单")
+            settingsSubMenu.Check("自动弹出菜单")
         case "0":
-            contextMenu.Check("从不显示")
+            settingsSubMenu.Check("从不显示")
         default:
-            contextMenu.Check("手动按键")
+            settingsSubMenu.Check("手动按键")
     }
+    
+    contextMenu.Add("跳转设置", settingsSubMenu)
 }
 
 AddFileMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex := 0) {
