@@ -239,7 +239,8 @@ CreateDefaultIniFile() {
         ; 自定义路径设置
         IniWrite("1", g_Config.IniFile, "CustomPaths", "EnableCustomPaths")
         IniWrite("收藏路径", g_Config.IniFile, "CustomPaths", "MenuTitle")
-        IniWrite("桌面|%USERPROFILE%\Desktop", g_Config.IniFile, "CustomPaths", "Path1")
+        IniWrite("0", g_Config.IniFile, "CustomPaths", "ShowCustomName")
+        IniWrite("桌面|%USERPROFILE%\Desktop|1", g_Config.IniFile, "CustomPaths", "Path1")
         IniWrite("文档|%USERPROFILE%\Documents", g_Config.IniFile, "CustomPaths", "Path2")
         IniWrite("下载|%USERPROFILE%\Downloads", g_Config.IniFile, "CustomPaths", "Path3")
 
@@ -278,7 +279,13 @@ CreateDefaultIniFile() {
             . "; ExcludedApps: 排除的程序列表`n"
             . "; PinnedApps: 置顶显示的程序列表`n"
             . "; DefaultAction: 文件对话框默认行为 - manual=手动按键, auto_menu=自动弹出菜单, auto_switch=自动切换, never=从不显示`n`n"
-            . "; Position: mouse鼠标  fixed固定n"
+            . "; CustomPaths 格式说明: 显示名称|路径|置顶标记`n"
+            . "; 置顶标记: 1=置顶，空或其他=不置顶`n"
+            . "; ShowCustomName: 0=显示完整路径(默认), 1=显示自定义名称`n"
+            . "; 置顶路径将与收藏路径同层级显示，普通路径在子菜单中`n"
+            . "; 示例: Path1=桌面|%USERPROFILE%\\Desktop|1 (置顶路径)`n"
+            . "; 示例: Path2=文档|%USERPROFILE%\\Documents (普通路径)`n`n"
+            . "; Position: mouse鼠标  fixed固定`n"
 
         ; 读取现有内容并在前面添加注释
         existingContent := FileRead(g_Config.IniFile, "UTF-16")
@@ -328,6 +335,7 @@ LoadConfiguration() {
     ; 加载自定义路径设置
     g_Config.EnableCustomPaths := IniRead(g_Config.IniFile, "CustomPaths", "EnableCustomPaths", "1")
     g_Config.CustomPathsTitle := IniRead(g_Config.IniFile, "CustomPaths", "MenuTitle", "收藏路径")
+    g_Config.ShowCustomName := IniRead(g_Config.IniFile, "CustomPaths", "ShowCustomName", "0")
 
     ; 加载最近路径设置
     g_Config.EnableRecentPaths := IniRead(g_Config.IniFile, "RecentPaths", "EnableRecentPaths", "1")
@@ -426,6 +434,7 @@ CreateTrayMenu() {
     A_TrayMenu.Add("运行模式", runModeMenu)
     
     A_TrayMenu.Add()  ; 分隔符
+    A_TrayMenu.Add("关于", ShowAboutFromTray)
     A_TrayMenu.Add("重启", RestartApplication)
     A_TrayMenu.Add("退出", ExitApplication)
 
@@ -484,6 +493,10 @@ SetRunModeFromTray(mode, *) {
     SetRunMode(mode)
     ; 更新任务栏菜单显示
     UpdateTrayMenuRunModeStatus()
+}
+
+ShowAboutFromTray(*) {
+    ShowAbout()
 }
 
 RestartApplication(*) {
@@ -1552,19 +1565,34 @@ FeedDialogSysListView(winID, folderPath) {
 
 AddCustomPaths(contextMenu) {
     added := false
-    customPathsMenu := Menu()
+    customPathsMenu := Menu()  ; 普通路径的子菜单
     customPaths := []
+    pinnedPaths := []  ; 置顶路径列表
+    normalPaths := []  ; 普通路径列表
+    
+    ; 读取显示模式设置
+    showCustomName := IniRead(g_Config.IniFile, "CustomPaths", "ShowCustomName", "0") = "1"
 
+    ; 解析所有自定义路径
     loop 20 {
         pathKey := "Path" . A_Index
         pathValue := IniRead(g_Config.IniFile, "CustomPaths", pathKey, "")
 
         if (pathValue != "") {
+            displayName := ""
+            actualPath := ""
+            isPinned := false
+            
             if InStr(pathValue, "|") {
                 parts := StrSplit(pathValue, "|", " `t")
                 if (parts.Length >= 2) {
                     displayName := parts[1]
                     actualPath := parts[2]
+                    
+                    ; 检查是否有第三个参数表示置顶 (|1)
+                    if (parts.Length >= 3 && Trim(parts[3]) = "1") {
+                        isPinned := true
+                    }
                 } else {
                     displayName := pathValue
                     actualPath := pathValue
@@ -1578,19 +1606,44 @@ AddCustomPaths(contextMenu) {
             expandedPath := ExpandEnvironmentVariables(actualPath)
 
             if IsValidFolder(expandedPath) {
-                customPaths.Push({ display: displayName, path: expandedPath })
+                ; 决定显示的文本：根据开关决定显示自定义名称还是完整路径
+                finalDisplayText := showCustomName ? displayName : expandedPath
+                
+                pathObj := { display: finalDisplayText, path: expandedPath, isPinned: isPinned }
+                
+                ; 根据是否置顶分类存储
+                if (isPinned) {
+                    pinnedPaths.Push(pathObj)
+                } else {
+                    normalPaths.Push(pathObj)
+                }
                 added := true
             }
         }
     }
 
-    if (customPaths.Length > 0) {
-        for pathInfo in customPaths {
+    ; 如果有任何自定义路径，添加分割线
+    if (pinnedPaths.Length > 0 || normalPaths.Length > 0) {
+        contextMenu.Add()
+    }
+
+    ; 先添加置顶路径到主菜单（在分割线下面，与收藏路径一起）
+    if (pinnedPaths.Length > 0) {
+        for pathInfo in pinnedPaths {
+            displayText := "📌 " . pathInfo.display
+            contextMenu.Add(displayText, FolderChoiceHandler.Bind(pathInfo.path))
+            try contextMenu.SetIcon(displayText, "shell32.dll", 4, g_Config.IconSize)
+        }
+    }
+
+    ; 再添加普通路径到子菜单
+    if (normalPaths.Length > 0) {
+        for pathInfo in normalPaths {
             customPathsMenu.Add(pathInfo.display, FolderChoiceHandler.Bind(pathInfo.path))
             try customPathsMenu.SetIcon(pathInfo.display, "shell32.dll", 4, g_Config.IconSize)
         }
 
-        contextMenu.Add()
+        ; 只有当有普通路径时才添加子菜单
         contextMenu.Add(g_Config.CustomPathsTitle, customPathsMenu)
         try contextMenu.SetIcon(g_Config.CustomPathsTitle, "shell32.dll", 43, g_Config.IconSize)
     }
