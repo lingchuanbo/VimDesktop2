@@ -130,40 +130,35 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
         return false
     }
 }
-
+; 当标准文件对话框激活时，按下 Alt+W 调用 GetWindowsFolderActivePath 函数
+#HotIf WinActive("ahk_class #32770")
+!w:: GetWindowsFolderActivePath()
+#HotIf
 ; 添加双击直接执行 GetWindowsFolderActivePath 函数
 ; ~LButton:: {
 ;     ; 检查是否启用了双击功能
 ;     global LTickCount, RTickCount, DblClickTime
 ;     static LastClickTime := 0
 ;     static LastClickPos := ""
-
 ;     MouseGetPos(&x, &y, &WinID, &Control)
 ;     WinClass := WinGetClass("ahk_id " . WinID)
-
 ;     ; 获取当前时间和位置
 ;     CurrentTime := A_TickCount
 ;     CurrentPos := x . "," . y
-
 ;     ; 更严格的双击检测：时间间隔、位置相近、且是连续的LButton事件
-
 ;     IsDoubleClick := (A_PriorHotKey = "~LButton" &&
 ;         A_TimeSincePriorHotkey < DblClickTime &&
 ;         A_TimeSincePriorHotkey > 50 &&  ; 避免过快的重复触发
 ;         CurrentPos = LastClickPos)      ; 位置必须相同
-
 ;     ; 更新记录
 ;     LastClickTime := CurrentTime
 ;     LastClickPos := CurrentPos
 ;     LTickCount := CurrentTime
-
 ;     ; 只有真正的双击才处理
 ;     if (IsDoubleClick && LTickCount > RTickCount) {
 ;         ShouldLaunch := false
-
 ;         ; 只在目标窗口类型中检测GetWindowsFolderActivePath()
 ;         currentWinID := WinExist("A")
-
 ;         if (IsFileDialog(currentWinID)) {
 ;             ; 使用 UIA 检测文件对话框中的空白区域
 ;             WinClass := WinGetClass("ahk_id " . WinID)
@@ -184,7 +179,6 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
 ; ============================================================================
 ; 配置管理
 ; ============================================================================
-
 InitializeConfig() {
     ; 获取脚本名称用于配置文件
     SplitPath(A_ScriptFullPath, , , , &name_no_ext)
@@ -277,15 +271,15 @@ CreateDefaultIniFile() {
             . "DarkMode=0`n`n"
             . "[FileDialog]`n"
             . "DefaultAction=manual`n"
-        
+
         ; 删除现有文件并写入新内容
         if FileExist(g_Config.IniFile) {
             FileDelete(g_Config.IniFile)
         }
-        
+
         ; 使用UTF-8编码写入文件
         FileAppend(configContent, g_Config.IniFile, "UTF-8")
-        
+
     } catch as e {
         MsgBox("创建配置文件失败: " . e.message, "错误", "T5")
     }
@@ -298,38 +292,38 @@ CreateDefaultIniFile() {
 UTF8IniRead(iniFile, section, key, defaultValue := "") {
     ; 读取整个INI文件内容（UTF-8编码）
     iniContent := FileRead(iniFile, "UTF-8")
-    
+
     ; 查找指定section
     sectionPattern := "\[" . section . "\][\s\S]*?(?=\n\[|\Z)"
     if !RegExMatch(iniContent, sectionPattern, &sectionMatch) {
         return defaultValue
     }
-    
+
     ; 获取section内容字符串
     sectionContent := sectionMatch[]
-    
+
     ; 在section中查找指定key
     keyPattern := "^\s*" . key . "\s*=\s*(.*?)\s*$"
     if RegExMatch(sectionContent, "m)" . keyPattern, &keyMatch) {
         return keyMatch[1]
     }
-    
+
     return defaultValue
 }
 
 UTF8IniWrite(value, iniFile, section, key) {
     ; 读取整个INI文件内容（UTF-8编码）
     iniContent := FileRead(iniFile, "UTF-8")
-    
+
     ; 构建新的键值对
     newLine := key . "=" . value
-    
+
     ; 查找指定section
     sectionPattern := "(\[" . section . "\][\s\S]*?)(?=\n\[|\Z)"
     if RegExMatch(iniContent, sectionPattern, &sectionMatch) {
         ; 获取section内容字符串
         sectionContent := sectionMatch[]
-        
+
         ; 检查key是否已存在
         keyPattern := "^\s*" . key . "\s*=.*$"
         if RegExMatch(sectionContent, "m)" . keyPattern, &keyMatch) {
@@ -345,7 +339,7 @@ UTF8IniWrite(value, iniFile, section, key) {
         ; section不存在，创建新的section
         newContent := iniContent . "`n`n[" . section . "]`n" . newLine
     }
-    
+
     ; 写入更新后的内容（UTF-8编码）
     FileDelete(iniFile)
     FileAppend(newContent, iniFile, "UTF-8")
@@ -358,7 +352,7 @@ UTF8IniWrite(value, iniFile, section, key) {
 UTF8IniDelete(iniFile, section, key := "") {
     ; 读取整个INI文件内容（UTF-8编码）
     iniContent := FileRead(iniFile, "UTF-8")
-    
+
     if (key = "") {
         ; 删除整个section
         sectionPattern := "\[" . section . "\][\s\S]*?(?=\n\[|\Z)"
@@ -369,11 +363,11 @@ UTF8IniDelete(iniFile, section, key := "") {
         if RegExMatch(iniContent, sectionPattern, &sectionMatch) {
             ; 获取section内容字符串
             sectionContent := sectionMatch[]
-            
+
             ; 删除指定的key
             keyPattern := "^\s*" . key . "\s*=.*$\n?"
             newSectionContent := RegExReplace(sectionContent, "m)" . keyPattern, "")
-            
+
             ; 替换回原内容
             newContent := RegExReplace(iniContent, sectionPattern, newSectionContent)
         } else {
@@ -381,7 +375,7 @@ UTF8IniDelete(iniFile, section, key := "") {
             return
         }
     }
-    
+
     ; 写入更新后的内容（UTF-8编码）
     FileDelete(iniFile)
     FileAppend(newContent, iniFile, "UTF-8")
@@ -394,7 +388,8 @@ LoadConfiguration() {
     g_Config.QuickSwitchHotkey := UTF8IniRead(g_Config.IniFile, "Settings", "QuickSwitchHotkey", "^Tab")
     g_Config.GetWindowsFolderActivePathKey := UTF8IniRead(g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey",
         "!w")
-    g_Config.EnableGetWindowsFolderActivePath := UTF8IniRead(g_Config.IniFile, "Settings", "EnableGetWindowsFolderActivePath", "1")
+    g_Config.EnableGetWindowsFolderActivePath := UTF8IniRead(g_Config.IniFile, "Settings",
+        "EnableGetWindowsFolderActivePath", "1")
     g_Config.MaxHistoryCount := Integer(UTF8IniRead(g_Config.IniFile, "Settings", "MaxHistoryCount", "10"))
     g_Config.EnableQuickAccess := UTF8IniRead(g_Config.IniFile, "Settings", "EnableQuickAccess", "1")
     g_Config.QuickAccessKeys := UTF8IniRead(g_Config.IniFile, "Settings", "QuickAccessKeys",
@@ -465,7 +460,7 @@ LoadConfiguration() {
             g_PinnedWindows.Push(StrLower(appValue))
         }
     }
-    
+
     ; 验证关键配置是否正确加载
     ValidateConfiguration()
 }
@@ -474,37 +469,37 @@ LoadConfiguration() {
 ValidateConfiguration() {
     ; 检查关键配置项是否正确加载
     configErrors := []
-    
+
     ; 检查热键配置
     if (g_Config.MainHotkey = "") {
         configErrors.Push("主快捷键配置缺失")
     }
-    
+
     if (g_Config.QuickSwitchHotkey = "") {
         configErrors.Push("快速切换热键配置缺失")
     }
-    
+
     if (g_Config.GetWindowsFolderActivePathKey = "") {
         configErrors.Push("GetWindowsFolderActivePath热键配置缺失")
     }
-    
+
     ; 检查数值配置
     if (g_Config.MaxHistoryCount <= 0) {
         configErrors.Push("历史记录数量配置错误")
         g_Config.MaxHistoryCount := 10  ; 使用默认值
     }
-    
+
     if (g_Config.IconSize <= 0) {
         configErrors.Push("图标大小配置错误")
         g_Config.IconSize := 16  ; 使用默认值
     }
-    
+
     ; 检查开关配置
     if (g_Config.EnableGetWindowsFolderActivePath != "0" && g_Config.EnableGetWindowsFolderActivePath != "1") {
         configErrors.Push("EnableGetWindowsFolderActivePath开关配置错误")
         g_Config.EnableGetWindowsFolderActivePath := "1"  ; 使用默认值
     }
-    
+
     ; 如果有配置错误，显示警告
     if (configErrors.Length > 0) {
         errorMsg := "发现配置错误：`n"
@@ -571,16 +566,16 @@ CreateTrayMenu() {
     A_TrayMenu.Add("设置", OpenConfigFile)
     A_TrayMenu.Add("切换主题", ToggleThemeFromTray)
     A_TrayMenu.Add()  ; 分隔符
-    
+
     ; 添加运行模式子菜单
     runModeMenu := Menu()
     runModeMenu.Add("全部运行", SetRunModeFromTray.Bind(0))
     runModeMenu.Add("只运行路径跳转", SetRunModeFromTray.Bind(1))
     runModeMenu.Add("只运行程序切换", SetRunModeFromTray.Bind(2))
     A_TrayMenu.Add("运行模式", runModeMenu)
-    
+
     A_TrayMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePathFromTray)
-    
+
     A_TrayMenu.Add()  ; 分隔符
     A_TrayMenu.Add("关于", ShowAboutFromTray)
     A_TrayMenu.Add("重启", RestartApplication)
@@ -609,7 +604,8 @@ UpdateTrayMenuThemeStatus() {
 
 UpdateTrayMenuGetWindowsFolderActivePathStatus() {
     ; 更新GetWindowsFolderActivePath功能菜单项的显示文本
-    functionText := (g_Config.EnableGetWindowsFolderActivePath = "1") ? "GetWindowsFolderActivePath功能 (当前: 开启)" : "GetWindowsFolderActivePath功能 (当前: 关闭)"
+    functionText := (g_Config.EnableGetWindowsFolderActivePath = "1") ? "GetWindowsFolderActivePath功能 (当前: 开启)" :
+        "GetWindowsFolderActivePath功能 (当前: 关闭)"
     try {
         A_TrayMenu.Rename("GetWindowsFolderActivePath功能", functionText)
     } catch {
@@ -624,7 +620,7 @@ UpdateTrayMenuRunModeStatus() {
         runModeMenu.Uncheck("全部运行")
         runModeMenu.Uncheck("只运行路径跳转")
         runModeMenu.Uncheck("只运行程序切换")
-        
+
         switch g_Config.RunMode {
             case 0:
                 runModeMenu.Check("全部运行")
@@ -1139,7 +1135,7 @@ AddWindowSettingsMenu(contextMenu) {
     if (g_DarkMode) {
         settingsMenu.Check("切换主题")
     }
-    
+
     ; 根据当前GetWindowsFolderActivePath功能状态设置菜单项显示
     if (g_Config.EnableGetWindowsFolderActivePath = "1") {
         settingsMenu.Check("GetWindowsFolderActivePath功能")
@@ -1741,7 +1737,7 @@ AddCustomPaths(contextMenu) {
     customPaths := []
     pinnedPaths := []  ; 置顶路径列表
     normalPaths := []  ; 普通路径列表
-    
+
     ; 读取显示模式设置
     showCustomName := UTF8IniRead(g_Config.IniFile, "CustomPaths", "ShowCustomName", "0") = "1"
 
@@ -1754,13 +1750,13 @@ AddCustomPaths(contextMenu) {
             displayName := ""
             actualPath := ""
             isPinned := false
-            
+
             if InStr(pathValue, "|") {
                 parts := StrSplit(pathValue, "|", " `t")
                 if (parts.Length >= 2) {
                     displayName := parts[1]
                     actualPath := parts[2]
-                    
+
                     ; 检查是否有第三个参数表示置顶 (|1)
                     if (parts.Length >= 3 && Trim(parts[3]) = "1") {
                         isPinned := true
@@ -1780,9 +1776,9 @@ AddCustomPaths(contextMenu) {
             if IsValidFolder(expandedPath) {
                 ; 决定显示的文本：根据开关决定显示自定义名称还是完整路径
                 finalDisplayText := showCustomName ? displayName : expandedPath
-                
+
                 pathObj := { display: finalDisplayText, path: expandedPath, isPinned: isPinned }
-                
+
                 ; 根据是否置顶分类存储
                 if (isPinned) {
                     pinnedPaths.Push(pathObj)
@@ -1905,7 +1901,7 @@ AddFileDialogSettingsMenu(contextMenu) {
         default:
             settingsSubMenu.Check("手动按键")
     }
-    
+
     contextMenu.Add("跳转设置", settingsSubMenu)
 }
 
@@ -1965,25 +1961,25 @@ AutoSwitchHandler(*) {
 GetWindowsFolderActivePath(*) {
     ; 获取当前活动窗口
     currentWinID := WinExist("A")
-    
+
     ; 检查当前窗口是否为文件对话框
     if (IsFileDialog(currentWinID)) {
         ; 如果是文件对话框，执行路径切换功能
-        
+
         ; 如果当前对话框信息未设置或已过期，重新设置
         if (currentWinID != g_CurrentDialog.WinID) {
             g_CurrentDialog.WinID := currentWinID
             g_CurrentDialog.Type := DetectFileDialog(currentWinID)
-            
+
             if (!g_CurrentDialog.Type) {
                 ; 如果检测失败，直接返回
                 return
             }
         }
-        
+
         ; 获取文件管理器的当前路径
         folderPath := GetActiveFileManagerFolder(currentWinID)
-        
+
         if IsValidFolder(folderPath) {
             ; 记录到最近路径并切换到该路径
             RecordRecentPath(folderPath)
@@ -2404,10 +2400,10 @@ ToggleGetWindowsFolderActivePath(*) {
     ; 切换功能状态
     currentState := g_Config.EnableGetWindowsFolderActivePath
     newState := (currentState = "1") ? "0" : "1"
-    
+
     ; 更新配置
     g_Config.EnableGetWindowsFolderActivePath := newState
-    
+
     ; 保存到配置文件
     try {
         UTF8IniWrite(newState, g_Config.IniFile, "Settings", "EnableGetWindowsFolderActivePath")
@@ -2415,7 +2411,7 @@ ToggleGetWindowsFolderActivePath(*) {
         MsgBox("保存配置失败: " . e.message, "错误", "T3")
         return
     }
-    
+
     ; 注册或注销热键
     try {
         if (newState = "1") {
@@ -2446,7 +2442,8 @@ ShowAbout(*) {
         . "• 快速切换最近两个程序`n`n"
         . "热键:`n"
         . "• " . g_Config.MainHotkey . " - 智能菜单显示`n"
-        . "• " . g_Config.GetWindowsFolderActivePathKey . " - 直接载入最近打开的窗口(状态: " . (g_Config.EnableGetWindowsFolderActivePath = "1" ? "开启" : "关闭") . ")`n"
+        . "• " . g_Config.GetWindowsFolderActivePathKey . " - 直接载入最近打开的窗口(状态: " . (g_Config.EnableGetWindowsFolderActivePath =
+            "1" ? "开启" : "关闭") . ")`n"
         . "• " . g_Config.QuickSwitchHotkey . " - 快速切换最近两个程序"
 
     MsgBox(aboutText, "关于 QuickSwitch", "T10")

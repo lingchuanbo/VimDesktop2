@@ -1,8 +1,9 @@
-﻿/*
-    功能: 【最终完整版】自动寻找并旋转名为"大"的虚拟体，在特定角度进行渲染输出。
-    作者: BoBO
-    日期: 2025-6-8
-*/
+/*
+ * 功能: 基于Render53.ms框架的渲染脚本，合并了Render.ms中的BaseDefOutputDir函数
+ * 逻辑: 检测场景中是否有名为"大"的虚拟体，如果没有则执行BaseDefOutputDir函数进行基本渲染
+ * 作者: BoBO
+ * 日期: 2025-6-8
+ */
 -- ===================================================================
 -- 1. 参数设置
 -- ===================================================================
@@ -21,7 +22,12 @@ Prefix = ".tga"
 -- ===================================================================
 -- 2. 辅助函数定义
 -- ===================================================================
--- 旋转指定物体的Z轴
+/**
+ * 旋转指定物体的Z轴
+ * @param {Node} obj - 要旋转的物体
+ * @param {Float} angle - 旋转角度
+ * @returns {Boolean} 旋转是否成功
+ */
 fn rotateObjectZ obj angle = 
 (	
 	if isValidNode obj then
@@ -34,7 +40,11 @@ fn rotateObjectZ obj angle =
 		false
 	)
 )
--- 执行渲染的函数
+/**
+ * 执行渲染的函数
+ * @param {String} outputFolder - 输出文件夹路径
+ * @param {String} fileNamePrefix - 文件名前缀
+ */
 fn executeRender outputFolder fileNamePrefix = 
 (	
 	if not( doesFileExist outputFolder ) do( makeDir outputFolder )
@@ -62,18 +72,41 @@ fn executeRender outputFolder fileNamePrefix =
 		format "--- 渲染失败 ---\n\n"
 	)
 )
+/**
+ * 基本默认输出目录函数（来自Render.ms）
+ * 当场景中没有虚拟体时执行基本渲染
+ */
+fn BaseDefOutputDir = 
+(	
+	theName = "10000"
+	Prefix = ".tga"
+	str = maxfilename
+	strName = replaceSub str ".max" "" + "\\"
+	outPutDir = maxfilepath + strName
+	-- 创建文件夹
+	makeDir outPutDir
+	outPutFiledir = outPutDir + theName + Prefix
+	rendOutputFileName = outPutFiledir
+	actionMan.executeAction 0 "50031" -- Render: Render
+)
 -- ===================================================================
 -- 3. 主逻辑
 -- ===================================================================
 clearListener()
 format "脚本开始执行...\n"
 targetNode = getNodeByName helperName
+-- 判断是否有虚拟体"大"
 if targetNode == undefined then
 (	
-	messageBox( "错误：场景中未找到名为 \"" + helperName + "\" 的Point Helper。" )
+	format "场景中未找到名为 \"%\" 的虚拟体，执行基本渲染...\n" helperName
+	BaseDefOutputDir()
+	format "基本渲染完成!\n"
 )
 else
 (	
+	-- 有虚拟体，执行多角度渲染流程
+	format "成功找到虚拟体: '%'\n" targetNode.name
+	select targetNode
 	-- 必须先保存MAX文件，才能确定输出路径
 	if maxFilePath == "" then
 	(		
@@ -81,8 +114,6 @@ else
 	)
 	else
 	(		
-		format "成功找到虚拟体: '%'\n" targetNode.name
-		select targetNode
 		local maxFileNameWithoutExt = getFilenameFile maxFileName
 		local maxFileDir = getFilenamePath maxFileName
 		-- === 第一阶段: 旋转并渲染方向 5 ===
@@ -136,3 +167,4 @@ else
 		format "所有任务已完成。\n"
 	)
 )
+） 

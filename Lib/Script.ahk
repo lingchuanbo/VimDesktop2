@@ -173,12 +173,21 @@ Script_3DsMax(Path) {
             Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . FilePath1
             return
         } else {
+            ; fileIn "d:\\BoBO\\VimDesktop2\\Plugins\\Max3D\\Script\\commands\\hideByCategoryGUI.ms"
+            ; MXSPATH := "fileIn " Path
+            ; ControlFocus "MXS_Scintilla2"
+            ; ControlSetText MXSPATH, "MXS_Scintilla2"
+            ; Send "+{Enter}"
+            ; Click
+            ; return
             MsgBox "文件不存在: " . Path, "错误", 16
             return
         }
+
     }
 
     ; 检查是否为ID模式 (id12345)
+
     if RegExMatch(Path, "^id\d+$") {
         ; 提取ID数字部分
         IdNumber := SubStr(Path, 3)
@@ -191,7 +200,6 @@ Script_3DsMax(Path) {
         Click
         return
     }
-
     ; 默认为直接Max命令模式
     ControlFocus "MXS_Scintilla2"
     ControlSetText Path, "MXS_Scintilla2"

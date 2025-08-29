@@ -1,1 +1,0 @@
-hideByCategory.all()

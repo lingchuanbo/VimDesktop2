@@ -110,13 +110,15 @@ ModeChange(modeName) {
 
     ; 添加文本控件，使用最简单可靠的方式
     modeGui.SetFont("s" fontSize " bold", fontName)
-    
+
     ; 先尝试最基本的设置，确保文字可见
     if (guiTextColor = "" || guiTextColor = "0x") {
         ; 如果颜色有问题，使用默认黑色
-        textCtrl := modeGui.Add("Text", "cBlack Center x10 y10 w" (guiWidth-20) " h" (guiHeight-20), "当前模式: " modeName)
+        textCtrl := modeGui.Add("Text", "cBlack Center x10 y10 w" (guiWidth - 20) " h" (guiHeight - 20), "当前模式: " modeName
+        )
     } else {
-        textCtrl := modeGui.Add("Text", "c" guiTextColor " Center x10 y10 w" (guiWidth-20) " h" (guiHeight-20), "当前模式: " modeName)
+        textCtrl := modeGui.Add("Text", "c" guiTextColor " Center x10 y10 w" (guiWidth - 20) " h" (guiHeight - 20),
+        "当前模式: " modeName)
     }
 
     ; 获取最佳显示位置（支持双屏幕）
@@ -595,4 +597,114 @@ GetOptimalDisplayPosition() {
 
     ; 方法3: 使用主显示器
     return GetMonitorCenter(1)
+}
+
+GetActiveFileManagerFolder(winID) {
+
+    ; 获取当前活动窗口
+
+    allWindows := WinGetList()
+
+    fileManagerCandidates := []
+
+    for id in allWindows {
+        try {
+            winClass := WinGetClass("ahk_id " . id)
+
+            if (winClass = "TTOTAL_CMD") {
+
+                folderPath := GetTCActiveFolder(id)
+
+                if IsValidFolder(folderPath) {
+
+                    fileManagerCandidates.Push({ id: id, path: folderPath, type: "TC" })
+
+                }
+            }
+            else if (winClass = "CabinetWClass") {
+                for explorerWindow in ComObject("Shell.Application").Windows {
+                    try {
+                        if (id = explorerWindow.hwnd) {
+                            explorerPath := explorerWindow.Document.Folder.Self.Path
+                            if IsValidFolder(explorerPath) {
+                                fileManagerCandidates.Push({ id: id, path: explorerPath, type: "Explorer" })
+                            }
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+
+    if (fileManagerCandidates.Length = 0) {
+        return ""
+    }
+
+    if (fileManagerCandidates.Length = 1) {
+        return fileManagerCandidates[1].path
+    }
+
+    return fileManagerCandidates[1].path
+}
+
+GetTCActiveFolder(winID) {
+    clipSaved := ClipboardAll()
+    A_Clipboard := ""
+
+    ; 方法1：使用PostMessage + ClipWait (基于V1代码修复)
+    try {
+        PostMessage(1075, 2029, 0, , "ahk_id " . winID)
+
+        if ClipWait(1) {
+            if (A_Clipboard != "") {
+                folderPath := A_Clipboard
+                A_Clipboard := clipSaved
+                return folderPath
+            }
+        }
+    } catch {
+        ; 忽略错误，继续尝试其他方法
+    }
+
+    ; 方法2：尝试目标路径 (右窗格)
+    A_Clipboard := ""
+    try {
+        PostMessage(1075, 2030, 0, , "ahk_id " . winID)
+
+        if ClipWait(1) {
+            if (A_Clipboard != "") {
+                folderPath := A_Clipboard
+                A_Clipboard := clipSaved
+                return folderPath
+            }
+        }
+    } catch {
+        ; 忽略错误，继续尝试其他方法
+    }
+
+    ; 方法3：备选方案 - 使用SendMessage
+    A_Clipboard := ""
+    try {
+        result := SendMessage(1075, 2029, 0, , "ahk_id " . winID)
+        Sleep(200)
+
+        if (result != 0 && A_Clipboard != "") {
+            folderPath := A_Clipboard
+            A_Clipboard := clipSaved
+            return folderPath
+        }
+    } catch {
+        ; 忽略错误
+    }
+
+    A_Clipboard := clipSaved
+    return ""
+}
+
+IsValidFolder(path) {
+    return (path != "" && StrLen(path) < 259 && InStr(FileExist(path), "D"))
 }
