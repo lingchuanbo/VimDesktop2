@@ -22,72 +22,48 @@ AfterEffects() {
     ; 基本
 
     KeyArray.push({ Key: "<Alt>", Mode: "VIM模式", Group: "基本", Func: "AfterEffects_Menu", Param: "", Comment: "菜单" })
-    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "OrganizeProjectAssets.jsx",
-        Comment: "整理" })
+    KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "OrganizeProjectAssets.jsx",Comment: "整理" })
     KeyArray.push({ Key: "oo", Mode: "VIM模式", Group: "基本", Func: "SendKeyInput", Param: "^o", Comment: "打开 文件" })
-    KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "基本", Func: "AfterEffects_OpenLocalFilesRender", Param: "",
-        Comment: "打开 渲染文件所以位置" })
+    KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "基本", Func: "AfterEffects_OpenLocalFilesRender", Param: "",Comment: "打开 渲染文件所以位置" })
     KeyArray.push({ Key: "of", Mode: "VIM模式", Group: "基本", Func: "AfterEffects_OpenLocalFiles", Param: "", Comment: "打开 文件所以位置" })
-    KeyArray.push({ Key: "op", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "CompostionOption.jsx",
-        Comment: "修改 合成设置" })
+    KeyArray.push({ Key: "op", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "CompostionOption.jsx",Comment: "修改 合成设置" })
 
     ; 控制 位置 旋转 缩放 透明
-    KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "p|AfterEffects_位置|Everything_2|AfterEffects_位置K帧",
-        Comment: "位置/双击/位置K帧" })
-    KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "r|AfterEffects_旋转|Everything_2|AfterEffects_旋转K帧",
-        Comment: "旋转/双击/旋转K帧" })
-    KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "s|AfterEffects_缩放|Everything_2|AfterEffects_缩放K帧",
-        Comment: "缩放/双击/缩放K帧" })
-    KeyArray.push({ Key: "t", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "t|AfterEffects_透明|Everything_2|AfterEffects_透明K帧",
-        Comment: "透明/双击/透明K帧" })
-    KeyArray.push({ Key: "d", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "d|AfterEffects_图层切换到Add|AfterEffects_克隆图层|AfterEffects_删除",
-        Comment: "Add/克隆/透明K帧" })
-    KeyArray.push({ Key: "g", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "g|AfterEffects_图层转为网格层|AfterEffects_图层定位项目位置|AfterEffects_素材本地位置",
-        Comment: "图层转为网格层/定位/所在位置" })
+    KeyArray.push({ Key: "p", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "p|AfterEffects_位置|Everything_2|AfterEffects_位置K帧",Comment: "位置/双击/位置K帧" })
+    KeyArray.push({ Key: "r", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "r|AfterEffects_旋转|Everything_2|AfterEffects_旋转K帧",Comment: "旋转/双击/旋转K帧" })
+    KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "s|AfterEffects_缩放|Everything_2|AfterEffects_缩放K帧",Comment: "缩放/双击/缩放K帧" })
+    KeyArray.push({ Key: "t", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "t|AfterEffects_透明|Everything_2|AfterEffects_透明K帧",Comment: "透明/双击/透明K帧" })
+    KeyArray.push({ Key: "d", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "d|AfterEffects_图层切换到Add|AfterEffects_克隆图层|AfterEffects_删除",Comment: "Add/克隆/透明K帧" })
+    KeyArray.push({ Key: "g", Mode: "VIM模式", Group: "控制", Func: "SingleDoubleFullHandlers", Param: "g|AfterEffects_图层转为网格层|AfterEffects_图层定位项目位置|AfterEffects_素材本地位置",Comment: "图层转为网格层/定位/所在位置" })
 
     ; 图层
-    KeyArray.push({ Key: "cc", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "LayerConvertLocalAssets.jsx",
-        Comment: "转为本地素材" })
+    KeyArray.push({ Key: "cc", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "LayerConvertLocalAssets.jsx",Comment: "转为本地素材" })
 
     ; 项目
-    KeyArray.push({ Key: "cf", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages.jsx",
-        Comment: "收集素材到文件目录" })
-    KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages_Fixed.jsx",
-        Comment: "收集素材到文件目录" })
+    KeyArray.push({ Key: "cf", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages.jsx",Comment: "收集素材到文件目录" })
+    KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages_Fixed.jsx",Comment: "收集素材到文件目录" })
 
     ;渲染
-    KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",
-        Comment: "渲染 快速" })
+    KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",Comment: "渲染 快速" })
     KeyArray.push({ Key: "qt", Mode: "VIM模式", Group: "项目", Func: "AfterEffects_RenderFilesWithTC", Param: "", Comment: "渲染 TC激活窗口" })
     KeyArray.push({ Key: "qb", Mode: "VIM模式", Group: "项目", Func: "SendKeyInput", Param: "^m", Comment: "收集素材到文件目录" })
-    KeyArray.push({ Key: "qx", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "RenderQueueDel.jsx",
-        Comment: "清理渲染列队" })
+    KeyArray.push({ Key: "qx", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "RenderQueueDel.jsx",Comment: "清理渲染列队" })
     KeyArray.push({ Key: "qc", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "分层渲染.jsx", Comment: "渲染 分层" })
     KeyArray.push({ Key: "qa", Mode: "VIM模式", Group: "项目", Func: "render_menu", Param: "", Comment: "渲染菜单" })
 
     ; 效果
-    KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx",
-        Comment: "添加 Tint" })
-    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx",
-        Comment: "添加 RoughenEdges" })
-    KeyArray.push({ Key: "<LB-g>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Glow.jsx",
-        Comment: "添加 Glow" })
-    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Sharpen.jsx",
-        Comment: "添加 Sharpen" })
-    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&UnMult.jsx",
-        Comment: "添加 UnMult" })
-    KeyArray.push({ Key: "<LB-w>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearWipe.jsx",
-        Comment: "添加 LinearWipe" })
-    KeyArray.push({ Key: "<LB-k>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearColorKey.jsx",
-        Comment: "添加 LinearColorKey" })
-    KeyArray.push({ Key: "<LB-i>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Invert.jsx",
-        Comment: "添加 Invert" })
-    KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx",
-        Comment: "添加 Curves" })
+    KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx",Comment: "添加 Tint" })
+    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx",Comment: "添加 RoughenEdges" })
+    KeyArray.push({ Key: "<LB-g>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Glow.jsx",Comment: "添加 Glow" })
+    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Sharpen.jsx",Comment: "添加 Sharpen" })
+    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&UnMult.jsx",Comment: "添加 UnMult" })
+    KeyArray.push({ Key: "<LB-w>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearWipe.jsx",Comment: "添加 LinearWipe" })
+    KeyArray.push({ Key: "<LB-k>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&LinearColorKey.jsx",Comment: "添加 LinearColorKey" })
+    KeyArray.push({ Key: "<LB-i>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Invert.jsx",Comment: "添加 Invert" })
+    KeyArray.push({ Key: "<LB-c>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Curves.jsx",Comment: "添加 Curves" })
 
     ; 帮助
-    KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "AfterEffects",
-        Comment: "显示所有按键(ToolTip)" })
+    KeyArray.push({ Key: ":/", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "AfterEffects",Comment: "显示所有按键(ToolTip)" })
     KeyArray.push({ Key: ":1", Mode: "VIM模式", Group: "帮助", Func: "AfterEffects_Initialization", Param: "", Comment: "初始化" })
     ;注册窗体,请务必保证 PluginName 和文件名一致，以避免名称混乱影响使用
     ;如果 class 和 exe 同时填写，以 exe 为准
@@ -129,101 +105,6 @@ AfterEffects_隐藏程序(*) {
 
 AfterEffects_显示程序(*) {
     WinShow "ahk_class AfterEffects"
-}
-
-;初始化脚本路径
-AfterEffects_Initialization() {
-    ; 检查After Effects是否正在运行
-    if !ProcessExist("AfterFX.exe") {
-        MsgBox "After Effects未运行，请先启动After Effects。", "初始化失败", "Icon!"
-        return
-    }
-
-    ; 获取After Effects路径
-    AeExePath := GetProcessPath("AfterFX.exe")
-    if !AeExePath {
-        MsgBox "无法获取After Effects路径，请确保After Effects正在运行。", "初始化失败", "Icon!"
-        return
-    }
-
-    ; 确保目录结构存在
-    scriptDir := A_ScriptDir "\plugins\AfterEffects\Script"
-    if !DirExist(scriptDir)
-        DirCreate scriptDir
-
-    commandsDir := scriptDir "\Commands"
-    if !DirExist(commandsDir)
-        DirCreate commandsDir
-
-    ; 创建初始化脚本文件
-    setPreset := scriptDir "\runAEScript.jsx"
-
-    ; 使用FileOpen写入文件
-    try {
-        ; 创建或清空文件
-        FileObj := FileOpen(setPreset, "w", "UTF-8")
-        if !FileObj {
-            MsgBox Format("无法创建文件: {1}", setPreset)
-            return
-        }
-
-        ; 写入更可靠的JavaScript代码
-        jsCode := "try {`n"
-        jsCode .= "    // 确保脚本在After Effects中正确执行`n"
-        jsCode .= "    var scriptpath = `"执行初始化`";`n"
-        jsCode .= "    alert(scriptpath);`n"
-        jsCode .= "    // 写入一个标记文件表示成功`n"
-        jsCode .= "    var successFile = new File(File.decode('" StrReplace(scriptDir "\init_success.txt", "\", "\\") "'));`n"
-        jsCode .= "    successFile.open('w');`n"
-        jsCode .= "    successFile.write('初始化成功: ' + new Date().toString());`n"
-        jsCode .= "    successFile.close();`n"
-        jsCode .= "} catch(e) {`n"
-        jsCode .= "    alert('初始化出错: ' + e.toString());`n"
-        jsCode .= "}`n"
-
-        ; 写入文件内容
-        FileObj.Write(jsCode)
-        FileObj.Close()
-    } catch Error as e {
-        MsgBox Format("写入文件时出错: {1}", e.Message)
-        return
-    }
-
-    ; 删除可能存在的旧成功标记文件
-    successFile := scriptDir "\init_success.txt"
-    if FileExist(successFile)
-        FileDelete successFile
-
-    ; 运行脚本
-    try {
-        ; 使用更可靠的方式运行脚本
-        Run AeExePath " -r " setPreset, , "Hide"
-
-        ; 等待脚本执行完成，最多等待3秒
-        startTime := A_TickCount
-        loop {
-            Sleep 100
-            if FileExist(successFile) {
-                MsgBox "After Effects初始化成功！", "初始化成功", "Icon!"
-                break
-            }
-
-            ; 如果超过3秒还没成功，提示用户
-            if (A_TickCount - startTime > 3000) {
-                MsgBox "初始化可能未完成，请再次尝试或检查After Effects是否响应。", "初始化提示", "Icon!"
-                break
-            }
-        }
-    } catch Error as e {
-        MsgBox Format("运行脚本时出错: {1}", e.Message)
-    }
-
-    ; 清理文件
-    Sleep 200
-    if FileExist(setPreset)
-        FileDelete(setPreset)
-    if FileExist(successFile)
-        FileDelete(successFile)
 }
 
 AfterEffects_位置() {

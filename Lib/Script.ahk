@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include <class_EasyIni>
 ; ################ Adobe After Effect运行函数 ######################
 
 ; -----------------------------------------------------------------
@@ -35,6 +36,9 @@ class AEWindowsManager {
 
 ; 优化后的 Script_AfterEffects 函数
 Script_AfterEffects(path) {
+    ; 确保配置已加载
+    AfterEffects_InitConfig.LoadConfig()
+    
     ; 参数验证
     if !path || path = "" {
         MsgBox("错误：未提供脚本路径", "参数错误", "Icon!")
@@ -235,6 +239,10 @@ runAeScriptFiles(path) {
 class AfterEffects_Logger {
     static Write(level, message) {
         try {
+            ; 检查日志开关
+            if !AfterEffects_InitConfig.ENABLE_LOGGING
+                return
+                
             ; 检查日志级别
             if !this.ShouldLog(level)
                 return
@@ -277,6 +285,50 @@ class AfterEffects_InitConfig {
     static SUCCESS_SUFFIX := "init_success" ; 成功标记文件后缀
     static LOG_LEVEL := "INFO"          ; 日志级别 (DEBUG, INFO, WARN, ERROR)
     static LOG_FILE := A_ScriptDir "\plugins\AfterEffects\init_log.txt" ; 日志文件路径
+    static ENABLE_LOGGING := true       ; 日志记录开关
+    
+    ; 读取配置文件
+    static __New() {
+        this.LoadConfig()
+    }
+    
+    static LoadConfig() {
+        configFile := A_ScriptDir "\plugins\AfterEffects\AfterEffects.ini"
+        
+        if FileExist(configFile) {
+            try {
+                ini := EasyIni(configFile)
+                
+                ; 读取日志开关
+                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("EnableLogging") {
+                    ; 明确检查 true 和 false
+                    value := StrLower(Trim(ini.Config.EnableLogging))
+                    if (value = "false" || value = "0" || value = "no" || value = "off") {
+                        this.ENABLE_LOGGING := false
+                    } else if (value = "true" || value = "1" || value = "yes" || value = "on") {
+                        this.ENABLE_LOGGING := true
+                    }
+                    ; 如果值不是预期的，保持默认值
+                }
+                
+                ; 读取日志级别
+                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("LogLevel") {
+                    logLevel := ini.Config.LogLevel
+                    if InStr("DEBUG,INFO,WARN,ERROR", logLevel) {
+                        this.LOG_LEVEL := logLevel
+                    }
+                }
+                
+                ; 读取日志文件路径
+                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("LogFile") {
+                    this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\" ini.Config.LogFile
+                }
+                
+            } catch {
+                ; 配置文件读取失败，使用默认值
+            }
+        }
+    }
 
     ; 错误消息模板
     static ERRORS := Map(
@@ -298,6 +350,8 @@ class AfterEffects_InitConfig {
 ; 初始化脚本路径 - 重构后的优化版本
 ; =============================================================================
 AfterEffects_Initialization() {
+    ; 确保配置已加载
+    AfterEffects_InitConfig.LoadConfig()
     AfterEffects_Logger.Info("=== 开始After Effects初始化过程 ===")
 
     try {
