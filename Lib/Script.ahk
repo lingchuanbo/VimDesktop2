@@ -7,121 +7,223 @@
 ;	2.Script_AfterEffects("目录\脚本名字.jsx")
 ;   3.Script_AfterEffects("D:\目录\脚本名字.jsx")
 
-Script_AfterEffects(path) {
-    ; 定义After Effects窗口组，包含多个版本
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_11.0")  ; AE CS6
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_12.0")  ; AE CC
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_13.0")  ; AE CC 2014
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_14.0")  ; AE CC 2015
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_15.0")  ; AE CC 2017
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_16.0")  ; AE CC 2018
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_17.0")  ; AE CC 2019
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_18.0")  ; AE 2020
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_19.0")  ; AE 2021
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_20.0")  ; AE 2022
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_21.0")  ; AE 2023
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_22.0")  ; AE 2024
-    GroupAdd("AEWindows", "ahk_class AE_CApplication_23.0")  ; AE 2025 (future-proofing)
-
-    ; 查找进程中的"AfterFX.exe" 获得所在路径
-    AeExePath := GetProcessPath("AfterFX.exe")
-
-    if RegExMatch(path, ".*\.(jsx|jsxbin)$") {
-        CommandsFile := A_ScriptDir "\plugins\AfterEffects\Script\Commands\" path
-        AeScriptFile := A_ScriptDir "\plugins\AfterEffects\Script\" path
-        runAEScriptFile := A_ScriptDir "\plugins\AfterEffects\Script\runAEScript.jsx"
-
-        ; 判断Commands 目录下文件是否存在，存在执行 不存在提示
-        if FileExist(CommandsFile) {
-            ; 检查是否是任何版本的After Effects窗口
-            if WinActive("ahk_group AEWindows") {
-                Run AeExePath " -r " CommandsFile, , "Hide"
-                return
-            } else {
-                runAeScriptFiles(CommandsFile)
-                Send "^+!{d}"
-                Sleep 200
-                ; 只在文件存在时才删除
-                if FileExist(runAEScriptFile)
-                    FileDelete runAEScriptFile
-                return
-            }
-        }
-
-        ; 判断Script 目录下文件是否存在，存在执行 不存在提示
-        if FileExist(AeScriptFile) {
-            ; 检查是否是任何版本的After Effects窗口
-            if WinActive("ahk_group AEWindows") {
-                Run AeExePath " -r " AeScriptFile, , "Hide"
-                return
-            } else {
-                runAeScriptFiles(AeScriptFile)
-                Send "^+!{d}"
-                Sleep 200
-                ; 只在文件存在时才删除
-                if FileExist(runAEScriptFile)
-                    FileDelete runAEScriptFile
-                return
-            }
-        }
-
-        ; 绝对路径
-        if FileExist(path) {
-            ; 检查是否是任何版本的After Effects窗口
-            if WinActive("ahk_group AEWindows") {
-                Run AeExePath " -r " path, , "Hide"
-                return
-            } else {
-                runAeScriptFiles(path)
-                Send "^+!{d}"
-                Sleep 200
-                ; 只在文件存在时才删除
-                if FileExist(runAEScriptFile)
-                    FileDelete runAEScriptFile
-                return
-            }
-        } else {
-            MsgBox Format("{1}`n{2}`n{3}文件不存在！", CommandsFile, AeScriptFile, path)
+; 静态类用于管理AE窗口组（避免重复GroupAdd）
+class AEWindowsManager {
+    static initialized := false
+    static groupName := "AEWindows"
+    
+    static Init() {
+        if this.initialized
             return
+            
+        ; 定义After Effects窗口组，包含多个版本（CS6到未来版本）
+        versions := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+        for version in versions {
+            GroupAdd(this.groupName, "ahk_class AE_CApplication_" . version . ".0")
+            ; 支持小版本号格式
+            GroupAdd(this.groupName, "ahk_class AE_CApplication_" . version . ".*")
         }
+        
+        this.initialized := true
+    }
+    
+    static IsAEWindowActive() {
+        this.Init()
+        return WinActive("ahk_group " . this.groupName)
     }
 }
 
-runAeScriptFiles(path) {
-    scriptDir := A_ScriptDir "\plugins\AfterEffects\Script"
-    setPreset := scriptDir "\runAEScript.jsx"
-
-    ; 确保Script目录存在
-    if !DirExist(scriptDir)
-        DirCreate scriptDir
-
-    ; 确保Commands目录存在
-    commandsDir := scriptDir "\Commands"
-    if !DirExist(commandsDir)
-        DirCreate commandsDir
-
-    ; 使用V2的文件操作方式
-    try {
-        ; 创建或清空文件
-        FileObj := FileOpen(setPreset, "w", "UTF-8")
-        if !FileObj {
-            MsgBox Format("无法创建文件: {1}", setPreset)
-            return
+; 优化后的 Script_AfterEffects 函数
+Script_AfterEffects(path) {
+    ; 参数验证
+    if !path || path = "" {
+        MsgBox("错误：未提供脚本路径", "参数错误", "Icon!")
+        return false
+    }
+    
+    ; 检查文件扩展名
+    if !RegExMatch(path, "i).*\.(jsx|jsxbin)$") {
+        MsgBox("错误：文件必须是 .jsx 或 .jsxbin 格式`n提供的文件：" . path, "文件格式错误", "Icon!")
+        return false
+    }
+    
+    ; 获取AE进程路径
+    AeExePath := GetProcessPath("AfterFX.exe")
+    if !AeExePath {
+        MsgBox("错误：After Effects 未运行或无法获取程序路径`n请先启动 After Effects", "进程错误", "Icon!")
+        return false
+    }
+    
+    ; 构建可能的脚本路径列表（按优先级排序）
+    scriptPaths := BuildScriptPaths(path)
+    
+    ; 查找存在的脚本文件
+    existingScript := ""
+    for scriptPath in scriptPaths {
+        if FileExist(scriptPath) {
+            existingScript := scriptPath
+            break
         }
+    }
+    
+    ; 如果没有找到文件，显示详细错误信息
+    if !existingScript {
+        errorMsg := "无法找到脚本文件：" . path . "`n`n已检查以下位置：`n"
+        for index, scriptPath in scriptPaths {
+            errorMsg .= index . ". " . scriptPath . "`n"
+        }
+        MsgBox(errorMsg, "文件不存在", "Icon!")
+        return false
+    }
+    
+    ; 执行脚本
+    return ExecuteAEScript(existingScript, AeExePath)
+}
 
-        ; 替换路径中的反斜杠
-        paths := StrReplace(path, "\", "\\")
+; 构建可能的脚本路径列表
+BuildScriptPaths(path) {
+    paths := []
+    baseDir := A_ScriptDir . "\plugins\AfterEffects\Script"
+    
+    ; 如果是绝对路径，直接添加
+    if InStr(path, ":") || SubStr(path, 1, 2) = "\\" {
+        paths.Push(path)
+    } else {
+        ; 添加相对路径的可能位置
+        paths.Push(baseDir . "\Commands\" . path)  ; Commands目录
+        paths.Push(baseDir . "\" . path)           ; Script根目录
+        paths.Push(path)                           ; 当前目录
+    }
+    
+    return paths
+}
 
-        ; 构建JavaScript代码
-        jsCode := "var scriptpath = `"" . paths . "`";" . "`n"
-        jsCode .= "var scriptpaths = scriptpath.replace(/\\\\/g, '/');" . "`n"
-        jsCode .= "$.evalFile(scriptpaths);"
+; 执行AE脚本
+ExecuteAEScript(scriptPath, AeExePath) {
+    try {
+        ; 检查AE窗口是否激活
+        if AEWindowsManager.IsAEWindowActive() {
+            ; 直接通过命令行执行
+            Run(AeExePath . " -r " . Chr(34) . scriptPath . Chr(34), , "Hide")
+            AfterEffects_Logger.Info("直接执行脚本: " . scriptPath)
+            return true
+        } else {
+            ; 使用快捷键方式执行
+            return ExecuteViaHotkey(scriptPath)
+        }
+    } catch Error as e {
+        MsgBox("执行脚本时发生错误：" . e.Message, "执行错误", "Icon!")
+        AfterEffects_Logger.Error("脚本执行失败: " . scriptPath . " - " . e.Message)
+        return false
+    }
+}
 
-        ; 写入文件内容
+; 通过快捷键方式执行脚本
+ExecuteViaHotkey(scriptPath) {
+    runAEScriptFile := A_ScriptDir . "\plugins\AfterEffects\Script\runAEScript.jsx"
+    
+    try {
+        ; 创建临时执行脚本
+        if !CreateTempRunScript(scriptPath, runAEScriptFile) {
+            return false
+        }
+        
+        ; 发送快捷键执行
+        Send("^+!{d}")
+        Sleep(200)
+        
+        ; 清理临时文件
+        AE_CleanupTempFile(runAEScriptFile)
+        
+        AfterEffects_Logger.Info("通过快捷键执行脚本: " . scriptPath)
+        return true
+        
+    } catch Error as e {
+        ; 确保清理临时文件
+        AE_CleanupTempFile(runAEScriptFile)
+        AfterEffects_Logger.Error("快捷键执行失败: " . e.Message)
+        throw e
+    }
+}
+
+; 创建临时运行脚本
+CreateTempRunScript(scriptPath, tempFile) {
+    try {
+        ; 确保目录存在
+        SplitPath(tempFile, , &dir)
+        if !DirExist(dir) {
+            DirCreate(dir)
+        }
+        
+        ; 删除已存在的临时文件
+        AE_CleanupTempFile(tempFile)
+        
+        ; 生成脚本内容
+        jsCode := GenerateRunScriptCode(scriptPath)
+        
+        ; 写入文件
+        FileObj := FileOpen(tempFile, "w", "UTF-8")
+        if !FileObj {
+            MsgBox("无法创建临时脚本文件: " . tempFile, "文件错误", "Icon!")
+            return false
+        }
+        
         FileObj.Write(jsCode)
         FileObj.Close()
+        
+        return true
+        
     } catch Error as e {
-        MsgBox Format("写入文件时出错: {1}", e.Message)
+        MsgBox("创建临时脚本时出错: " . e.Message, "错误", "Icon!")
+        return false
+    }
+}
+
+; 生成运行脚本代码
+GenerateRunScriptCode(scriptPath) {
+    ; 转换路径格式（反斜杠转为正斜杠）
+    normalizedPath := StrReplace(scriptPath, "\", "/")
+    
+    ; 生成JSX代码
+    jsCode := "try {`n"
+    jsCode .= "    var scriptpath = `"" . normalizedPath . "`";`n"
+    jsCode .= "    $.evalFile(scriptpath);`n"
+    jsCode .= "} catch(e) {`n"
+    jsCode .= "    alert('执行脚本出错: ' + e.toString());`n"
+    jsCode .= "}`n"
+    
+    return jsCode
+}
+
+; 清理临时文件（AE专用）
+AE_CleanupTempFile(filePath) {
+    try {
+        if FileExist(filePath) {
+            FileDelete(filePath)
+        }
+    } catch {
+        ; 忽略删除错误
+    }
+}
+
+; 优化后的 runAeScriptFiles 函数（保留以兼容旧代码）
+runAeScriptFiles(path) {
+    ; 使用新的创建临时脚本函数
+    tempFile := A_ScriptDir . "\plugins\AfterEffects\Script\runAEScript.jsx"
+    
+    try {
+        ; 调用优化后的创建临时脚本函数
+        if CreateTempRunScript(path, tempFile) {
+            AfterEffects_Logger.Info("兼容模式：创建临时脚本成功 - " . path)
+            return true
+        } else {
+            AfterEffects_Logger.Error("兼容模式：创建临时脚本失败 - " . path)
+            return false
+        }
+    } catch Error as e {
+        AfterEffects_Logger.Error("兼容模式出错: " . e.Message)
+        MsgBox(Format("写入文件时出错: {1}", e.Message))
+        return false
     }
 }
 
