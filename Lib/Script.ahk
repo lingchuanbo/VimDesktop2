@@ -573,24 +573,42 @@ GetProcessPath(ProcessName) {
 }
 
 /**
- * 运行Max3D脚本命令
- * 
+ * 运行Max3D脚本命令 - 优化版本，提高健壮性
+ *
  * 三种用法:
  * 1. Script_Max3D("脚本名字.ms") - 运行指定的脚本文件
  * 2. Script_Max3D("startObjectCreation box") - 直接运行Max命令
  * 3. Script_Max3D("id12345") - 通过ID执行动作
- * 
+ *
  * @param {String} Path - 脚本路径、命令或ID
  * @return {Void}
  */
 Script_3DsMax(Path) {
+    ; 验证3Ds Max是否正在运行
+    if !WinExist("ahk_exe 3dsmax.exe") {
+        MsgBox "3Ds Max 未运行，请先启动 3Ds Max", "错误", 16
+        return
+    }
+
     ; 检查是否为脚本文件 (.ms|.mse|.py)
     if RegExMatch(Path, "i).*\.(ms|mse|py)$") {
+        ; 验证MXSPyCOM.exe是否存在
+        mxsComPath := A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe"
+        if !FileExist(mxsComPath) {
+            MsgBox "MXSPyCOM.exe 未找到，无法执行脚本文件", "错误", 16
+            return
+        }
+
         ; 检查是否为完整文件路径
         if FileExist(Path) {
-            ; 直接运行完整路径的文件
-            Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . Path
-            return
+            try {
+                ; 直接运行完整路径的文件
+                Run mxsComPath . " -f " . Chr(34) . Path . Chr(34), , "Hide"
+                return
+            } catch Error as e {
+                MsgBox "执行脚本失败: " . e.Message, "错误", 16
+                return
+            }
         }
 
         ; 检查相对路径
@@ -599,45 +617,151 @@ Script_3DsMax(Path) {
 
         ; 检查文件是否存在并运行
         if FileExist(FilePath2) {
-            Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . FilePath2
-            return
+            try {
+                Run mxsComPath . " -f " . Chr(34) . FilePath2 . Chr(34), , "Hide"
+                return
+            } catch Error as e {
+                MsgBox "执行脚本失败: " . e.Message, "错误", 16
+                return
+            }
         }
 
         if FileExist(FilePath1) {
-            Run A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe -f " . FilePath1
-            return
+            try {
+                Run mxsComPath . " -f " . Chr(34) . FilePath1 . Chr(34), , "Hide"
+                return
+            } catch Error as e {
+                MsgBox "执行脚本失败: " . e.Message, "错误", 16
+                return
+            }
         } else {
-            ; fileIn "d:\\BoBO\\VimDesktop2\\Plugins\\Max3D\\Script\\commands\\hideByCategoryGUI.ms"
-            ; MXSPATH := "fileIn " Path
-            ; ControlFocus "MXS_Scintilla2"
-            ; ControlSetText MXSPATH, "MXS_Scintilla2"
-            ; Send "+{Enter}"
-            ; Click
-            ; return
             MsgBox "文件不存在: " . Path, "错误", 16
             return
         }
-
     }
 
     ; 检查是否为ID模式 (id12345)
-
     if RegExMatch(Path, "^id\d+$") {
+        ; 验证控制台控件是否存在
+        if !ControlGetHwnd("MXS_Scintilla2", "ahk_exe 3dsmax.exe") {
+            MsgBox "无法找到 3Ds Max 的控制台控件", "错误", 16
+            return
+        }
+
         ; 提取ID数字部分
         IdNumber := SubStr(Path, 3)
         cmd := 'actionMan.executeAction 0 "' . IdNumber . '"'
 
-        ; 发送命令到Max3D
-        ControlFocus "MXS_Scintilla2"
-        ControlSetText cmd, "MXS_Scintilla2"
-        Send "+{Enter}"
-        Click
+        try {
+            ; 发送命令到Max3D
+            ControlSend cmd . "{Enter}", "MXS_Scintilla2", "ahk_exe 3dsmax.exe"
+            Sleep(100)  ; 小延迟确保执行
+            return
+        } catch Error as e {
+            MsgBox "发送ID命令失败: " . e.Message, "错误", 16
+            return
+        }
+    }
+
+    ; 默认为直接Max命令模式
+    ; 验证控制台控件是否存在
+    if !ControlGetHwnd("MXS_Scintilla2", "ahk_exe 3dsmax.exe") {
+        MsgBox "无法找到 3Ds Max 的控制台控件", "错误", 16
         return
     }
-    ; 默认为直接Max命令模式
-    ControlFocus "MXS_Scintilla2"
-    ControlSetText Path, "MXS_Scintilla2"
-    Send "+{Enter}"
-    Click
+
+    try {
+        ControlSend Path . "{Enter}", "MXS_Scintilla2", "ahk_exe 3dsmax.exe"
+        Sleep(100)  ; 小延迟确保执行
+        return
+    } catch Error as e {
+        MsgBox "发送命令失败: " . e.Message, "错误", 16
+        return
+    }
+}
+/**
+ * 运行Blender脚本文件 - 基于vimd框架的Python函数实现
+ *
+ * 多种用法:
+ * 1. run_BlenderScript("script_name.py") - 运行指定的Python脚本文件
+ * 2. run_BlenderScript("commands/render_scene.py") - 运行指定路径的脚本
+ * 3. run_BlenderScript("D:\path\to\script.py") - 运行绝对路径的脚本
+ *; 示例调用
+run_BlenderScript("D:\BlenderScripts\test.py")
+ * @param {String} Path - Python脚本路径
+ * @return {Boolean} 执行是否成功
+ */
+run_BlenderScript(filePath) {
+    ; 检查是否为脚本文件 (.py)
+    if !RegExMatch(filePath, "i).*\.py$") {
+        MsgBox "仅支持Python脚本文件 (.py)", "错误", 16
+        return
+    }
+
+    ; 检查是否为完整文件路径
+    if FileExist(filePath) {
+        ; 直接运行完整路径的文件
+        RunBlenderScriptWithPath(filePath)
+        return
+    }
+
+    ; 检查相对路径
+    FilePath1 := A_ScriptDir . "\Plugins\Blender\Script\commands\" . filePath
+    FilePath2 := A_ScriptDir . "\Plugins\Blender\Script\models\" . filePath
+    FilePath3 := A_ScriptDir . "\Plugins\Blender\Script\materials\" . filePath
+    FilePath4 := A_ScriptDir . "\Plugins\Blender\Script\geometrynode\" . filePath
+    FilePath5 := A_ScriptDir . "\Plugins\Blender\Script\" . filePath
+
+    ; 检查文件是否存在并运行
+    if FileExist(FilePath1) {
+        RunBlenderScriptWithPath(FilePath1)
+        return
+    }
+    if FileExist(FilePath2) {
+        RunBlenderScriptWithPath(FilePath2)
+        return
+    }
+    if FileExist(FilePath3) {
+        RunBlenderScriptWithPath(FilePath3)
+        return
+    }
+    if FileExist(FilePath4) {
+        RunBlenderScriptWithPath(FilePath4)
+        return
+    }
+    if FileExist(FilePath5) {
+        RunBlenderScriptWithPath(FilePath5)
+        return
+    }
+
+    MsgBox "文件不存在: " . filePath, "错误", 16
     return
+}
+
+/**
+ * 使用指定路径运行Blender脚本
+ * @param {String} scriptPath - 完整的脚本文件路径
+ */
+RunBlenderScriptWithPath(scriptPath) {
+    ; 读取Blender配置
+    configFile := A_ScriptDir "\Plugins\Blender\Blender.ini"
+    if FileExist(configFile) {
+        try {
+            pyExe := IniRead(configFile, "Blender", "python_path", "")
+        } catch as e {
+            MsgBox "读取Blender配置文件失败: " . e.Message . "`n使用默认Python路径", "配置警告"
+            pyExe := "C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe"
+        }
+    } else {
+        pyExe := "C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe"
+    }
+    
+    pyClient := A_ScriptDir "\Plugins\Blender\Send_to_Blender.py" ; 客户端脚本路径
+
+    try {
+        cmd := '"' pyExe '" "' pyClient '" "' scriptPath '"'
+        RunWait cmd,, "Hide"
+    } catch as e {
+        MsgBox "无法调用 Python 客户端，请确认路径正确。`nError: " e.Message
+    }
 }

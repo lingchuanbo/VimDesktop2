@@ -147,7 +147,15 @@ class EasyIni
 				sections := sections.Clone().Sort()
 		}
 
-		return sections.Length ? sections.Join(sDelim) : ""
+		if sections.Length {
+			str := ""
+			for val in sections {
+				str .= (str == "" ? "" : sDelim) . val
+			}
+			return str
+		} else {
+			return ""
+		}
 	}
 
 	; 正则查找字段 - 优化版本
@@ -204,21 +212,29 @@ class EasyIni
 			rsError := "错误！无法获取字段的键值，因为字段不存在。"
 			return ""
 		}
-		
+
 		keys := []
 		for key in this.%sec%.OwnProps() {
 			if (key != "EasyIni_KeyComment" && key != "EasyIni_SectionComment")
 				keys.Push(key)
 		}
-		
+
 		if (sSort) {
 			if (sSort == "R")
 				keys := keys.Clone().Reverse()
 			else
 				keys := keys.Clone().Sort()
 		}
-		
-		return keys.Length ? keys.Join(sDelim) : ""
+
+		if keys.Length {
+			str := ""
+			for val in keys {
+				str .= (str == "" ? "" : sDelim) . val
+			}
+			return str
+		} else {
+			return ""
+		}
 	}
 
 	; 获取值 - 简化版本
