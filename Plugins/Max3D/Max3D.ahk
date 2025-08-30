@@ -19,13 +19,10 @@ Max3D() {
     KeyArray.push({ Key: "E", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转90.ms", Comment: "旋转90" })
     KeyArray.push({ Key: "R", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转-90.ms", Comment: "旋转-90" })
     KeyArray.push({ Key: "<LB-e>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_EditPoly.ms", Comment: "添加 EditPoly" })
-    KeyArray.push({ Key: "<LB-d>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_DeleteMesh.ms",
-        Comment: "添加 DeleteMesh" })
-    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Unwrap_UVW.ms",
-        Comment: "添加 Unwrap_UVW" })
+    KeyArray.push({ Key: "<LB-d>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_DeleteMesh.ms", Comment: "添加 DeleteMesh" })
+    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Unwrap_UVW.ms", Comment: "添加 Unwrap_UVW" })
     KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Relax.ms", Comment: "添加 Mod_Relax" })
-    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_meshsmooth.ms",
-        Comment: "添加 Meshsmooth" })
+    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_meshsmooth.ms", Comment: "添加 Meshsmooth" })
 
     ; 菜单
     KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "打开", Func: "Max3D_Menu", Param: "", Comment: "功能菜单" })
@@ -38,18 +35,15 @@ Max3D() {
     KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openRenderDir.ms", Comment: "打开 渲染文件所在位置" })
     KeyArray.push({ Key: "oo", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40003", Comment: "打开 文件" })
     KeyArray.push({ Key: "om", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40195", Comment: "打开 融合文件" })
-    ; KeyArray.push({ Key: "os", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40196", Comment: "打开 场景文件" })
 
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
 
     ; 类别显示控制
-    KeyArray.push({ Key: "hc", Mode: "VIM模式", Group: "显示", Func: "Script_3DsMax", Param: "hideByCategoryGUI.ms",
-        Comment: "类别显示控制面板" })
-    KeyArray.push({ Key: "/ct", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTexture.ms",
-        Comment: "收集 贴图到文件目录下" })
-    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms",
-        Comment: "收集 贴图到文件目录下" })
+    KeyArray.push({ Key: "hc", Mode: "VIM模式", Group: "显示", Func: "Script_3DsMax", Param: "hideByCategoryGUI.ms", Comment: "类别显示控制面板" })
+    
+    KeyArray.push({ Key: "/ct", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTexture.ms", Comment: "收集 贴图到文件目录下" })
+    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms",Comment: "收集 贴图到文件目录下" })
 
     ; 注册窗体
     vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")
