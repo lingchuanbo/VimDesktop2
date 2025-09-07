@@ -35,6 +35,7 @@ class AutoIMESwitcher {
       - enableMouseClick: 是否启用鼠标点击监听 (默认: true)
       - inputControlPatterns: 输入控件匹配模式数组 (默认: ["Edit"])
       - cursorTypes: 输入状态光标类型数组 (默认: ["IBeam", "Unknown"])
+      - specialHandling: 特殊处理规则 (默认: "") 可选值: "ignoreIBeamWithoutControl" - 忽略只有IBeam光标但没有输入控件的情况
     */
     static Setup(processName, options := {}) {
         ; 合并用户选项和默认选项
@@ -45,7 +46,8 @@ class AutoIMESwitcher {
             inputControlPatterns: options.HasProp("inputControlPatterns") ? options.inputControlPatterns : ["Edit"],
             cursorTypes: options.HasProp("cursorTypes") ? options.cursorTypes : ["IBeam", "Unknown"],
             maxRetries: options.HasProp("maxRetries") ? options.maxRetries : 3,
-            autoSwitchTimeout: options.HasProp("autoSwitchTimeout") ? options.autoSwitchTimeout : 5000  ; 5秒超时
+            autoSwitchTimeout: options.HasProp("autoSwitchTimeout") ? options.autoSwitchTimeout : 5000,  ; 5秒超时
+            specialHandling: options.HasProp("specialHandling") ? options.specialHandling : ""  ; 特殊处理规则
         }
 
         ; 初始化应用状态
@@ -115,6 +117,13 @@ class AutoIMESwitcher {
 
         ; 如果在输入状态，返回true（使用普通模式）
         if (isInInputControl || isInputCursor) {
+            ; 特殊处理：根据配置选项处理IBeam光标但没有输入控件的情况
+            if (options.specialHandling == "ignoreIBeamWithoutControl" && isInputCursor && currentCursor == "IBeam" && !isInInputControl) {
+                ; 忽略只有IBeam光标但没有输入控件的情况，返回false（使用VIM模式）
+                this.SwitchToEnglish(processName, "特殊处理：忽略IBeam光标", options.enableDebug)
+                return false
+            }
+            
             ; 更新最后输入时间，重置超时计时
             if (this.appStates.Has(processName)) {
                 this.appStates[processName].lastInputTime := A_TickCount

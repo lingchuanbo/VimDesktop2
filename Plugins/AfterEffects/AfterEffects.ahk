@@ -78,15 +78,15 @@ AfterEffects() {
     RegisterPluginKeys(KeyArray, "AfterEffects")
 
     ; 设置自动IME切换（优化延迟配置）
-    AutoIMESwitcher.Setup("AfterFX.exe"), {
+    AutoIMESwitcher.Setup("AfterFX.exe", {
         enableDebug: false,  ; 关闭调试信息，减少干扰
         checkInterval: 200,  ; 减少检查间隔，提高响应速度
         enableMouseClick: true,
         inputControlPatterns: ["Edit", "Edit2", "Edit3"],
         cursorTypes: ["IBeam"],  ; 移除Unknown，避免误判
         maxRetries: 3,  ; 减少重试次数，提高速度
-        autoSwitchTimeout: 5000  ; 5
-    }
+        autoSwitchTimeout: 5000  ; 5秒超时
+    })
 }
 ;PluginName_Before() ;如有，值=true时，直接发送键值，不执行命令
 ;PluginName_After() ;如有，值=true时，在执行命令后，再发送键值

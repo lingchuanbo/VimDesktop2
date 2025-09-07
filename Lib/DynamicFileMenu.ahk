@@ -3,6 +3,13 @@
 ;修改者: BoBO
 ;功能: 从文件系统创建动态菜单，支持多种文件格式和子文件夹，支持多格式 *.ms|*.mse [|]分开
 ;AHK v2适配: 更新为AHK v2兼容版本 调用示例文件 ..\doc\DynamicMenuExample.ahk
+;
+;新增健壮性改进 (2025年更新):
+;- 参数验证: 检查目录路径、文件掩码和菜单对象有效性
+;- 错误处理: 使用OutputDebug提供详细错误日志，而不中断执行
+;- 路径规范化: 统一路径格式，确保正确处理路径分隔符
+;- 性能优化: 添加递归深度限制(默认10层)和最大菜单项数限制(默认1000项)
+;- 文档完善: 改进函数注释和使用说明
 /**
  * 从指定目录创建动态文件菜单
  * @param submenuname 子菜单名称
@@ -19,6 +26,33 @@
  * 并使用ScanDirectoryForMenu函数的方式创建菜单。
  */
 menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", parentmenu := "", folders := 1) {
+    ; 参数验证
+    if (!whatdir || !DirExist(whatdir)) {
+        OutputDebug("Error: Invalid directory path '" whatdir "'")
+        return 0
+    }
+    if (!filemask) {
+        OutputDebug("Error: Filemask cannot be empty")
+        return 0
+    }
+
+    ; 规范化目录路径
+    whatdir := NormalizeDirPath(whatdir)
+
+    ; 添加递归深度和最大文件数限制（防止性能问题）
+    static maxRecursionDepth := 10
+    static recursionDepth := 0
+    static maxMenuItems := 1000
+    static totalMenuItems := 0
+
+    ; 检查递归深度
+    recursionDepth++
+    if (recursionDepth > maxRecursionDepth) {
+        OutputDebug("Warning: Maximum recursion depth (" maxRecursionDepth ") exceeded")
+        recursionDepth--
+        return 0
+    }
+
     menucount := 0
     filemasks := filemask
     filemasksArray := StrSplit(filemasks, "|") ; 裁减支持格式
@@ -29,6 +63,12 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
     ; 扫描文件
     for i, mask in filemasksArray {
         loop files, whatdir "\" mask, "F" {
+            ; 检查文件数量限制
+            if (totalMenuItems >= maxMenuItems) {
+                OutputDebug("Warning: Maximum menu items (" maxMenuItems ") exceeded")
+                break
+            }
+
             ; 添加文件到菜单
             try {
                 if (Type(callbackFunc) = "Func" || IsObject(callbackFunc)) {
@@ -45,8 +85,10 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
                     }
                 }
                 menucount++
+                totalMenuItems++
             } catch as err {
-                ; 忽略错误
+                ; 记录错误但不中断
+                OutputDebug("Error adding menu item " A_LoopFileName ": " err.Message)
             }
         }
     }
@@ -57,8 +99,14 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
             ; 为子文件夹创建子菜单
             folderMenu := Menu()
 
+            ; 检查文件数量限制
+            if (totalMenuItems >= maxMenuItems) {
+                OutputDebug("Warning: Maximum menu items (" maxMenuItems ") exceeded, stopping folder scan")
+                break
+            }
+
             ; 递归处理子文件夹
-            subCount := menu_fromfiles(A_LoopFileName, A_LoopFileName, callbackFunc, A_LoopFileFullPath, filemask, "",
+            subCount := menu_fromfiles(A_LoopFileName, A_LoopFileName, callbackFunc, NormalizeDirPath(A_LoopFileFullPath), filemask, "",
                 folders)
 
             ; 如果子文件夹有文件，添加到主菜单
@@ -67,7 +115,8 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
                     subMenu.Add(A_LoopFileName, folderMenu)
                     menucount += subCount
                 } catch as err {
-                    ; 忽略错误
+                    ; 记录错误但不中断
+                    OutputDebug("Error adding menu item " A_LoopFileName ": " err.Message)
                 }
             }
         }
@@ -79,12 +128,16 @@ menu_fromfiles(submenuname, menutitle, callbackFunc, whatdir, filemask := "*", p
             parentMenuObj := Menu(parentmenu)
             parentMenuObj.Add(menutitle, subMenu)
         } catch as err {
-            ; 忽略错误
+            ; 记录错误但不中断
+            OutputDebug("Error adding parent menu " menutitle ": " err.Message)
         }
     }
 
     ; 注意: 在AHK v2中，不再尝试创建全局变量
     ; 这是与AHK v1版本的主要区别
+
+    ; 减少递归深度
+    recursionDepth--
 
     return menucount
 }
@@ -105,8 +158,9 @@ menu_itempath(whatmenu, whatdir, menuItem := "") {
     try {
         if (IsSet(A_ThisMenuItem))
             return whatdir "\" A_ThisMenuItem
-    } catch {
-        ; A_ThisMenuItem不可用
+    } catch as err {
+        ; A_ThisMenuItem不可用，记录错误
+        OutputDebug("Error accessing A_ThisMenuItem: " err.Message)
     }
 
     ; 如果无法获取菜单项，返回目录路径
@@ -175,6 +229,23 @@ CallbackWrapper(callbackFunc, itemName, fullPath, *) {
  * @return 添加的菜单项数量
  */
 ScanDirectoryForMenu(menuObj, dir, fileMask, callbackFunc := "", includeFolders := true) {
+    ; 参数验证
+    if (!dir || !DirExist(dir)) {
+        OutputDebug("Error: Invalid directory path '" dir "'")
+        return 0
+    }
+    if (!fileMask) {
+        OutputDebug("Error: Filemask cannot be empty")
+        return 0
+    }
+    if (!IsObject(menuObj)) {
+        OutputDebug("Error: menuObj must be a valid menu object")
+        return 0
+    }
+
+    ; 规范化目录路径
+    dir := NormalizeDirPath(dir)
+
     ; 如果没有提供回调函数，使用默认的
     if (!callbackFunc) {
         ; 创建一个默认的回调函数
@@ -194,7 +265,8 @@ ScanDirectoryForMenu(menuObj, dir, fileMask, callbackFunc := "", includeFolders 
                 menuObj.Add(A_LoopFileName, callbackFunc)
                 itemCount++
             } catch as err {
-                ; 忽略错误
+                ; 记录错误但不中断
+                OutputDebug("Error adding menu item " A_LoopFileName ": " err.Message)
             }
         }
     }
@@ -214,7 +286,8 @@ ScanDirectoryForMenu(menuObj, dir, fileMask, callbackFunc := "", includeFolders 
                     menuObj.Add(A_LoopFileName, subMenu)
                     itemCount += subItemCount
                 } catch as err {
-                    ; 忽略错误
+                    ; 记录错误但不中断
+                    OutputDebug("Error adding folder menu " A_LoopFileName ": " err.Message)
                 }
             }
         }
@@ -234,7 +307,43 @@ ScanDirectoryForMenu(menuObj, dir, fileMask, callbackFunc := "", includeFolders 
  * @param includeFolders 是否包含子文件夹 (true=是, false=否)
  * @return 添加的菜单项数量
  */
+/**
+ * 规范化路径，确保目录路径以\结尾
+ * @param path 要规范化的路径
+ * @return 规范化的路径
+ */
+NormalizeDirPath(path) {
+    if (!path)
+        return ""
+
+    ; 使用内置函数规范化路径
+    path := RegExReplace(path, "/+", "\") ; 统一路径分隔符
+
+    ; 确保目录路径以\结尾
+    if (SubStr(path, -1) != "\")
+        path .= "\"
+
+    return path
+}
+
 ScanDirectoryForMenuEx(menuObj, dir, fileMask, callbackFunc := "", includeFolders := true) {
+    ; 参数验证
+    if (!dir || !DirExist(dir)) {
+        OutputDebug("Error: Invalid directory path '" dir "'")
+        return 0
+    }
+    if (!fileMask) {
+        OutputDebug("Error: Filemask cannot be empty")
+        return 0
+    }
+    if (!IsObject(menuObj)) {
+        OutputDebug("Error: menuObj must be a valid menu object")
+        return 0
+    }
+
+    ; 规范化目录路径
+    dir := NormalizeDirPath(dir)
+
     ; 计数器，记录添加的菜单项数量
     itemCount := 0
 
@@ -267,7 +376,8 @@ ScanDirectoryForMenuEx(menuObj, dir, fileMask, callbackFunc := "", includeFolder
 
                 itemCount++
             } catch as err {
-                ; 忽略错误
+                ; 记录错误但不中断
+                OutputDebug("Error adding menu item " A_LoopFileName ": " err.Message)
             }
         }
     }
@@ -287,7 +397,8 @@ ScanDirectoryForMenuEx(menuObj, dir, fileMask, callbackFunc := "", includeFolder
                     menuObj.Add(A_LoopFileName, subMenu)
                     itemCount += subItemCount
                 } catch as err {
-                    ; 忽略错误
+                    ; 记录错误但不中断
+                    OutputDebug("Error adding sub menu " A_LoopFileName ": " err.Message)
                 }
             }
         }

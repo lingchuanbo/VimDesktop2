@@ -3,7 +3,7 @@
 PluginName=Blender
 Author= BoBO
 Version=1.0
-Comment=Blender搜索工具
+Comment=Blender插件
 */
 
 Blender() {
