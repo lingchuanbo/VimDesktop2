@@ -45,6 +45,91 @@ rollout FakeLoopRollout "假循环动画-V1.1 ByBoBo"
         )
     )
     
+    -- 修正visibility曲线值的函数（参考Position_XYZ工具的多种访问方式）
+    fn fixVisibilityCurveValues obj = (
+        try (
+            format "正在修正 % 的visibility曲线...
+" obj.name
+            
+            local visTrack = undefined
+            local accessMethod = ""
+            
+            -- 方式1: 直接访问 obj.visibility.controller
+            try (
+                visTrack = obj.visibility.controller
+                if visTrack != undefined and visTrack.keys != undefined then (
+                    accessMethod = "通过.controller访问"
+                )
+            ) catch ()
+            
+            -- 方式2: 直接访问 obj.visibility
+            if visTrack == undefined or visTrack.keys == undefined then (
+                try (
+                    visTrack = obj.visibility
+                    if visTrack != undefined and visTrack.keys != undefined then (
+                        accessMethod = "直接访问"
+                    )
+                ) catch ()
+            )
+            
+            -- 方式3: 尝试其他访问方式
+            if visTrack == undefined or visTrack.keys == undefined then (
+                try (
+                    -- 有时需要通过不同的路径访问
+                    local ctrl = obj.visibility
+                    if ctrl != undefined then (
+                        visTrack = ctrl.controller
+                        if visTrack != undefined and visTrack.keys != undefined then (
+                            accessMethod = "通过二级controller访问"
+                        )
+                    )
+                ) catch ()
+            )
+            
+            if visTrack != undefined and visTrack.keys != undefined then (
+                format "  ✓ %成功，控制器类型: %
+" accessMethod (classof visTrack)
+                format "  关键帧数量: %
+" visTrack.keys.count
+                
+                local modifiedCount = 0
+                for i = 1 to visTrack.keys.count do (
+                    local key = visTrack.keys[i]
+                    local oldValue = key.value
+                    
+                    -- 将布尔值转换为正确的数值
+                    if key.value < 0 then (
+                        key.value = 0.0  -- false -> 0
+                        format "  修正关键帧 %: % -> 0.0
+" i oldValue
+                        modifiedCount += 1
+                    ) else if key.value > 0 and key.value != 1.0 then (
+                        key.value = 1.0  -- true -> 1
+                        format "  修正关键帧 %: % -> 1.0
+" i oldValue
+                        modifiedCount += 1
+                    )
+                )
+                
+                if modifiedCount > 0 then (
+                    format "✓ 完成修正 % 的visibility曲线，共修正 % 个关键帧
+" obj.name modifiedCount
+                ) else (
+                    format "✓ % 的visibility曲线值已经正确，无需修正
+" obj.name
+                )
+            ) else (
+                format "✗ 无法访问 % 的visibility关键帧
+" obj.name
+                format "  控制器类型: %
+" (if visTrack != undefined then (classof visTrack) else "undefined")
+            )
+        ) catch (
+            format "修正 % 的visibility曲线时出错: %
+" obj.name (getCurrentException())
+        )
+    )
+    
     -- 获取实际控制器（穿透SubAnim）
     fn getRealController ctrl = (
         try (
@@ -548,10 +633,9 @@ rollout FakeLoopRollout "假循环动画-V1.1 ByBoBo"
             
             -- 只对第一个和最后一个副本添加透明度动画
             if lastGenerated.count >= 1 then (
-                -- 第一个副本：从透明到不透明（在时间的一半开始）
+                -- 第一个副本：从透明到不透明（淡入效果）
                 local firstObj = lastGenerated[1]
                 
-                -- 分别设置每个关键帧（使用布尔值）
                 animate on at time (startFrame as time) (
                     firstObj.visibility = false
                 )
@@ -559,21 +643,28 @@ rollout FakeLoopRollout "假循环动画-V1.1 ByBoBo"
                     firstObj.visibility = true
                 )
                 
+                -- 使用新的曲线修正函数
+                fixVisibilityCurveValues firstObj
+                
                 if chkDebug.checked then (
-                    format "副本1 (%): %.1f帧=false -> %.1f帧=true\n" firstObj.name startFrame midFrame
-                    -- 验证设置的值
+                    format "副本1 (%): %.1f帧=false -> %.1f帧=true (淡入效果)\n" firstObj.name startFrame midFrame
                     local val1 = at time (startFrame as time) firstObj.visibility
                     local val2 = at time (midFrame as time) firstObj.visibility
                     format "  验证: %.1f帧实际值=% , %.1f帧实际值=%\n" startFrame val1 midFrame val2
                 )
                 
-                -- 最后一个副本：从不透明到透明（仅当有多个副本时）
+                -- 最后一个副本：从不透明到透明（淡出效果）
                 if lastGenerated.count > 1 then (
                     local lastObj = lastGenerated[lastGenerated.count]
                     
-                    -- 分别设置每个关键帧（使用布尔值）
+                    -- 正确的淡出效果：开始显示 -> 中间显示 -> 结束隐藏
+                    -- 强制确保中间帧有关键帧的方法
                     animate on at time (startFrame as time) (
                         lastObj.visibility = true
+                    )
+                    -- 先设置为false再设置为true，强制创建关键帧
+                    animate on at time (midFrame as time) (
+                        lastObj.visibility = false
                     )
                     animate on at time (midFrame as time) (
                         lastObj.visibility = true
@@ -582,12 +673,15 @@ rollout FakeLoopRollout "假循环动画-V1.1 ByBoBo"
                         lastObj.visibility = false
                     )
                     
+                    -- 使用新的曲线修正函数
+                    fixVisibilityCurveValues lastObj
+                    
                     if chkDebug.checked then (
-                        format "副本% (%): %.1f帧=true -> %.1f帧=false\n" lastGenerated.count lastObj.name midFrame endFrame
-                        -- 验证设置的值
-                        local val1 = at time (midFrame as time) lastObj.visibility
-                        local val2 = at time (endFrame as time) lastObj.visibility
-                        format "  验证: %.1f帧实际值=% , %.1f帧实际值=%\n" midFrame val1 endFrame val2
+                        format "副本% (%): %.1f帧=true -> %.1f帧=true -> %.1f帧=false (淡出效果)\n" lastGenerated.count lastObj.name startFrame midFrame endFrame
+                        local val1 = at time (startFrame as time) lastObj.visibility
+                        local val2 = at time (midFrame as time) lastObj.visibility
+                        local val3 = at time (endFrame as time) lastObj.visibility
+                        format "  验证: %.1f帧实际值=% , %.1f帧实际值=% , %.1f帧实际值=%\n" startFrame val1 midFrame val2 endFrame val3
                     )
                 )
                 
