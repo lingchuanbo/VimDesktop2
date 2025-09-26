@@ -36,12 +36,56 @@ rollout MaxInitRollout "3DsMax 初始化工具" width:300 height:400
     
     group "操作"
     (
-        button btnApply "应用" width:60 height:30 align:#center pos:[10, 330]
-        button btnReset "重置" width:60 height:30 align:#center pos:[70, 330]
-        button btnClose "关闭" width:60 height:30 align:#center pos:[130, 330]
+        button btnApply "应用" width:80 height:30 align:#center pos:[10, 330] tooltip:"按回车键快速应用设置"
+        button btnReset "重置" width:60 height:30 align:#center pos:[95, 330]
+        button btnClose "关闭" width:80 height:30 align:#center pos:[160, 330] tooltip:"按ESC键快速关闭"
     )
     
     label lblStatus "" align:#left height:20
+    
+    -- 键盘事件处理 - 使用定时器检测
+    on MaxInitRollout open do
+    (
+        format "对话框已打开，启动键盘监听\n"
+        
+        -- 重置键盘状态
+        lastEnterState = false
+        lastEscState = false
+        
+        -- 启动键盘检测定时器
+        try
+        (
+            keyHookTimer = dotNetObject "System.Windows.Forms.Timer"
+            keyHookTimer.Interval = 100  -- 100毫秒检测一次
+            keyHookTimer.add_Tick checkKeyboardState
+            keyHookTimer.Start()
+            format "键盘监听定时器已启动\n"
+        )
+        catch(ex)
+        (
+            format "启动键盘监听失败: %\n" ex
+        )
+    )
+    
+    on MaxInitRollout close do
+    (
+        format "对话框关闭，停止键盘监听\n"
+        -- 停止键盘检测定时器
+        try
+        (
+            if keyHookTimer != undefined then
+            (
+                keyHookTimer.Stop()
+                keyHookTimer.Dispose()
+                keyHookTimer = undefined
+                format "键盘监听定时器已停止\n"
+            )
+        )
+        catch(ex)
+        (
+            format "停止键盘监听失败: %\n" ex
+        )
+    )
     
     -- 应用设置函数
     on btnApply pressed do
@@ -149,6 +193,19 @@ rollout MaxInitRollout "3DsMax 初始化工具" width:300 height:400
     -- 关闭窗口
     on btnClose pressed do
     (
+        -- 停止键盘检测定时器
+        try
+        (
+            if keyHookTimer != undefined then
+            (
+                keyHookTimer.Stop()
+                keyHookTimer.Dispose()
+                keyHookTimer = undefined
+                format "手动关闭时停止键盘监听\n"
+            )
+        )
+        catch()
+        
         try(destroyDialog MaxInitRollout) catch()
     )
 )
@@ -161,8 +218,15 @@ fn createMaxInitDialog =
         -- 如果窗口已存在，先销毁
         try(destroyDialog MaxInitRollout) catch()
         
-        -- 创建新窗口
-        createDialog MaxInitRollout style:#(#style_titlebar, #style_border, #style_sysmenu, #style_resizing)
+        -- 创建新窗口，确保能够接收键盘事件
+        createDialog MaxInitRollout style:#(#style_titlebar, #style_border, #style_sysmenu, #style_resizing) modal:false
+        
+        -- 多种方法确保窗口获得焦点以接收键盘事件
+        setFocus MaxInitRollout
+        windows.sendMessage MaxInitRollout.hwnd 0x0007 0 0 -- WM_SETFOCUS
+        
+        -- 强制设置窗口为前台窗口
+        try(windows.setForegroundWindow MaxInitRollout.hwnd) catch()
         
         -- 设置窗口位置（屏幕中央）
         screenWidth = sysInfo.desktopSize[1]
