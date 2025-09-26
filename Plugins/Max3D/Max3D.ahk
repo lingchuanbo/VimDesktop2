@@ -46,7 +46,11 @@ Max3D() {
     ; 类别显示控制
     KeyArray.push({ Key: "hc", Mode: "VIM模式", Group: "显示", Func: "Script_3DsMax", Param: "hideByCategoryGUI.ms", Comment: "类别显示控制面板" })
     KeyArray.push({ Key: "/ct", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTexture.ms", Comment: "收集 贴图到文件目录下" })
-    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms",Comment: "收集 贴图到文件目录下" })
+    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms",Comment: "收集 贴图到文件目录下-高级" })
+
+    ; 设置
+    KeyArray.push({ Key: ":u", Mode: "VIM模式", Group: "设置", Func: "Script_3DsMax", Param: "UnitSettings.ms", Comment: "单位设置" })
+    KeyArray.push({ Key: ":a", Mode: "VIM模式", Group: "设置", Func: "Script_3DsMax", Param: "Initialization.ms", Comment: "场景初始设置" })
 
     ; 注册窗体
     vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")
