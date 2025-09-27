@@ -4,7 +4,8 @@
 ;@Ahk2Exe-SetCopyright BoBO
 
 ; 包含WindowsTheme库
-#Include "../../Lib/WindowsTheme.ahk"
+#Include "Lib/WindowsTheme.ahk"
+#Include "Lib/TrayIcon.ahk"
 ; 引入 UIA.ahk 库用于UI自动化检测
 #Include "../../Lib/UIA.ahk"
 
@@ -527,6 +528,9 @@ RegisterHotkeys() {
             Hotkey(g_Config.GetWindowsFolderActivePathKey, GetWindowsFolderActivePath, "On")
         }
 
+        ; 注册微信快捷键 Ctrl+Alt+W
+        Hotkey("^!w", ActivateWeChatHotkey, "On")
+
     } catch as e {
         MsgBox("注册热键失败: " . e.message . "`n使用默认热键 Ctrl+Q 和 Ctrl+Tab", "警告", "T5")
         try {
@@ -536,8 +540,15 @@ RegisterHotkeys() {
             if (g_Config.EnableGetWindowsFolderActivePath = "1") {
                 Hotkey("!w", GetWindowsFolderActivePath, "On")
             }
+            ; 注册微信快捷键 Ctrl+Alt+W
+            Hotkey("^!w", ActivateWeChatHotkey, "On")
         }
     }
+}
+
+ActivateWeChatHotkey(*) {
+    ; 微信快捷键处理函数
+    ActivateWeChat()
 }
 ;LButton::GetWindowsFolderActivePath()
 ; ============================================================================
@@ -961,6 +972,14 @@ ShowWindowSwitchMenu(*) {
     ; 添加历史窗口
     hasMenuItems := AddHistoryWindows(contextMenu) || hasMenuItems
 
+    ; 添加分隔符
+    if (hasMenuItems) {
+        contextMenu.Add()
+    }
+
+    ; 添加快速启动应用程序按钮（在操作子菜单之前）
+    AddQuickLaunchApps(contextMenu)
+
     ; 添加操作子菜单
     contextMenu.Add()
     AddWindowActionMenus(contextMenu)
@@ -991,6 +1010,350 @@ ShowWindowSwitchMenu(*) {
     }
 
     SetTimer(() => g_MenuActive := false, -200)
+}
+
+
+
+AddQuickLaunchApps(contextMenu) {
+    ; 从配置文件中读取快速启动应用程序列表
+    added := false
+    
+    ; 读取QuickLaunchApps配置段
+    section := "QuickLaunchApps"
+    
+    ; 读取最大显示数量配置
+    maxDisplayCount := Integer(UTF8IniRead(g_Config.IniFile, section, "MaxDisplayCount", "2"))
+    
+    ; 获取所有配置项
+    appCount := 0
+    appList := []
+    loop {
+        appCount++
+        appConfig := UTF8IniRead(g_Config.IniFile, section, "App" . appCount, "")
+        if (appConfig = "") {
+            break
+        }
+        
+        ; 解析配置格式: 显示名称|进程名|可执行文件路径(可选)
+        parts := StrSplit(appConfig, "|")
+        if (parts.Length >= 2) {
+            displayName := parts[1]
+            processName := parts[2]
+            exePath := parts.Length >= 3 ? parts[3] : ""
+            
+            ; 添加到应用程序列表
+            appList.Push({
+                displayName: displayName,
+                processName: processName,
+                exePath: exePath
+            })
+        }
+    }
+    
+    ; 分级显示应用程序
+    if (appList.Length > 0) {
+        ; 显示前maxDisplayCount个应用程序
+        loop Min(appList.Length, maxDisplayCount) {
+            app := appList[A_Index]
+            if (AddQuickLaunchApp(contextMenu, app.displayName, app.processName, app.exePath)) {
+                added := true
+            }
+        }
+        
+        ; 如果还有更多应用程序，添加到"更多"子菜单
+        if (appList.Length > maxDisplayCount) {
+            moreMenu := Menu()
+            loop (appList.Length - maxDisplayCount) {
+                app := appList[maxDisplayCount + A_Index]
+                AddQuickLaunchApp(moreMenu, app.displayName, app.processName, app.exePath)
+            }
+            contextMenu.Add("更多", moreMenu)
+            added := true
+        }
+    }
+    
+    return added
+}
+
+AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "") {
+    ; 检查应用程序是否在运行
+    appRunning := false
+    try {
+        ProcessExist(processName)
+        appRunning := true
+    }
+    
+    ; 设置不同的显示文本
+    if (appRunning) {
+        displayText := "📱 " . displayName . " (已运行)"
+    } else {
+        displayText := "📱 " . displayName . " (启动)"
+    }
+    
+    ; 添加菜单项
+    contextMenu.Add(displayText, QuickLaunchAppHandler.Bind(processName, exePath))
+    
+    ; 尝试设置应用程序图标
+    try {
+        ; 如果提供了路径，使用提供的路径
+        if (exePath != "") {
+            contextMenu.SetIcon(displayText, exePath, 0, g_Config.IconSize)
+        } else {
+            ; 自动查找可执行文件路径
+            foundPath := FindAppExecutable(processName)
+            if (foundPath != "") {
+                contextMenu.SetIcon(displayText, foundPath, 0, g_Config.IconSize)
+            } else {
+                ; 使用默认图标
+                contextMenu.SetIcon(displayText, "shell32.dll", 15, g_Config.IconSize) ; 使用消息图标
+            }
+        }
+    } catch {
+        ; 如果设置图标失败，忽略错误
+    }
+    
+    return true
+}
+
+QuickLaunchAppHandler(processName, exePath, *) {
+    ; 快速启动应用程序按钮点击处理函数
+    
+    ; 检查应用程序是否在运行
+    if (ProcessExist(processName)) {
+        ; 应用程序已运行，尝试激活窗口
+        
+        ; 特殊处理微信（Weixin.exe）
+        if (processName = "Weixin.exe") {
+            ActivateWeChat()
+        } else {
+            ; 其他应用程序使用标准托盘图标点击
+            try {
+                TrayIcon_Button(processName, "L", false, 1)
+            } catch as e {
+                MsgBox("激活" . processName . "失败: " . e.message, "错误", "T2")
+            }
+        }
+    } else {
+        ; 应用程序未运行，启动应用程序
+        try {
+            ; 如果提供了路径，使用提供的路径
+            if (exePath != "") {
+                if (FileExist(exePath)) {
+                    Run(exePath)
+                } else {
+                    MsgBox("指定的路径不存在: " . exePath, "错误", "T3")
+                }
+            } else {
+                ; 自动查找可执行文件路径
+                foundPath := FindAppExecutable(processName)
+                if (foundPath != "") {
+                    Run(foundPath)
+                } else {
+                    MsgBox("未找到" . processName . "程序，请确保已安装", "错误", "T3")
+                }
+            }
+        } catch as e {
+            MsgBox("启动" . processName . "失败: " . e.message, "错误", "T3")
+        }
+    }
+}
+
+ActivateWeChat() {
+    ; 特殊处理微信激活
+    weixinProcessName := "Weixin.exe"
+    
+    ; 方法1：首先尝试使用TrayIcon_Button点击托盘图标
+    try {
+        TrayIcon_Button(weixinProcessName, "L", false, 1)
+        ; 等待一下看看是否成功激活
+        Sleep(200)
+        
+        ; 检查微信窗口是否被激活
+        if (IsWeChatActive()) {
+            return  ; 成功激活，直接返回
+        }
+    } catch {
+        ; TrayIcon_Button失败，继续尝试其他方法
+    }
+    
+    ; 方法2：尝试使用快捷键Ctrl+Alt+W
+    try {
+        Send("^!w")  ; Ctrl+Alt+W
+        Sleep(200)
+        
+        ; 检查微信窗口是否被激活
+        if (IsWeChatActive()) {
+            return  ; 成功激活
+        }
+    } catch {
+        ; 快捷键失败，继续尝试其他方法
+    }
+    
+    ; 方法3：尝试直接激活微信窗口
+    try {
+        ; 查找微信主窗口
+        weixinWinID := WinExist("ahk_exe " . weixinProcessName)
+        if (weixinWinID) {
+            WinActivate("ahk_id " . weixinWinID)
+            WinShow("ahk_id " . weixinWinID)
+            
+            ; 如果窗口最小化，恢复窗口
+            if (WinGetMinMax("ahk_id " . weixinWinID) = -1) {
+                WinRestore("ahk_id " . weixinWinID)
+            }
+            
+            Sleep(200)
+            if (IsWeChatActive()) {
+                return  ; 成功激活
+            }
+        }
+    } catch as e {
+        ; 窗口激活失败
+    }
+    
+    ; 所有方法都失败，显示错误信息
+    MsgBox("激活微信失败，请确保微信已安装并运行", "错误", "T2")
+}
+
+IsWeChatActive() {
+    ; 检查微信窗口是否处于激活状态
+    weixinProcessName := "Weixin.exe"
+    
+    ; 获取当前激活窗口的进程名
+    try {
+        activeWinID := WinExist("A")  ; 获取当前激活窗口
+        activeProcessName := WinGetProcessName("ahk_id " . activeWinID)
+        
+        ; 如果当前激活窗口是微信，返回true
+        if (activeProcessName = weixinProcessName) {
+            return true
+        }
+    } catch {
+        ; 获取窗口信息失败
+    }
+    
+    return false
+}
+
+FindAppExecutable(processName) {
+    ; 根据进程名查找可执行文件路径
+    
+    ; 首先尝试通过进程列表查找
+    try {
+        for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" . processName . "'")
+        {
+            return process.ExecutablePath
+        }
+    } catch {
+        ; 如果WMI查询失败，使用其他方法
+    }
+    
+    ; 常见应用程序的默认路径查找
+    appPaths := GetCommonAppPaths(processName)
+    
+    for path in appPaths {
+        if (FileExist(path)) {
+            return path
+        }
+    }
+    
+    ; 尝试通过注册表查找
+    registryPaths := GetRegistryAppPaths(processName)
+    
+    for regPath in registryPaths {
+        try {
+            appPath := RegRead(regPath[1], regPath[2])
+            if (appPath != "") {
+                if (FileExist(appPath)) {
+                    return appPath
+                }
+            }
+        } catch {
+            ; 注册表查找失败
+        }
+    }
+    
+    return ""
+}
+
+GetCommonAppPaths(processName) {
+    ; 返回常见应用程序的默认安装路径
+    paths := []
+    
+    ; 微信相关路径
+    if (processName = "WeChat.exe" || processName = "Weixin.exe") {
+        paths.Push(A_ProgramFiles "\\Tencent\\WeChat\\WeChat.exe")
+        paths.Push(A_ProgramFiles " (x86)\\Tencent\\WeChat\\WeChat.exe")
+        paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\WeChat\\WeChat.exe")
+        paths.Push(EnvGet("APPDATA") "\\Tencent\\WeChat\\WeChat.exe")
+    }
+    
+    ; Tim相关路径
+    if (processName = "Tim.exe") {
+        paths.Push(A_ProgramFiles "\\Tencent\\Tim\\Bin\\Tim.exe")
+        paths.Push(A_ProgramFiles " (x86)\\Tencent\\Tim\\Bin\\Tim.exe")
+        paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\Tim\\Bin\\Tim.exe")
+    }
+    
+    ; QQ相关路径
+    if (processName = "QQ.exe") {
+        paths.Push(A_ProgramFiles "\\Tencent\\QQ\\Bin\\QQ.exe")
+        paths.Push(A_ProgramFiles " (x86)\\Tencent\\QQ\\Bin\\QQ.exe")
+    }
+    
+    ; 钉钉相关路径
+    if (processName = "DingTalk.exe") {
+        paths.Push(A_ProgramFiles "\\DingDing\\DingTalkLauncher.exe")
+        paths.Push(A_ProgramFiles " (x86)\\DingDing\\DingTalkLauncher.exe")
+        paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\DingTalk\\DingTalk.exe")
+    }
+    
+    ; 企业微信相关路径
+    if (processName = "WXWork.exe") {
+        paths.Push(A_ProgramFiles "\\WXWork\\WXWork.exe")
+        paths.Push(A_ProgramFiles " (x86)\\WXWork\\WXWork.exe")
+    }
+    
+    ; 添加更多常见应用程序路径...
+    
+    return paths
+}
+
+GetRegistryAppPaths(processName) {
+    ; 返回注册表查找路径
+    registryPaths := []
+    
+    ; 微信注册表路径
+    if (processName = "WeChat.exe" || processName = "Weixin.exe") {
+        registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WeChat", "InstallPath"])
+        registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WeChat", "InstallPath"])
+    }
+    
+    ; Tim注册表路径
+    if (processName = "Tim.exe") {
+        registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\Tim", "InstallPath"])
+        registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\Tim", "InstallPath"])
+    }
+    
+    ; QQ注册表路径
+    if (processName = "QQ.exe") {
+        registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\QQ", "InstallPath"])
+        registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\QQ", "InstallPath"])
+    }
+    
+    ; 钉钉注册表路径
+    if (processName = "DingTalk.exe") {
+        registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\DingTalk", "InstallPath"])
+        registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\DingTalk", "InstallPath"])
+    }
+    
+    ; 企业微信注册表路径
+    if (processName = "WXWork.exe") {
+        registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WXWork", "InstallPath"])
+        registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WXWork", "InstallPath"])
+    }
+    
+    return registryPaths
 }
 
 AddPinnedWindows(contextMenu) {
