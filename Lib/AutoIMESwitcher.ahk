@@ -11,6 +11,7 @@ AutoIMESwitcher - 自动输入法切换库
 
 示例：
 AutoIMESwitcher.Setup("AfterFX.exe", {
+    enabled: true,  ; 是否启用自动IME切换
     enableDebug: false,
     checkInterval: 500,
     enableMouseClick: true,
@@ -30,6 +31,7 @@ class AutoIMESwitcher {
     参数：
     - processName: 进程名称，如 "AfterFX.exe"
     - options: 配置选项对象
+      - enabled: 是否启用自动IME切换 (默认: true)
       - enableDebug: 是否启用调试信息 (默认: false)
       - checkInterval: 检查间隔毫秒 (默认: 500)
       - enableMouseClick: 是否启用鼠标点击监听 (默认: true)
@@ -40,6 +42,7 @@ class AutoIMESwitcher {
     static Setup(processName, options := {}) {
         ; 合并用户选项和默认选项
         finalOptions := {
+            enabled: options.HasProp("enabled") ? options.enabled : true,
             enableDebug: options.HasProp("enableDebug") ? options.enableDebug : false,
             checkInterval: options.HasProp("checkInterval") ? options.checkInterval : 500,
             enableMouseClick: options.HasProp("enableMouseClick") ? options.enableMouseClick : true,
@@ -86,6 +89,11 @@ class AutoIMESwitcher {
 
         state := this.appStates[processName]
         options := state.options
+        
+        ; 如果自动IME切换被禁用，直接返回false（使用VIM模式）
+        if (!options.enabled) {
+            return false
+        }
 
         ; 获取当前控件（如果没有提供）
         if (currentControl == "") {
@@ -146,6 +154,11 @@ class AutoIMESwitcher {
 
         state := this.appStates[processName]
         options := state.options
+        
+        ; 如果自动IME切换被禁用，直接返回
+        if (!options.enabled) {
+            return
+        }
 
         ; 获取当前活动窗口
         try {
@@ -279,6 +292,11 @@ class AutoIMESwitcher {
         
         state := this.appStates[processName]
         options := state.options
+        
+        ; 如果自动IME切换被禁用，直接返回
+        if (!options.enabled) {
+            return
+        }
         
         try {
             ; 检查当前是否还在目标应用中
@@ -441,6 +459,11 @@ class AutoIMESwitcher {
 
         state := this.appStates[processName]
         options := state.options
+        
+        ; 如果自动IME切换被禁用，直接返回
+        if (!options.enabled) {
+            return
+        }
 
         try {
             ; 检查当前是否在目标应用窗口中
