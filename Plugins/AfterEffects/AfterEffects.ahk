@@ -70,7 +70,7 @@ AfterEffects() {
     ;vim.SetWin("PluginName", "ahk_class名")
     ;vim.SetWin("PluginName", "ahk_class名", "PluginName.exe")
     ; vim.SetWin("AfterEffects", "", "AfterFX.exe")
-    vim.SetWin("AfterEffects", "AE_CApplication_24.6|AE_CApplication_24.7|AE_CApplication_24.6.2", "AfterFX.exe")
+    vim.SetWin("AfterEffects", "AE_CApplication_\\d+\\.\\d+(?:\\.\\d+)?", "AfterFX.exe")
 
     ;设置超时
     vim.SetTimeOut(300, "AfterEffects")
@@ -79,6 +79,7 @@ AfterEffects() {
 
     ; 设置自动IME切换（优化延迟配置）
     AutoIMESwitcher.Setup("AfterFX.exe", {
+        enabled: true,  ; 是否启用自动IME切换，可以通过配置文件修改
         enableDebug: false,  ; 关闭调试信息，减少干扰
         checkInterval: 200,  ; 减少检查间隔，提高响应速度
         enableMouseClick: true,
@@ -201,7 +202,6 @@ AfterEffects_图层转为本地素材() {
 AfterEffects_OpenLocalFiles() {
     if ProcessExist("TOTALCMD.exe") {
         Script_AfterEffects("OpenLocalFliesTC.jsx")
-
     } else {
         Script_AfterEffects("OpenLocalFlies.jsx")
     }

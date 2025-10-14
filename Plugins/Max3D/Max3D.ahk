@@ -63,6 +63,7 @@ Max3D() {
 
     ; 设置自动IME切换（优化延迟配置）
     AutoIMESwitcher.Setup("3dsmax.exe", {
+        enabled: true,  ; 是否启用自动IME切换，可以通过配置文件修改
         enableDebug: false,  ; 关闭调试信息，减少干扰
         checkInterval: 200,  ; 减少检查间隔，提高响应速度
         enableMouseClick: true,
