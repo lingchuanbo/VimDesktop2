@@ -1840,6 +1840,17 @@ DetectFileDialog(winID) {
         return "GENERAL"
     }
 
+    ; 如果是#32770窗口（标准文件对话框），直接返回GENERAL类型
+    if (winClass = "#32770") {
+        ; 检查是否有Edit1控件，确保是文件对话框
+        controlList := WinGetControls("ahk_id " . winID)
+        for control in controlList {
+            if (control = "Edit1") {
+                return "GENERAL"
+            }
+        }
+    }
+
     controlList := WinGetControls("ahk_id " . winID)
 
     hasSysListView := false
@@ -2033,36 +2044,77 @@ FeedDialogGeneral(winID, folderPath) {
     WinActivate("ahk_id " . winID)
     Sleep(200)
 
+    ; 方法1：优先尝试直接设置Edit1控件文本
+    try {
+        ; 确保路径格式正确
+        folderWithSlash := RTrim(folderPath, "\") . "\"
+        
+        ; 先尝试获取Edit1控件的焦点
+        ControlFocus("Edit1", "ahk_id " . winID)
+        Sleep(50)
+        
+        ; 清空Edit1内容并设置新路径
+        ControlSetText("", "Edit1", "ahk_id " . winID)
+        Sleep(50)
+        ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
+        Sleep(500)
+        ; 发送Enter键确认路径
+        ; ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
+        Send("{Enter}")
+        Sleep(200)
+        return  ; 如果成功，直接返回
+    } catch {
+        ; 方法1失败，继续尝试方法2
+    }
+
+    ; 方法2：使用剪贴板方式（备用方案）
     try {
         oldClipboard := A_Clipboard
         A_Clipboard := folderPath
         ClipWait(1, 0)
 
-        SendInput("^l")
-        Sleep(200)
-        SendInput("^v")
-        Sleep(100)
-        SendInput("{Enter}")
-        Sleep(200)
-
-        A_Clipboard := oldClipboard
-
+        ; 尝试多种焦点获取方式
         try ControlFocus("Edit1", "ahk_id " . winID)
-        return
-    }
-
-    try {
-        originalText := ControlGetText("Edit1", "ahk_id " . winID)
-        folderWithSlash := RTrim(folderPath, "\") . "\"
-        ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
+        Sleep(100)
+        
+        ; 使用Ctrl+A全选然后粘贴
+        ControlSend("Edit1", "^a", "ahk_id " . winID)
+        Sleep(50)
+        ControlSend("Edit1", "^v", "ahk_id " . winID)
         Sleep(100)
         ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
         Sleep(200)
 
-        if (originalText != "" && !InStr(originalText, "\")) {
-            ControlSetText(originalText, "Edit1", "ahk_id " . winID)
-        }
+        A_Clipboard := oldClipboard
+        return
+    } catch {
+        ; 方法2失败，继续尝试方法3
+    }
+
+    ; 方法3：使用SendInput直接发送（最后备选）
+    try {
+        oldClipboard := A_Clipboard
+        A_Clipboard := folderPath
+        ClipWait(1, 0)
+
+        ; 激活窗口并发送快捷键
+        WinActivate("ahk_id " . winID)
+        Sleep(100)
+        SendInput("^l")  ; Ctrl+L定位到地址栏
         Sleep(200)
+        SendInput("^v")  ; Ctrl+V粘贴
+        Sleep(100)
+        SendInput("{Enter}")  ; 确认
+        Sleep(200)
+
+        A_Clipboard := oldClipboard
+        
+        ; 最后尝试将焦点设置回Edit1
+        try ControlFocus("Edit1", "ahk_id " . winID)
+        return
+    } catch {
+        ; 所有方法都失败，记录错误但不中断程序
+        ; MsgBox("路径设置失败，请手动输入路径: " . folderPath, "提示", "T2")
     }
 }
 
@@ -2091,7 +2143,6 @@ FeedDialogSysListView(winID, folderPath) {
             ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
         }
     }
-    Send("{Enter}")
 }
 
 AddCustomPaths(contextMenu) {
