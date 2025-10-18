@@ -36,6 +36,7 @@ global g_LastTwoWindows := [] ; 最近两个窗口
 global g_MenuItems := []      ; 菜单项数组
 global g_MenuActive := false
 global g_DarkMode := false    ; 主题状态
+global g_LogEnabled := false  ; 日志开关
 
 ; 文件对话框相关变量
 global g_CurrentDialog := {
@@ -133,11 +134,14 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
 }
 ; 当标准文件对话框激活时，按下 Alt+W 调用 GetWindowsFolderActivePath 函数
 #HotIf WinActive("ahk_class #32770")
-!w:: GetWindowsFolderActivePath()
-#HotIf
+{
+
+
+; !w:: GetWindowsFolderActivePath()
+
 ; 添加双击直接执行 GetWindowsFolderActivePath 函数
-; ~LButton:: {
-;     ; 检查是否启用了双击功能
+~LButton:: {
+    ; 检查是否启用了双击功能
 ;     global LTickCount, RTickCount, DblClickTime
 ;     static LastClickTime := 0
 ;     static LastClickPos := ""
@@ -176,7 +180,16 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
 ;         }
 ;     }
 ;     LTickCount := A_TickCount
-; }
+    MouseGetPos(&x, &y) ; 获取鼠标位置信息</mark>
+    color := PixelGetColor(x, y) ; 获取鼠标位置处的颜色信息
+    ; 如果鼠双击同时双击位置处的颜色为白色,则触发后续操作
+    if (A_PriorHotKey = "~LButton" && A_TimeSincePriorHotkey < 400) &&(color = "0xFFFFFF")
+    {
+        GetWindowsFolderActivePath() ; 调用处理函数
+    }
+    return
+ }
+}
 ; ============================================================================
 ; 配置管理
 ; ============================================================================
@@ -439,6 +452,10 @@ LoadConfiguration() {
     ; 加载文件对话框默认行为设置
     g_Config.FileDialogDefaultAction := UTF8IniRead(g_Config.IniFile, "FileDialog", "DefaultAction", "manual")
 
+    ; 加载日志设置
+    g_Config.EnableLog := UTF8IniRead(g_Config.IniFile, "Settings", "EnableLog", "0")
+    global g_LogEnabled := g_Config.EnableLog = "1"
+
     ; 应用主题设置
     WindowsTheme.SetAppMode(g_DarkMode)
 
@@ -551,6 +568,53 @@ ActivateWeChatHotkey(*) {
     ActivateWeChat()
 }
 ;LButton::GetWindowsFolderActivePath()
+
+; ============================================================================
+; 日志记录功能
+; ============================================================================
+
+; 记录日志函数
+LogMessage(message, level := "INFO") {
+    global g_LogEnabled
+    
+    if (!g_LogEnabled) {
+        return
+    }
+    
+    try {
+        timestamp := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+        logEntry := timestamp . " [" . level . "] " . message
+        
+        ; 写入日志文件
+        logFile := A_ScriptDir . "\\QuickSwitch.log"
+        FileAppend(logEntry . "`n", logFile, "UTF-8")
+    } catch {
+        ; 日志写入失败时静默处理
+    }
+}
+
+; 记录路径获取相关的调试信息
+LogPathExtraction(winID, method, path, success := true) {
+    global g_LogEnabled
+    
+    if (!g_LogEnabled) {
+        return
+    }
+    
+    try {
+        winTitle := WinGetTitle("ahk_id " . winID)
+        winClass := WinGetClass("ahk_id " . winID)
+        status := success ? "成功" : "失败"
+        
+        message := "窗口路径提取 - 窗口ID: " . winID . ", 标题: " . winTitle . ", 类名: " . winClass
+        message .= ", 方法: " . method . ", 路径: " . path . ", 状态: " . status
+        
+        LogMessage(message, "DEBUG")
+    } catch {
+        ; 日志记录失败时静默处理
+    }
+}
+
 ; ============================================================================
 ; 任务栏图标管理
 ; ============================================================================
@@ -1879,6 +1943,128 @@ DetectFileDialog(winID) {
     return false
 }
 
+; ============================================================================
+; 增强的Windows API路径获取函数
+; ============================================================================
+
+GetExplorerPathByAPI(winID) {
+    ; 方法1：使用Windows API获取路径（最稳定）
+    try {
+        ; 获取窗口的进程ID
+        thisPID := WinGetPID("ahk_id " . winID)
+        
+        ; 使用IShellWindows接口获取路径
+        shell := ComObject("Shell.Application")
+        
+        for window in shell.Windows {
+            try {
+                if (window.hwnd = winID) {
+                    ; 方法1A：直接获取路径（最稳定）
+                    try {
+                        folder := window.Document
+                        if (folder) {
+                            return folder.Folder.Self.Path
+                        }
+                    } catch {
+                        ; 方法1B：备用方法 - 获取LocationURL
+                        try {
+                            url := window.LocationURL
+                            if (InStr(url, "file:///")) {
+                                path := StrReplace(url, "file:///", "")
+                                path := StrReplace(path, "/", "\\")
+                                return path
+                            }
+                        }
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+    } catch {
+        ; API方法失败
+    }
+    
+    return ""
+}
+
+GetExplorerPathByTitle(winID) {
+    ; 方法2：从窗口标题中提取路径（备用方法）
+    try {
+        title := WinGetTitle("ahk_id " . winID)
+        
+        ; 常见资源管理器标题格式
+        if (RegExMatch(title, "(.+)\\s*-\\s*文件资源管理器", &match)) {
+            potentialPath := Trim(match[1])
+            if (IsValidFolder(potentialPath)) {
+                return potentialPath
+            }
+        }
+        
+        ; 英文系统格式
+        if (RegExMatch(title, "(.+)\\s*-\\s*File Explorer", &match)) {
+            potentialPath := Trim(match[1])
+            if (IsValidFolder(potentialPath)) {
+                return potentialPath
+            }
+        }
+        
+        ; 其他可能的格式
+        if (InStr(title, ":\\") && !InStr(title, " - ")) {
+            ; 如果标题直接包含路径且没有分隔符
+            potentialPath := Trim(title)
+            if (IsValidFolder(potentialPath)) {
+                return potentialPath
+            }
+        }
+    } catch {
+        ; 标题解析失败
+    }
+    
+    return ""
+}
+
+GetExplorerPathEnhanced(winID) {
+    ; 增强的路径获取函数，使用多种方法确保稳定性
+    
+    ; 方法1：优先使用Windows API（最稳定）
+    apiPath := GetExplorerPathByAPI(winID)
+    if (apiPath != "" && IsValidFolder(apiPath)) {
+        LogPathExtraction(winID, "Windows API", apiPath, true)
+        return apiPath
+    }
+    
+    ; 方法2：备用方法 - 从窗口标题提取
+    titlePath := GetExplorerPathByTitle(winID)
+    if (titlePath != "" && IsValidFolder(titlePath)) {
+        LogPathExtraction(winID, "窗口标题", titlePath, true)
+        return titlePath
+    }
+    
+    ; 方法3：最后尝试原始COM方法（兼容性）
+    try {
+        for explorerWindow in ComObject("Shell.Application").Windows {
+            try {
+                if (explorerWindow.hwnd = winID) {
+                    explorerPath := explorerWindow.Document.Folder.Self.Path
+                    if (IsValidFolder(explorerPath)) {
+                        LogPathExtraction(winID, "COM对象", explorerPath, true)
+                        return explorerPath
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+    } catch {
+        ; COM方法失败
+    }
+    
+    ; 所有方法都失败
+    LogPathExtraction(winID, "所有方法", "", false)
+    return ""
+}
+
 GetActiveFileManagerFolder(winID) {
     allWindows := WinGetList()
     fileManagerCandidates := []
@@ -1894,17 +2080,10 @@ GetActiveFileManagerFolder(winID) {
                 }
             }
             else if (g_Config.SupportExplorer = "1" && winClass = "CabinetWClass") {
-                for explorerWindow in ComObject("Shell.Application").Windows {
-                    try {
-                        if (id = explorerWindow.hwnd) {
-                            explorerPath := explorerWindow.Document.Folder.Self.Path
-                            if IsValidFolder(explorerPath) {
-                                fileManagerCandidates.Push({ id: id, path: explorerPath, type: "Explorer" })
-                            }
-                        }
-                    } catch {
-                        continue
-                    }
+                ; 使用增强的路径获取函数
+                explorerPath := GetExplorerPathEnhanced(id)
+                if IsValidFolder(explorerPath) {
+                    fileManagerCandidates.Push({ id: id, path: explorerPath, type: "Explorer" })
                 }
             }
             else if (g_Config.SupportXY = "1" && winClass = "ThunderRT6FormDC") {
@@ -1974,7 +2153,7 @@ GetTCActiveFolder(winID) {
     A_Clipboard := ""
     try {
         result := SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
-        Sleep(200)
+        Sleep(100)
 
         if (result != 0 && A_Clipboard != "") {
             folderPath := A_Clipboard
@@ -2057,11 +2236,10 @@ FeedDialogGeneral(winID, folderPath) {
         ControlSetText("", "Edit1", "ahk_id " . winID)
         Sleep(50)
         ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
-        Sleep(500)
+        Sleep(100)
         ; 发送Enter键确认路径
         ; ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
         Send("{Enter}")
-        Sleep(200)
         return  ; 如果成功，直接返回
     } catch {
         ; 方法1失败，继续尝试方法2
@@ -2632,18 +2810,15 @@ AddExplorerFolders(contextMenu) {
         try {
             winClass := WinGetClass("ahk_id " . winID)
             if (winClass = "CabinetWClass") {
-                for explorerWindow in ComObject("Shell.Application").Windows {
-                    try {
-                        if (winID = explorerWindow.hwnd) {
-                            explorerPath := explorerWindow.Document.Folder.Self.Path
-                            if IsValidFolder(explorerPath) {
-                                AddFileDialogMenuItemWithQuickAccess(contextMenu, explorerPath, "shell32.dll", 5)
-                                added := true
-                            }
-                        }
-                    }
+                ; 使用增强的路径获取函数
+                explorerPath := GetExplorerPathEnhanced(winID)
+                if IsValidFolder(explorerPath) {
+                    AddFileDialogMenuItemWithQuickAccess(contextMenu, explorerPath, "shell32.dll", 5)
+                    added := true
                 }
             }
+        } catch {
+            continue
         }
     }
 
