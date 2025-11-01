@@ -1,6 +1,7 @@
 // 功能 : 快速 K 帧
 // 基础属性 如果前面已经K帧了 后面继续 K上
 // by BoBO
+// 简化稳定版本，参考 AddKey----.jsx
 (function () {
     // 开始撤销组，方便用户撤销整个操作
     app.beginUndoGroup("只处理已有关键帧属性（含效果）");
@@ -23,6 +24,11 @@
 
     // 递归处理属性，包含效果属性
     function processProperty(prop) {
+        // 安全检查：确保属性对象有效
+        if (!prop || typeof prop !== 'object') {
+            return;
+        }
+        
         // 处理属性组（包括效果组）
         if (prop.propertyType === PropertyType.PROPERTY_GROUP || 
             prop.propertyType === PropertyType.INDEXED_GROUP || 
@@ -30,12 +36,16 @@
             
             // 递归处理组中的每个属性
             for (var i = 1; i <= prop.numProperties; i++) {
-                processProperty(prop.property(i));
+                try {
+                    processProperty(prop.property(i));
+                } catch (err) {
+                    // 跳过无法处理的属性
+                }
             }
         } 
         // 处理普通属性（包括效果属性）
         else if (prop.propertyType === PropertyType.PROPERTY) {
-            // 只处理已经有关键帧的属性
+            // 只处理已经有关关键帧的属性
             if (prop.canSetExpression && prop.numKeys > 0) {
                 try {
                     var nearestIndex = prop.nearestKeyIndex(t);
@@ -67,11 +77,17 @@
         // 处理图层上的所有效果
         if (layer.effect && layer.effect.numProperties > 0) {
             for (var e = 1; e <= layer.effect.numProperties; e++) {
-                processProperty(layer.effect(e));
+                try {
+                    processProperty(layer.effect(e));
+                } catch (err) {
+                    // 跳过无法处理的效果
+                }
             }
         }
     }
 
     // 结束撤销组
     app.endUndoGroup();
+    
+    alert("关键帧处理完成！");
 })();

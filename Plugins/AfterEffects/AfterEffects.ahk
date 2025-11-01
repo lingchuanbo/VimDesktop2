@@ -38,6 +38,11 @@ AfterEffects() {
 
     ; 图层
     KeyArray.push({ Key: "cc", Mode: "VIM模式", Group: "控制", Func: "Script_AfterEffects", Param: "LayerConvertLocalAssets.jsx",Comment: "转为本地素材" })
+    KeyArray.push({ Key: "k", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "AddKey.jsx",Comment: "收集素材到文件目录" })
+
+    KeyArray.push({ Key: "/f", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "test_fix.jsx",Comment: "验证VimDAE库功能" })
+    KeyArray.push({ Key: "/k", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "test_simple.jsx",Comment: "详细调试脚本" })
+    KeyArray.push({ Key: "/h", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "lib/FileUtils.jsx",Comment: "详细调试脚本2" })
 
     ; 项目
     KeyArray.push({ Key: "cf", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages.jsx",Comment: "收集素材到文件目录" })
