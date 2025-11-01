@@ -17,6 +17,7 @@ rollout MaxInitRollout "3DsMax 初始化工具" width:300 height:400
         checkbox chkSaveFile "开启保存选项" checked:true align:#left
         checkbox chkGradientColors "使用渐变颜色" checked:true align:#left
         checkbox chkHighQualityLighting "高质量视口照明和阴影" checked:true align:#left
+        checkbox chkDisableSuperBlack "关闭超级黑色" checked:true align:#left tooltip:"禁用超级黑色设置，防止渲染过度深黑"
     )
     
     group "场景清理"
@@ -130,6 +131,21 @@ rollout MaxInitRollout "3DsMax 初始化工具" width:300 height:400
                 lblStatus.text = lblStatus.text + " | 高质量视口照明和阴影"
             )
             
+            -- 关闭SuperBlack设置
+            if chkDisableSuperBlack.checked then
+            (
+                rendSuperBlack = off
+                rendForce2Side = off
+                rendSimplifyAreaLights = off
+                rendHidden = off
+                rendFieldRender = off
+                rendColorCheck = off
+                renderDisplacements = on
+                renderEffects= on
+                rendAtmosphere = on
+                lblStatus.text = lblStatus.text + " | SuperBlack已关闭"
+            )
+            
             -- 场景清理
             if chkDeleteLights.checked then
             (
@@ -182,6 +198,7 @@ rollout MaxInitRollout "3DsMax 初始化工具" width:300 height:400
         chkSaveFile.checked = true
         chkGradientColors.checked = false
         chkHighQualityLighting.checked = false
+        chkDisableSuperBlack.checked = true
         chkDeleteLights.checked = true
         chkDeleteParticleView.checked = true
         chkDefaultRenderer.checked = true
