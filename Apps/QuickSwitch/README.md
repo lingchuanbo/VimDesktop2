@@ -1,8 +1,15 @@
 # QuickSwitch - 智能快速切换工具
 
-## 📖 概述
+## 🚀 快速开始
 
-QuickSwitch 是一个基于 AutoHotkey v2.0 开发的智能快速切换工具，能够根据当前窗口环境智能显示不同的切换菜单，极大提升工作效率。
+### 立即使用
+1. 下载 `QuickSwitch.exe` 或 `QuickSwitch.ahk`
+2. 双击运行程序
+3. 使用 `Ctrl+Q` 快捷键激活智能菜单
+
+### 系统要求
+- Windows 10/11
+- AutoHotkey v2.0+（如使用 .ahk 脚本）
 
 ## ✨ 核心功能
 
@@ -21,16 +28,18 @@ QuickSwitch 是一个基于 AutoHotkey v2.0 开发的智能快速切换工具，
 - **UTF-8 编码**：完美支持中文显示
 - **性能优化**：内存管理优化，避免资源泄露
 
-## 🛠️ 安装与使用
+## 🎮 快捷键使用
 
-### 系统要求
-- Windows 10/11
-- AutoHotkey v2.0+（如使用 .ahk 脚本）
+### 默认快捷键
+- `Ctrl + Q` - 显示智能切换菜单
+- `Ctrl + Tab` - 快速切换最近两个程序
 
-### 快速开始
-1. 下载 `QuickSwitch.exe` 或 `QuickSwitch.ahk`
-2. 双击运行程序
-3. 默认使用 `Ctrl+Q` 快捷键激活菜单
+### 自定义快捷键
+在配置文件中修改 `Hotkey` 设置，支持格式：
+- `^q` = Ctrl+Q
+- `!q` = Alt+Q  
+- `#q` = Win+Q
+- `^!w` = Ctrl+Alt+W
 
 ## ⚙️ 配置文件说明
 
@@ -67,19 +76,40 @@ MenuPosY=100                 ; 菜单Y坐标
 DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
 ```
 
-## 🎮 快捷键说明
+## ⚙️ 配置指南
 
-### 默认快捷键
-- `Ctrl + Q` - 显示智能切换菜单
-- `Ctrl + Tab` - 快速切换最近两个程序
-- `Ctrl + Alt + W` - 快速激活微信
+### 主要配置段
 
-### 自定义快捷键
-在配置文件中修改 `Hotkey` 设置，支持格式：
-- `^q` = Ctrl+Q
-- `!q` = Alt+Q  
-- `#q` = Win+Q
-- `^!w` = Ctrl+Alt+W
+#### [Settings] - 基本设置
+```ini
+[Settings]
+Hotkey=^q                    ; 主快捷键 (Ctrl+Q)
+RunMode=0                    ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
+```
+
+#### [QuickLaunchApps] - 快速启动应用
+```ini
+[QuickLaunchApps]
+MaxDisplayCount=2            ; 主菜单显示的最大应用数量
+App1=微信|WeChat.exe         ; 应用名称|进程名
+App2=Tim|Tim.exe
+App3=图片|Pixcall.exe
+```
+
+#### [Display] - 显示设置
+```ini
+[Display]
+MenuColor=Default            ; 菜单颜色 (Default 或十六进制颜色)
+IconSize=16                  ; 图标大小 (像素)
+MenuPosX=100                 ; 菜单X坐标
+MenuPosY=100                 ; 菜单Y坐标
+```
+
+#### [Theme] - 主题设置
+```ini
+[Theme]
+DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
+```
 
 ## 🔧 功能详解
 
@@ -116,21 +146,19 @@ AppN=显示名称|进程名.exe
 2. 使用 `Ctrl+Alt+W` 快捷键
 3. 直接激活微信窗口
 
-## 🐛 故障排除
+## ❓ 常见问题
 
-### 常见问题
-
-#### 快捷键不生效
+### 快捷键不生效
 - 检查是否有其他程序占用相同快捷键
 - 尝试以管理员权限运行
 - 修改配置文件中的快捷键设置
 
-#### 中文显示乱码
+### 中文显示乱码
 - 确保配置文件使用 UTF-8 编码
 - 程序已内置 UTF-8 支持
 - 检查应用名称是否包含特殊字符
 
-#### 应用不显示
+### 应用不显示
 - 检查进程名是否正确
 - 确认应用是否正在运行
 - 查看配置文件格式是否正确

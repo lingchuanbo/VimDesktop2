@@ -565,7 +565,7 @@ RegisterHotkeys() {
 
 ActivateWeChatHotkey(*) {
     ; 微信快捷键处理函数
-    ActivateWeChat()
+    ActivateWeChat("")  ; 传递空字符串表示没有配置快捷键
 }
 ;LButton::GetWindowsFolderActivePath()
 
@@ -1042,10 +1042,12 @@ ShowWindowSwitchMenu(*) {
     }
 
     ; 添加快速启动应用程序按钮（在操作子菜单之前）
-    AddQuickLaunchApps(contextMenu)
+    quickLaunchAdded := AddQuickLaunchApps(contextMenu)
 
     ; 添加操作子菜单
-    contextMenu.Add()
+    if (quickLaunchAdded) {
+        contextMenu.Add()
+    }
     AddWindowActionMenus(contextMenu)
 
     ; 添加设置菜单
@@ -1085,6 +1087,12 @@ AddQuickLaunchApps(contextMenu) {
     ; 读取QuickLaunchApps配置段
     section := "QuickLaunchApps"
     
+    ; 检查是否启用快速启动应用程序功能
+    enableQuickLaunchApps := Integer(UTF8IniRead(g_Config.IniFile, section, "EnableQuickLaunchApps", "1"))
+    if (enableQuickLaunchApps != 1) {
+        return false
+    }
+    
     ; 读取最大显示数量配置
     maxDisplayCount := Integer(UTF8IniRead(g_Config.IniFile, section, "MaxDisplayCount", "2"))
     
@@ -1098,18 +1106,20 @@ AddQuickLaunchApps(contextMenu) {
             break
         }
         
-        ; 解析配置格式: 显示名称|进程名|可执行文件路径(可选)
+        ; 解析配置格式: 显示名称|进程名|可执行文件路径(可选)|快捷键(可选)
         parts := StrSplit(appConfig, "|")
         if (parts.Length >= 2) {
             displayName := parts[1]
             processName := parts[2]
             exePath := parts.Length >= 3 ? parts[3] : ""
+            appHotkey := parts.Length >= 4 ? parts[4] : ""
             
             ; 添加到应用程序列表
             appList.Push({
                 displayName: displayName,
                 processName: processName,
-                exePath: exePath
+                exePath: exePath,
+                hotkey: appHotkey
             })
         }
     }
@@ -1119,7 +1129,7 @@ AddQuickLaunchApps(contextMenu) {
         ; 显示前maxDisplayCount个应用程序
         loop Min(appList.Length, maxDisplayCount) {
             app := appList[A_Index]
-            if (AddQuickLaunchApp(contextMenu, app.displayName, app.processName, app.exePath)) {
+            if (AddQuickLaunchApp(contextMenu, app.displayName, app.processName, app.exePath, app.hotkey)) {
                 added := true
             }
         }
@@ -1129,7 +1139,7 @@ AddQuickLaunchApps(contextMenu) {
             moreMenu := Menu()
             loop (appList.Length - maxDisplayCount) {
                 app := appList[maxDisplayCount + A_Index]
-                AddQuickLaunchApp(moreMenu, app.displayName, app.processName, app.exePath)
+                AddQuickLaunchApp(moreMenu, app.displayName, app.processName, app.exePath, app.hotkey)
             }
             contextMenu.Add("更多", moreMenu)
             added := true
@@ -1139,23 +1149,19 @@ AddQuickLaunchApps(contextMenu) {
     return added
 }
 
-AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "") {
+AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "", hotkey := "") {
     ; 检查应用程序是否在运行
-    appRunning := false
-    try {
-        ProcessExist(processName)
-        appRunning := true
-    }
+    appRunning := ProcessExist(processName)
     
     ; 设置不同的显示文本
     if (appRunning) {
         displayText := "📱 " . displayName . " (已运行)"
     } else {
-        displayText := "📱 " . displayName . " (启动)"
+        displayText := "📱 " . displayName . ""
     }
     
     ; 添加菜单项
-    contextMenu.Add(displayText, QuickLaunchAppHandler.Bind(processName, exePath))
+    contextMenu.Add(displayText, QuickLaunchAppHandler.Bind(processName, exePath, hotkey))
     
     ; 尝试设置应用程序图标
     try {
@@ -1179,7 +1185,7 @@ AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "") {
     return true
 }
 
-QuickLaunchAppHandler(processName, exePath, *) {
+QuickLaunchAppHandler(processName, exePath, hotkey, *) {
     ; 快速启动应用程序按钮点击处理函数
     
     ; 检查应用程序是否在运行
@@ -1188,7 +1194,7 @@ QuickLaunchAppHandler(processName, exePath, *) {
         
         ; 特殊处理微信（Weixin.exe）
         if (processName = "Weixin.exe") {
-            ActivateWeChat()
+            ActivateWeChat(hotkey)
         } else {
             ; 其他应用程序使用标准托盘图标点击
             try {
@@ -1222,9 +1228,24 @@ QuickLaunchAppHandler(processName, exePath, *) {
     }
 }
 
-ActivateWeChat() {
+ActivateWeChat(hotkey := "") {
     ; 特殊处理微信激活
     weixinProcessName := "Weixin.exe"
+    
+    ; 如果配置了快捷键，优先使用快捷键激活
+    if (hotkey != "") {
+        try {
+            Send(hotkey)
+            Sleep(200)
+            
+            ; 检查微信窗口是否被激活
+            if (IsWeChatActive()) {
+                return  ; 成功激活，直接返回
+            }
+        } catch {
+            ; 快捷键失败，继续尝试其他方法
+        }
+    }
     
     ; 方法1：首先尝试使用TrayIcon_Button点击托盘图标
     try {
@@ -1240,17 +1261,19 @@ ActivateWeChat() {
         ; TrayIcon_Button失败，继续尝试其他方法
     }
     
-    ; 方法2：尝试使用快捷键Ctrl+Alt+W
-    try {
-        Send("^!w")  ; Ctrl+Alt+W
-        Sleep(200)
-        
-        ; 检查微信窗口是否被激活
-        if (IsWeChatActive()) {
-            return  ; 成功激活
+    ; 方法2：尝试使用快捷键Ctrl+Alt+W（如果没有配置快捷键）
+    if (hotkey = "") {
+        try {
+            Send("^!w")  ; Ctrl+Alt+W
+            Sleep(200)
+            
+            ; 检查微信窗口是否被激活
+            if (IsWeChatActive()) {
+                return  ; 成功激活
+            }
+        } catch {
+            ; 快捷键失败，继续尝试其他方法
         }
-    } catch {
-        ; 快捷键失败，继续尝试其他方法
     }
     
     ; 方法3：尝试直接激活微信窗口
