@@ -1157,7 +1157,7 @@ AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "", hotkey :
     if (appRunning) {
         displayText := "📱 " . displayName . " (已运行)"
     } else {
-        displayText := "📱 " . displayName . ""
+        displayText := "📱 " . displayName . "*"
     }
     
     ; 添加菜单项
