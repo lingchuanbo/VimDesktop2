@@ -637,34 +637,20 @@ CreateTrayMenu() {
     ; 清除默认菜单项
     A_TrayMenu.Delete()
 
-    ; 添加自定义菜单项
+    ; 添加程序名称和版本号（灰色、禁用）
+    ; A_TrayMenu.Add("QuickSwitch v1.0", (*) => "")
+    ; A_TrayMenu.Disable("QuickSwitch v1.0")
+    ; A_TrayMenu.Add()  ; 分隔符
+
+    ; 添加主要功能菜单项
     A_TrayMenu.Add("设置", OpenConfigFile)
-    A_TrayMenu.Add("切换主题", ToggleThemeFromTray)
-    A_TrayMenu.Add()  ; 分隔符
-
-    ; 添加运行模式子菜单
-    runModeMenu := Menu()
-    runModeMenu.Add("全部运行", SetRunModeFromTray.Bind(0))
-    runModeMenu.Add("只运行路径跳转", SetRunModeFromTray.Bind(1))
-    runModeMenu.Add("只运行程序切换", SetRunModeFromTray.Bind(2))
-    A_TrayMenu.Add("运行模式", runModeMenu)
-
-    A_TrayMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePathFromTray)
-
-    A_TrayMenu.Add()  ; 分隔符
+    ; A_TrayMenu.Add()  ; 分隔符
     A_TrayMenu.Add("关于", ShowAboutFromTray)
     A_TrayMenu.Add("重启", RestartApplication)
     A_TrayMenu.Add("退出", ExitApplication)
 
     ; 设置默认菜单项（双击任务栏图标时执行）
     A_TrayMenu.Default := "设置"
-
-    ; 根据当前主题状态设置菜单项显示
-    UpdateTrayMenuThemeStatus()
-    ; 根据当前运行模式设置菜单项选中状态
-    UpdateTrayMenuRunModeStatus()
-    ; 根据当前GetWindowsFolderActivePath功能状态设置菜单项显示
-    UpdateTrayMenuGetWindowsFolderActivePathStatus()
 }
 
 UpdateTrayMenuThemeStatus() {
@@ -1041,17 +1027,13 @@ ShowWindowSwitchMenu(*) {
         contextMenu.Add()
     }
 
-    ; 添加快速启动应用程序按钮（在操作子菜单之前）
+    ; 添加快速启动应用程序按钮
     quickLaunchAdded := AddQuickLaunchApps(contextMenu)
 
-    ; 添加操作子菜单
+    ; 添加设置菜单
     if (quickLaunchAdded) {
         contextMenu.Add()
     }
-    AddWindowActionMenus(contextMenu)
-
-    ; 添加设置菜单
-    contextMenu.Add()
     AddWindowSettingsMenu(contextMenu)
 
     ; 配置菜单外观
@@ -1492,7 +1474,31 @@ AddHistoryWindows(contextMenu) {
     return added
 }
 
-AddWindowActionMenus(contextMenu) {
+AddWindowSettingsMenu(contextMenu) {
+    settingsMenu := Menu()
+
+    ; 添加运行模式子菜单
+    ; runModeMenu := Menu()
+    ; runModeMenu.Add("全部运行", SetRunMode.Bind(0))
+    ; runModeMenu.Add("只运行路径跳转", SetRunMode.Bind(1))
+    ; runModeMenu.Add("只运行程序切换", SetRunMode.Bind(2))
+
+    ; ; 根据当前运行模式设置选中状态
+    ; switch g_Config.RunMode {
+    ;     case 0:
+    ;         runModeMenu.Check("全部运行")
+    ;     case 1:
+    ;         runModeMenu.Check("只运行路径跳转")
+    ;     case 2:
+    ;         runModeMenu.Check("只运行程序切换")
+    ; }
+
+    ; settingsMenu.Add("运行模式", runModeMenu)
+    ; settingsMenu.Add("切换主题", ToggleTheme)
+    ; settingsMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePath)
+    ; settingsMenu.Add()
+    
+    ; 添加窗口操作子菜单（关闭程序、添加置顶、取消置顶）
     ; 创建关闭程序子菜单
     closeMenu := Menu()
     closeMenuAdded := false
@@ -1505,6 +1511,7 @@ AddWindowActionMenus(contextMenu) {
     unpinnedMenu := Menu()
     unpinnedMenuAdded := false
 
+    ; 首先从历史窗口中添加（用于关闭程序和添加置顶）
     for windowInfo in g_WindowHistory {
         try {
             if (!WinExist("ahk_id " . windowInfo.ID)) {
@@ -1527,11 +1534,32 @@ AddWindowActionMenus(contextMenu) {
                     pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName), , g_Config.IconSize)
                 }
                 pinnedMenuAdded := true
-            } else {
-                ; 如果是置顶程序，添加到取消置顶菜单
-                unpinnedMenu.Add(displayText, RemoveFromPinnedHandler.Bind(windowInfo.ProcessName))
+            }
+
+        } catch {
+            continue
+        }
+    }
+
+    ; 然后遍历所有窗口查找置顶的程序（用于取消置顶）
+    allWindows := WinGetList()
+    for winID in allWindows {
+        try {
+            if (!WinExist("ahk_id " . winID)) {
+                continue
+            }
+
+            processName := WinGetProcessName("ahk_id " . winID)
+            winTitle := WinGetTitle("ahk_id " . winID)
+
+            ; 只处理置顶的程序
+            if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
+                displayText := CreateDisplayText(winTitle, processName)
+                
+                ; 添加到取消置顶菜单
+                unpinnedMenu.Add(displayText, RemoveFromPinnedHandler.Bind(processName))
                 try {
-                    unpinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName), , g_Config.IconSize)
+                    unpinnedMenu.SetIcon(displayText, GetProcessIcon(processName), , g_Config.IconSize)
                 }
                 unpinnedMenuAdded := true
             }
@@ -1542,44 +1570,21 @@ AddWindowActionMenus(contextMenu) {
     }
 
     if (closeMenuAdded) {
-        contextMenu.Add("关闭程序", closeMenu)
+        settingsMenu.Add("关闭程序", closeMenu)
     }
 
     if (pinnedMenuAdded) {
-        contextMenu.Add("添加置顶", pinnedMenu)
+        settingsMenu.Add("添加置顶", pinnedMenu)
     }
 
     if (unpinnedMenuAdded) {
-        contextMenu.Add("取消置顶", unpinnedMenu)
+        settingsMenu.Add("取消置顶", unpinnedMenu)
     }
-}
-
-AddWindowSettingsMenu(contextMenu) {
-    settingsMenu := Menu()
-
-    ; 添加运行模式子菜单
-    runModeMenu := Menu()
-    runModeMenu.Add("全部运行", SetRunMode.Bind(0))
-    runModeMenu.Add("只运行路径跳转", SetRunMode.Bind(1))
-    runModeMenu.Add("只运行程序切换", SetRunMode.Bind(2))
-
-    ; 根据当前运行模式设置选中状态
-    switch g_Config.RunMode {
-        case 0:
-            runModeMenu.Check("全部运行")
-        case 1:
-            runModeMenu.Check("只运行路径跳转")
-        case 2:
-            runModeMenu.Check("只运行程序切换")
-    }
-
-    settingsMenu.Add("运行模式", runModeMenu)
-    settingsMenu.Add("切换主题", ToggleTheme)
-    settingsMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePath)
-    settingsMenu.Add()
-    settingsMenu.Add("编辑配置文件", EditConfigFile)
-    settingsMenu.Add("重新加载配置", ReloadConfig)
-    settingsMenu.Add("关于程序", ShowAbout)
+    
+    ; settingsMenu.Add()
+    ; settingsMenu.Add("编辑配置文件", EditConfigFile)
+    ; settingsMenu.Add("重新加载配置", ReloadConfig)
+    ; settingsMenu.Add("关于程序", ShowAbout)
 
     ; 根据当前主题状态设置菜单项显示
     if (g_DarkMode) {
@@ -2959,9 +2964,15 @@ AddFileDialogMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", ic
 
 EditConfigFile(*) {
     try {
-        Run("notepad.exe " . g_Config.IniFile)
+        configToolPath := A_ScriptDir "\ConfigTool.ahk"
+        if FileExist(configToolPath) {
+            Run(configToolPath)
+        } else {
+            ; 如果ConfigTool不存在，回退到用记事本打开INI文件
+            Run("notepad.exe " . g_Config.IniFile)
+        }
     } catch {
-        MsgBox("无法打开配置文件", "错误", "T3")
+        MsgBox("无法打开配置工具", "错误", "T3")
     }
 }
 
