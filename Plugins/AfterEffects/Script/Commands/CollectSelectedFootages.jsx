@@ -1,6 +1,7 @@
-// 自动化 收集素材脚本
+// 收集选中素材脚本
+// 支持多选，图片按格式分类，序列图保持原有结构
 // ByBoBO
-// 20250816
+// 20251128
 {
     function padNumber(num, digits) {
         var s = num.toString();
@@ -10,7 +11,7 @@
 
     // 创建进度窗口
     function createProgressWindow(totalItems) {
-        var win = new Window("palette", "收集素材进度");
+        var win = new Window("palette", "收集选中素材进度");
         win.orientation = "column";
         win.alignChildren = "fill";
         win.preferredSize.width = 400;
@@ -42,10 +43,16 @@
         return win;
     }
 
-    function collectFootages() {
+    function collectSelectedFootages() {
         var proj = app.project;
         if (!proj.file) {
             alert("请先保存工程文件再运行脚本！");
+            return;
+        }
+
+        // 检查是否有选中的素材
+        if (proj.selection.length === 0) {
+            alert("请先选中需要收集的素材！");
             return;
         }
 
@@ -53,24 +60,16 @@
         var targetRoot = new Folder(projFolder.fsName + "/素材");
         if (!targetRoot.exists) targetRoot.create();
 
-        // 选中的素材，否则全项目
+        // 只处理选中的素材
         var itemsToProcess = [];
-        if (proj.selection.length > 0) {
-            for (var i = 0; i < proj.selection.length; i++) {
-                if (proj.selection[i] instanceof FootageItem) {
-                    itemsToProcess.push(proj.selection[i]);
-                }
-            }
-        } else {
-            for (var j = 1; j <= proj.numItems; j++) {
-                if (proj.item(j) instanceof FootageItem) {
-                    itemsToProcess.push(proj.item(j));
-                }
+        for (var i = 0; i < proj.selection.length; i++) {
+            if (proj.selection[i] instanceof FootageItem) {
+                itemsToProcess.push(proj.selection[i]);
             }
         }
 
         if (itemsToProcess.length === 0) {
-            alert("未找到任何素材！");
+            alert("选中的项目中没有素材！");
             return;
         }
 
@@ -91,7 +90,7 @@
             progressWin = createProgressWindow(itemsToProcess.length);
         }
 
-        app.beginUndoGroup("收集素材");
+        app.beginUndoGroup("收集选中素材");
 
         for (var k = 0; k < itemsToProcess.length; k++) {
             var item = itemsToProcess[k];
@@ -169,7 +168,7 @@
                     var digits = match[2].length;
                     var suffix = match[3];
 
-                    // 获取原始文件夹名称（如 smoke）
+                    // 获取原始文件夹名称
                     var originalFolderName = srcFile.parent.name;
 
                     // 在序列图文件夹下创建原始文件夹结构：素材\序列图\smoke\
@@ -291,7 +290,7 @@
         }
 
         // 显示精简日志
-        var logMessage = "=== 素材收集完成 ===\n\n";
+        var logMessage = "=== 选中素材收集完成 ===\n\n";
         logMessage += "总素材数量: " + stats.totalItems + "\n";
         logMessage += "序列素材: " + stats.sequenceItems + " 个\n";
         logMessage += "单张素材: " + stats.singleItems + " 个\n";
@@ -305,5 +304,5 @@
         alert(logMessage);
     }
 
-    collectFootages();
+    collectSelectedFootages();
 }
