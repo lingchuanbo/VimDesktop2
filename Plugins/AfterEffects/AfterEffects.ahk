@@ -46,7 +46,8 @@ AfterEffects() {
 
     ; 项目
     KeyArray.push({ Key: "cf", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages.jsx",Comment: "收集素材到文件目录" })
-    KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages_Fixed.jsx",Comment: "收集素材到文件目录" })
+    ; KeyArray.push({ Key: "b", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CollectFootages_Fixed.jsx",Comment: "收集素材到文件目录" })
+    KeyArray.push({ Key: "op", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "CompostionOption.jsx",Comment: "项目设置" })
 
     ;渲染
     KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "基本", Func: "Script_AfterEffects", Param: "RenderToSaveFilesAndOpen.jsx",Comment: "渲染 快速" })
