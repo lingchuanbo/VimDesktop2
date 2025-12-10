@@ -29,19 +29,44 @@ Max3D() {
     KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "打开", Func: "Max3D_Menu", Param: "", Comment: "功能菜单" })
 
     ;KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",Comment: "单击/双击/长按"})
-    KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "渲染", Func: "Script_3DsMax", Param: "RenderQ.ms", Comment: "快速渲染" })
-    KeyArray.push({ Key: "qt", Mode: "VIM模式", Group: "渲染", Func: "Max3D_RenderDirtoTC", Param: "", Comment: "快速渲染到TC激活面板" })
+
     ; 打开
     KeyArray.push({ Key: "of", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openMaxfileDir.ms", Comment: "打开 Max文件所在位置" })
     KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openRenderDir.ms", Comment: "打开 渲染文件所在位置" })
     KeyArray.push({ Key: "oo", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40003", Comment: "打开 文件" })
     KeyArray.push({ Key: "om", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40195", Comment: "打开 融合文件" })
 
+
+    ; 渲染
+    KeyArray.push({ Key: "qc", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "BatchCloneRender.ms", Comment: "批量克隆渲染" })
+    KeyArray.push({ Key: "qb", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "BatchRenderP.ms", Comment: "批量渲染工具" })
+    KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "渲染", Func: "Script_3DsMax", Param: "RenderQ.ms", Comment: "快速渲染" })
+    KeyArray.push({ Key: "qt", Mode: "VIM模式", Group: "渲染", Func: "Max3D_RenderDirtoTC", Param: "", Comment: "快速渲染到TC激活面板" })
+    KeyArray.push({ Key: "qs", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "Render.ms", Comment: "快速渲染-文件同级目录" })
+    KeyArray.push({ Key: "qa", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "RenderLayer.ms", Comment: "分层渲染" })
+    KeyArray.push({ Key: "qx", Mode: "VIM模式", Group: "项目", Func: "Max3D_WinClose", Param: "", Comment: "批量渲染工具" })
+
+
+    ; FumeFX
+    KeyArray.push({ Key: "ff", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_FXdef.ms", Comment: "FumeFX快速创建" })
+    KeyArray.push({ Key: "fa", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_AddLight.ms", Comment: "FumeFX快速创建" })
+    KeyArray.push({ Key: "fo", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_DefaultOpenUI.ms", Comment: "打开FumenFX" })
+
+    ; 视图
+    KeyArray.push({ Key: "<Numpad0>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Switch", Param: "", Comment: "视图切换大小" })
+    KeyArray.push({ Key: "<Numpad2>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Front", Param: "", Comment: "前视图" })
+    KeyArray.push({ Key: "<LB-Numpad2>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Back", Param: "", Comment: "后视图" })
+    KeyArray.push({ Key: "<Numpad6>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Left", Param: "", Comment: "左视图" })
+    KeyArray.push({ Key: "<Numpad4>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Right", Param: "", Comment: "右视图" })
+    KeyArray.push({ Key: "<Numpad8>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Top", Param: "", Comment: "顶视图" })
+    KeyArray.push({ Key: "<LB-Numpad8>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Buttom", Param: "", Comment: "底视图" })
+    KeyArray.push({ Key: "<Numpad5>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Perspective", Param: "", Comment: "透视图" })
+    KeyArray.push({ Key: "<Numpad1>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Camera", Param: "", Comment: "摄像机视图" })
+
+
     ; 帮助
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
 
-    ; 3DsMax集成
-    KeyArray.push({ Key: "/n", Mode: "VIM模式", Group: "打开", Func: "Max3D_OpenCurrentDirIn3DsMax", Param: "", Comment: "在3DsMax中打开当前目录" })
 
     ; 类别显示控制
     KeyArray.push({ Key: "hc", Mode: "VIM模式", Group: "显示", Func: "Script_3DsMax", Param: "hideByCategoryGUI.ms", Comment: "类别显示控制面板" })
@@ -171,9 +196,84 @@ Max3D_HandleMenuClick(ItemName, ItemPos, MenuName, filePath := "") {
     Script_3DsMax(filePath)
 }
 
-; 打开笔记本
-Max3D_OpenCurrentDirIn3DsMax() {
-    configFile := A_ScriptDir "\plugins\Max3D\Max3D.ini"
-    config := EasyIni(configFile)
-    Run(config.Max3D.vault_path)
+
+Max3D_WinClose() {
+    try WinClose("Measure")
+    try WinClose("Display Floater")
+    try WinClose("Layer: ")
+    try WinClose("Transform Type-In")
+    try WinClose("Material Editor -")
+    try WinClose("Slate Material Editor ")
+    try WinClose("Render Setup: ")
+    try WinClose("Scene Explorer -")
+    try WinClose("materialByName")
+    try WinClose("LPM v2.00 ")
+}
+
+
+
+; ViewportDisplay/视窗显示
+; Views: Viewport Visual Style Wireframe / Shaded Toggle 线显示
+Max3D_Viewport_Wireframe() {
+    Script_3DsMax("id415")
+}
+
+Max3D_Viewport_DefaultShading() {
+    Script_3DsMax("id63566")
+}
+
+;  Views: Viewport Visual Style Edged Faces Toggle
+Max3D_Viewport_EdgedFaces() {
+    Script_3DsMax("id557")
+}
+
+; Viewport Front/Back Toggle/前后切换显示
+Max3D_Viewport_FrontBack() {
+    runPath := 'actionMan.executeAction 98641878 "1834539833"'
+    Script_3DsMax(runPath)
+}
+
+; UVW Seam Display Toggle/
+Max3D_Viewport_UVWDisplay() {
+    runPath := 'actionMan.executeAction 98641878 "1696817703"'
+    Script_3DsMax(runPath)
+}
+
+
+
+; 视图切换
+Max3D_Viewport_Front() {
+    Send("{f}")
+}
+
+Max3D_Viewport_Left() {
+    Send("{l}")
+}
+
+Max3D_Viewport_Right() {
+    Send("{v}{r}")
+}
+
+Max3D_Viewport_Top() {
+    Send("{t}")
+}
+
+Max3D_Viewport_Buttom() {
+    Send("{v}{b}")
+}
+
+Max3D_Viewport_Back() {
+    Send("{v}{k}")
+}
+
+Max3D_Viewport_Perspective() {
+    Send("{p}")
+}
+
+Max3D_Viewport_Camera() {
+    Send("{v}{c}")
+}
+
+Max3D_Viewport_Switch() {
+    Send("!{w}")
 }
