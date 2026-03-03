@@ -35,7 +35,7 @@
 - `Ctrl + Tab` - 快速切换最近两个程序
 
 ### 自定义快捷键
-在配置文件中修改 `Hotkey` 设置，支持格式：
+在配置文件中修改 `MainHotkey` / `QuickSwitchHotkey` / `GetWindowsFolderActivePathKey`，支持格式：
 - `^q` = Ctrl+Q
 - `!q` = Alt+Q  
 - `#q` = Win+Q
@@ -48,14 +48,19 @@
 #### [Settings] - 基本设置
 ```ini
 [Settings]
-Hotkey=^q                    ; 主快捷键 (Ctrl+Q)
-RunMode=0                    ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
+MainHotkey=^q                           ; 主快捷键 (Ctrl+Q)
+QuickSwitchHotkey=^Tab                  ; 快速切换最近两个窗口
+GetWindowsFolderActivePathKey=!w        ; 直接载入文件管理器路径
+EnableGetWindowsFolderActivePath=0      ; 0=关闭, 1=开启
+MenuCooldownMs=150                      ; 菜单触发节流窗口(毫秒)
+LogRetentionDays=7                      ; 日志保留天数(自动清理logs目录旧日志)
+RunMode=0                               ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
 ```
 
 #### [QuickLaunchApps] - 快速启动应用
 ```ini
 [QuickLaunchApps]
-MaxDisplayCount=2            ; 主菜单显示的最大应用数量
+MaxDisplayCount=3            ; 主菜单显示的最大应用数量
 App1=微信|WeChat.exe         ; 应用名称|进程名
 App2=Tim|Tim.exe
 App3=图片|Pixcall.exe
@@ -64,10 +69,10 @@ App3=图片|Pixcall.exe
 #### [Display] - 显示设置
 ```ini
 [Display]
-MenuColor=Default            ; 菜单颜色 (Default 或十六进制颜色)
+MenuColor=C0C59C             ; 菜单颜色 (十六进制颜色)
 IconSize=16                  ; 图标大小 (像素)
-MenuPosX=100                 ; 菜单X坐标
-MenuPosY=100                 ; 菜单Y坐标
+ShowWindowTitle=1            ; 显示窗口标题
+ShowProcessName=1            ; 显示进程名
 ```
 
 #### [Theme] - 主题设置
@@ -83,14 +88,19 @@ DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
 #### [Settings] - 基本设置
 ```ini
 [Settings]
-Hotkey=^q                    ; 主快捷键 (Ctrl+Q)
-RunMode=0                    ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
+MainHotkey=^q                           ; 主快捷键 (Ctrl+Q)
+QuickSwitchHotkey=^Tab                  ; 快速切换最近两个窗口
+GetWindowsFolderActivePathKey=!w        ; 直接载入文件管理器路径
+EnableGetWindowsFolderActivePath=0      ; 0=关闭, 1=开启
+MenuCooldownMs=150                      ; 菜单触发节流窗口(毫秒)
+LogRetentionDays=7                      ; 日志保留天数(自动清理logs目录旧日志)
+RunMode=0                               ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
 ```
 
 #### [QuickLaunchApps] - 快速启动应用
 ```ini
 [QuickLaunchApps]
-MaxDisplayCount=2            ; 主菜单显示的最大应用数量
+MaxDisplayCount=3            ; 主菜单显示的最大应用数量
 App1=微信|WeChat.exe         ; 应用名称|进程名
 App2=Tim|Tim.exe
 App3=图片|Pixcall.exe
@@ -99,10 +109,10 @@ App3=图片|Pixcall.exe
 #### [Display] - 显示设置
 ```ini
 [Display]
-MenuColor=Default            ; 菜单颜色 (Default 或十六进制颜色)
+MenuColor=C0C59C             ; 菜单颜色 (十六进制颜色)
 IconSize=16                  ; 图标大小 (像素)
-MenuPosX=100                 ; 菜单X坐标
-MenuPosY=100                 ; 菜单Y坐标
+ShowWindowTitle=1            ; 显示窗口标题
+ShowProcessName=1            ; 显示进程名
 ```
 
 #### [Theme] - 主题设置

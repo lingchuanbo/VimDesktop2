@@ -6,6 +6,8 @@
 ; 包含WindowsTheme库
 #Include "Lib/WindowsTheme.ahk"
 #Include "Lib/TrayIcon.ahk"
+#Include "Lib/UTF8Ini.ahk"
+#Include "Lib/ConfigSchema.ahk"
 ; 引入 UIA.ahk 库用于UI自动化检测
 #Include "../../Lib/UIA.ahk"
 
@@ -35,6 +37,26 @@ global g_ExcludedApps := []   ; 排除的应用程序
 global g_LastTwoWindows := [] ; 最近两个窗口
 global g_MenuItems := []      ; 菜单项数组
 global g_MenuActive := false
+global g_MenuLockToken := 0
+global g_MenuLockOwner := ""
+global g_LastMenuOpenTick := 0
+global g_MenuCooldownMs := 150
+global g_LastMenuLockRejectTick := 0
+global g_LastMenuLockRejectReason := ""
+global g_QuickLaunchCache := { enabled: true, maxDisplayCount: 2, apps: [] }
+global g_CustomPathsCache := { pinnedPaths: [], normalPaths: [] }
+global g_RecentPathsCache := []
+global g_AppExecutableCache := Map()
+global g_ProcessIconCache := Map()
+global g_RuntimeLookupMissCache := { appExe: Map(), processIcon: Map() }
+global g_RuntimeLookupMissCooldownMs := 5000
+global g_MenuPerfStats := Map()
+global g_MenuPerfLastSummaryTick := 0
+global g_MenuPerfSummaryIntervalMs := 120000
+global g_MenuPerfTopN := 5
+global g_MenuPerfMinSamples := 3
+global g_LogRetentionDays := 7
+global g_LastLogCleanupDate := ""
 global g_DarkMode := false    ; 主题状态
 global g_LogEnabled := false  ; 日志开关
 
@@ -213,6 +235,8 @@ InitializeConfig() {
 
 CreateDefaultIniFile() {
     try {
+        d := (section, key) => GetConfigDefault(section, key)
+
         ; 直接创建完整的配置文件内容
         configContent := "; QuickSwitch 配置文件`n"
             . "; 快速切换工具 - By BoBO`n"
@@ -220,6 +244,8 @@ CreateDefaultIniFile() {
             . "; QuickSwitchHotkey: 快速切换最近两个程序的快捷键`n"
             . "; GetWindowsFolderActivePathKey: 直接载入文件管理器路径的快捷键`n"
             . "; EnableGetWindowsFolderActivePath: 是否启用GetWindowsFolderActivePath功能 - 1=开启, 0=关闭`n"
+            . "; MenuCooldownMs: 菜单触发节流窗口（毫秒）`n"
+            . "; LogRetentionDays: 日志保留天数（自动清理logs目录中过期日志）`n"
             . "; MaxHistoryCount: 最大历史记录数量`n"
             . "; RunMode: 运行模式 - 0=全部运行(智能判断), 1=只运行路径跳转, 2=只运行程序切换`n"
             . "; ExcludedApps: 排除的程序列表`n"
@@ -233,43 +259,46 @@ CreateDefaultIniFile() {
             . "; 示例: Path2=文档|%USERPROFILE%\\Documents (普通路径)`n`n"
             . "; Position: mouse鼠标  fixed固定`n`n"
             . "[Settings]`n"
-            . "MainHotkey=^q`n"
-            . "QuickSwitchHotkey=^Tab`n"
-            . "GetWindowsFolderActivePathKey=!w`n"
-            . "EnableGetWindowsFolderActivePath=0`n"
-            . "MaxHistoryCount=10`n"
-            . "EnableQuickAccess=1`n"
-            . "QuickAccessKeys=123456789abcdefghijklmnopqrstuvwxyz`n"
-            . "RunMode=0`n`n"
+            . "MainHotkey=" . d("Settings", "MainHotkey") . "`n"
+            . "QuickSwitchHotkey=" . d("Settings", "QuickSwitchHotkey") . "`n"
+            . "GetWindowsFolderActivePathKey=" . d("Settings", "GetWindowsFolderActivePathKey") . "`n"
+            . "EnableGetWindowsFolderActivePath=" . d("Settings", "EnableGetWindowsFolderActivePath") . "`n"
+            . "MenuCooldownMs=" . d("Settings", "MenuCooldownMs") . "`n"
+            . "MaxHistoryCount=" . d("Settings", "MaxHistoryCount") . "`n"
+            . "EnableQuickAccess=" . d("Settings", "EnableQuickAccess") . "`n"
+            . "QuickAccessKeys=" . d("Settings", "QuickAccessKeys") . "`n"
+            . "RunMode=" . d("Settings", "RunMode") . "`n"
+            . "EnableLog=" . d("Settings", "EnableLog") . "`n"
+            . "LogRetentionDays=" . d("Settings", "LogRetentionDays") . "`n`n"
             . "[Display]`n"
-            . "MenuColor=C0C59C`n"
-            . "IconSize=16`n"
-            . "ShowWindowTitle=1`n"
-            . "ShowProcessName=1`n`n"
+            . "MenuColor=" . d("Display", "MenuColor") . "`n"
+            . "IconSize=" . d("Display", "IconSize") . "`n"
+            . "ShowWindowTitle=" . d("Display", "ShowWindowTitle") . "`n"
+            . "ShowProcessName=" . d("Display", "ShowProcessName") . "`n`n"
             . "[WindowSwitchMenu]`n"
-            . "Position=fixed`n"
-            . "FixedPosX=100`n"
-            . "FixedPosY=100`n`n"
+            . "Position=" . d("WindowSwitchMenu", "Position") . "`n"
+            . "FixedPosX=" . d("WindowSwitchMenu", "FixedPosX") . "`n"
+            . "FixedPosY=" . d("WindowSwitchMenu", "FixedPosY") . "`n`n"
             . "[PathSwitchMenu]`n"
-            . "Position=mouse`n"
-            . "FixedPosX=200`n"
-            . "FixedPosY=200`n`n"
+            . "Position=" . d("PathSwitchMenu", "Position") . "`n"
+            . "FixedPosX=" . d("PathSwitchMenu", "FixedPosX") . "`n"
+            . "FixedPosY=" . d("PathSwitchMenu", "FixedPosY") . "`n`n"
             . "[FileManagers]`n"
-            . "TotalCommander=1`n"
-            . "Explorer=1`n"
-            . "XYplorer=1`n"
-            . "DirectoryOpus=1`n`n"
+            . "TotalCommander=" . d("FileManagers", "TotalCommander") . "`n"
+            . "Explorer=" . d("FileManagers", "Explorer") . "`n"
+            . "XYplorer=" . d("FileManagers", "XYplorer") . "`n"
+            . "DirectoryOpus=" . d("FileManagers", "DirectoryOpus") . "`n`n"
             . "[CustomPaths]`n"
-            . "EnableCustomPaths=1`n"
-            . "MenuTitle=收藏路径`n"
-            . "ShowCustomName=0`n"
+            . "EnableCustomPaths=" . d("CustomPaths", "EnableCustomPaths") . "`n"
+            . "MenuTitle=" . d("CustomPaths", "MenuTitle") . "`n"
+            . "ShowCustomName=" . d("CustomPaths", "ShowCustomName") . "`n"
             . "Path1=桌面|%USERPROFILE%\\Desktop|1`n"
             . "Path2=文档|%USERPROFILE%\\Documents`n"
             . "Path3=下载|%USERPROFILE%\\Downloads`n`n"
             . "[RecentPaths]`n"
-            . "EnableRecentPaths=1`n"
-            . "MenuTitle=最近打开`n"
-            . "MaxRecentPaths=10`n`n"
+            . "EnableRecentPaths=" . d("RecentPaths", "EnableRecentPaths") . "`n"
+            . "MenuTitle=" . d("RecentPaths", "MenuTitle") . "`n"
+            . "MaxRecentPaths=" . d("RecentPaths", "MaxRecentPaths") . "`n`n"
             . "[ExcludedApps]`n"
             . "App1=explorer.exe`n"
             . "App2=dwm.exe`n"
@@ -278,13 +307,16 @@ CreateDefaultIniFile() {
             . "[PinnedApps]`n"
             . "App1=notepad.exe`n"
             . "App2=chrome.exe`n`n"
+            . "[QuickLaunchApps]`n"
+            . "EnableQuickLaunchApps=" . d("QuickLaunchApps", "EnableQuickLaunchApps") . "`n"
+            . "MaxDisplayCount=" . d("QuickLaunchApps", "MaxDisplayCount") . "`n`n"
             . "[TotalCommander]`n"
-            . "CopySrcPath=2029`n"
-            . "CopyTrgPath=2030`n`n"
+            . "CopySrcPath=" . d("TotalCommander", "CopySrcPath") . "`n"
+            . "CopyTrgPath=" . d("TotalCommander", "CopyTrgPath") . "`n`n"
             . "[Theme]`n"
-            . "DarkMode=0`n`n"
+            . "DarkMode=" . d("Theme", "DarkMode") . "`n`n"
             . "[FileDialog]`n"
-            . "DefaultAction=manual`n"
+            . "DefaultAction=" . d("FileDialog", "DefaultAction") . "`n"
 
         ; 删除现有文件并写入新内容
         if FileExist(g_Config.IniFile) {
@@ -299,162 +331,79 @@ CreateDefaultIniFile() {
     }
 }
 
-; ============================================================================
-; UTF-8兼容的INI文件读取函数
-; ============================================================================
-
-UTF8IniRead(iniFile, section, key, defaultValue := "") {
-    ; 读取整个INI文件内容（UTF-8编码）
-    iniContent := FileRead(iniFile, "UTF-8")
-
-    ; 查找指定section
-    sectionPattern := "\[" . section . "\][\s\S]*?(?=\n\[|\Z)"
-    if !RegExMatch(iniContent, sectionPattern, &sectionMatch) {
-        return defaultValue
-    }
-
-    ; 获取section内容字符串
-    sectionContent := sectionMatch[]
-
-    ; 在section中查找指定key
-    keyPattern := "^\s*" . key . "\s*=\s*(.*?)\s*$"
-    if RegExMatch(sectionContent, "m)" . keyPattern, &keyMatch) {
-        return keyMatch[1]
-    }
-
-    return defaultValue
-}
-
-UTF8IniWrite(value, iniFile, section, key) {
-    ; 读取整个INI文件内容（UTF-8编码）
-    iniContent := FileRead(iniFile, "UTF-8")
-
-    ; 构建新的键值对
-    newLine := key . "=" . value
-
-    ; 查找指定section
-    sectionPattern := "(\[" . section . "\][\s\S]*?)(?=\n\[|\Z)"
-    if RegExMatch(iniContent, sectionPattern, &sectionMatch) {
-        ; 获取section内容字符串
-        sectionContent := sectionMatch[]
-
-        ; 检查key是否已存在
-        keyPattern := "^\s*" . key . "\s*=.*$"
-        if RegExMatch(sectionContent, "m)" . keyPattern, &keyMatch) {
-            ; 替换现有的key
-            newSectionContent := RegExReplace(sectionContent, "m)^\s*" . key . "\s*=.*$", newLine)
-            newContent := RegExReplace(iniContent, sectionPattern, newSectionContent)
-        } else {
-            ; 在section末尾添加新的key
-            newSectionContent := sectionContent . "`n" . newLine
-            newContent := RegExReplace(iniContent, sectionPattern, newSectionContent)
-        }
-    } else {
-        ; section不存在，创建新的section
-        newContent := iniContent . "`n`n[" . section . "]`n" . newLine
-    }
-
-    ; 写入更新后的内容（UTF-8编码）
-    FileDelete(iniFile)
-    FileAppend(newContent, iniFile, "UTF-8")
-}
-
-; ============================================================================
-; UTF-8兼容的INI文件删除函数
-; ============================================================================
-
-UTF8IniDelete(iniFile, section, key := "") {
-    ; 读取整个INI文件内容（UTF-8编码）
-    iniContent := FileRead(iniFile, "UTF-8")
-
-    if (key = "") {
-        ; 删除整个section
-        sectionPattern := "\[" . section . "\][\s\S]*?(?=\n\[|\Z)"
-        newContent := RegExReplace(iniContent, sectionPattern, "")
-    } else {
-        ; 删除指定section中的指定key
-        sectionPattern := "(\[" . section . "\][\s\S]*?)(?=\n\[|\Z)"
-        if RegExMatch(iniContent, sectionPattern, &sectionMatch) {
-            ; 获取section内容字符串
-            sectionContent := sectionMatch[]
-
-            ; 删除指定的key
-            keyPattern := "^\s*" . key . "\s*=.*$\n?"
-            newSectionContent := RegExReplace(sectionContent, "m)" . keyPattern, "")
-
-            ; 替换回原内容
-            newContent := RegExReplace(iniContent, sectionPattern, newSectionContent)
-        } else {
-            ; section不存在，无需删除
-            return
-        }
-    }
-
-    ; 写入更新后的内容（UTF-8编码）
-    FileDelete(iniFile)
-    FileAppend(newContent, iniFile, "UTF-8")
+ReadConfigValue(section, key, fallback := "") {
+    global g_Config
+    defaultValue := GetConfigDefault(section, key, fallback)
+    return UTF8IniRead(g_Config.IniFile, section, key, defaultValue)
 }
 
 LoadConfiguration() {
-    global g_DarkMode
+    global g_DarkMode, g_MenuCooldownMs, g_LogRetentionDays
     ; 加载基本设置
-    g_Config.MainHotkey := UTF8IniRead(g_Config.IniFile, "Settings", "MainHotkey", "^q")
-    g_Config.QuickSwitchHotkey := UTF8IniRead(g_Config.IniFile, "Settings", "QuickSwitchHotkey", "^Tab")
-    g_Config.GetWindowsFolderActivePathKey := UTF8IniRead(g_Config.IniFile, "Settings", "GetWindowsFolderActivePathKey",
-        "!w")
-    g_Config.EnableGetWindowsFolderActivePath := UTF8IniRead(g_Config.IniFile, "Settings",
-        "EnableGetWindowsFolderActivePath", "1")
-    g_Config.MaxHistoryCount := Integer(UTF8IniRead(g_Config.IniFile, "Settings", "MaxHistoryCount", "10"))
-    g_Config.EnableQuickAccess := UTF8IniRead(g_Config.IniFile, "Settings", "EnableQuickAccess", "1")
-    g_Config.QuickAccessKeys := UTF8IniRead(g_Config.IniFile, "Settings", "QuickAccessKeys",
-        "123456789abcdefghijklmnopqrstuvwxyz")
-    g_Config.RunMode := Integer(UTF8IniRead(g_Config.IniFile, "Settings", "RunMode", "0"))
+    g_Config.MainHotkey := ReadConfigValue("Settings", "MainHotkey")
+    g_Config.QuickSwitchHotkey := ReadConfigValue("Settings", "QuickSwitchHotkey")
+    g_Config.GetWindowsFolderActivePathKey := ReadConfigValue("Settings", "GetWindowsFolderActivePathKey")
+    g_Config.EnableGetWindowsFolderActivePath := ReadConfigValue("Settings", "EnableGetWindowsFolderActivePath")
+    g_Config.MaxHistoryCount := Integer(ReadConfigValue("Settings", "MaxHistoryCount"))
+    g_Config.EnableQuickAccess := ReadConfigValue("Settings", "EnableQuickAccess")
+    g_Config.QuickAccessKeys := ReadConfigValue("Settings", "QuickAccessKeys")
+    g_Config.RunMode := Integer(ReadConfigValue("Settings", "RunMode"))
+    try {
+        g_Config.MenuCooldownMs := Integer(ReadConfigValue("Settings", "MenuCooldownMs"))
+    } catch {
+        g_Config.MenuCooldownMs := Integer(GetConfigDefault("Settings", "MenuCooldownMs", "150"))
+    }
 
     ; 加载显示设置
-    g_Config.MenuColor := UTF8IniRead(g_Config.IniFile, "Display", "MenuColor", "C0C59C")
-    g_Config.IconSize := Integer(UTF8IniRead(g_Config.IniFile, "Display", "IconSize", "16"))
-    g_Config.ShowWindowTitle := UTF8IniRead(g_Config.IniFile, "Display", "ShowWindowTitle", "1")
-    g_Config.ShowProcessName := UTF8IniRead(g_Config.IniFile, "Display", "ShowProcessName", "1")
+    g_Config.MenuColor := ReadConfigValue("Display", "MenuColor")
+    g_Config.IconSize := Integer(ReadConfigValue("Display", "IconSize"))
+    g_Config.ShowWindowTitle := ReadConfigValue("Display", "ShowWindowTitle")
+    g_Config.ShowProcessName := ReadConfigValue("Display", "ShowProcessName")
 
     ; 加载程序切换菜单位置设置
-    g_Config.WindowSwitchPosition := UTF8IniRead(g_Config.IniFile, "WindowSwitchMenu", "Position", "fixed")
-    g_Config.WindowSwitchPosX := Integer(UTF8IniRead(g_Config.IniFile, "WindowSwitchMenu", "FixedPosX", "100"))
-    g_Config.WindowSwitchPosY := Integer(UTF8IniRead(g_Config.IniFile, "WindowSwitchMenu", "FixedPosY", "100"))
+    g_Config.WindowSwitchPosition := ReadConfigValue("WindowSwitchMenu", "Position")
+    g_Config.WindowSwitchPosX := Integer(ReadConfigValue("WindowSwitchMenu", "FixedPosX"))
+    g_Config.WindowSwitchPosY := Integer(ReadConfigValue("WindowSwitchMenu", "FixedPosY"))
 
     ; 加载路径切换菜单位置设置
-    g_Config.PathSwitchPosition := UTF8IniRead(g_Config.IniFile, "PathSwitchMenu", "Position", "fixed")
-    g_Config.PathSwitchPosX := Integer(UTF8IniRead(g_Config.IniFile, "PathSwitchMenu", "FixedPosX", "200"))
-    g_Config.PathSwitchPosY := Integer(UTF8IniRead(g_Config.IniFile, "PathSwitchMenu", "FixedPosY", "200"))
+    g_Config.PathSwitchPosition := ReadConfigValue("PathSwitchMenu", "Position")
+    g_Config.PathSwitchPosX := Integer(ReadConfigValue("PathSwitchMenu", "FixedPosX"))
+    g_Config.PathSwitchPosY := Integer(ReadConfigValue("PathSwitchMenu", "FixedPosY"))
 
     ; 加载文件管理器设置
-    g_Config.SupportTC := UTF8IniRead(g_Config.IniFile, "FileManagers", "TotalCommander", "1")
-    g_Config.SupportExplorer := UTF8IniRead(g_Config.IniFile, "FileManagers", "Explorer", "1")
-    g_Config.SupportXY := UTF8IniRead(g_Config.IniFile, "FileManagers", "XYplorer", "1")
-    g_Config.SupportOpus := UTF8IniRead(g_Config.IniFile, "FileManagers", "DirectoryOpus", "1")
+    g_Config.SupportTC := ReadConfigValue("FileManagers", "TotalCommander")
+    g_Config.SupportExplorer := ReadConfigValue("FileManagers", "Explorer")
+    g_Config.SupportXY := ReadConfigValue("FileManagers", "XYplorer")
+    g_Config.SupportOpus := ReadConfigValue("FileManagers", "DirectoryOpus")
 
     ; 加载自定义路径设置
-    g_Config.EnableCustomPaths := UTF8IniRead(g_Config.IniFile, "CustomPaths", "EnableCustomPaths", "1")
-    g_Config.CustomPathsTitle := UTF8IniRead(g_Config.IniFile, "CustomPaths", "MenuTitle", "收藏路径")
-    g_Config.ShowCustomName := UTF8IniRead(g_Config.IniFile, "CustomPaths", "ShowCustomName", "0")
+    g_Config.EnableCustomPaths := ReadConfigValue("CustomPaths", "EnableCustomPaths")
+    g_Config.CustomPathsTitle := ReadConfigValue("CustomPaths", "MenuTitle")
+    g_Config.ShowCustomName := ReadConfigValue("CustomPaths", "ShowCustomName")
 
     ; 加载最近路径设置
-    g_Config.EnableRecentPaths := UTF8IniRead(g_Config.IniFile, "RecentPaths", "EnableRecentPaths", "1")
-    g_Config.RecentPathsTitle := UTF8IniRead(g_Config.IniFile, "RecentPaths", "MenuTitle", "最近打开")
-    g_Config.MaxRecentPaths := UTF8IniRead(g_Config.IniFile, "RecentPaths", "MaxRecentPaths", "10")
+    g_Config.EnableRecentPaths := ReadConfigValue("RecentPaths", "EnableRecentPaths")
+    g_Config.RecentPathsTitle := ReadConfigValue("RecentPaths", "MenuTitle")
+    g_Config.MaxRecentPaths := ReadConfigValue("RecentPaths", "MaxRecentPaths")
 
     ; Total Commander 消息代码
-    g_Config.TC_CopySrcPath := Integer(UTF8IniRead(g_Config.IniFile, "TotalCommander", "CopySrcPath", "2029"))
-    g_Config.TC_CopyTrgPath := Integer(UTF8IniRead(g_Config.IniFile, "TotalCommander", "CopyTrgPath", "2030"))
+    g_Config.TC_CopySrcPath := Integer(ReadConfigValue("TotalCommander", "CopySrcPath"))
+    g_Config.TC_CopyTrgPath := Integer(ReadConfigValue("TotalCommander", "CopyTrgPath"))
 
     ; 加载主题设置
-    g_DarkMode := UTF8IniRead(g_Config.IniFile, "Theme", "DarkMode", "0") = "1"
+    g_DarkMode := ReadConfigValue("Theme", "DarkMode") = "1"
 
     ; 加载文件对话框默认行为设置
-    g_Config.FileDialogDefaultAction := UTF8IniRead(g_Config.IniFile, "FileDialog", "DefaultAction", "manual")
+    g_Config.FileDialogDefaultAction := ReadConfigValue("FileDialog", "DefaultAction")
 
     ; 加载日志设置
-    g_Config.EnableLog := UTF8IniRead(g_Config.IniFile, "Settings", "EnableLog", "0")
+    g_Config.EnableLog := ReadConfigValue("Settings", "EnableLog")
     global g_LogEnabled := g_Config.EnableLog = "1"
+    try {
+        g_Config.LogRetentionDays := Integer(ReadConfigValue("Settings", "LogRetentionDays"))
+    } catch {
+        g_Config.LogRetentionDays := Integer(GetConfigDefault("Settings", "LogRetentionDays", "7"))
+    }
 
     ; 应用主题设置
     WindowsTheme.SetAppMode(g_DarkMode)
@@ -481,10 +430,14 @@ LoadConfiguration() {
 
     ; 验证关键配置是否正确加载
     ValidateConfiguration()
+    g_LogRetentionDays := g_Config.LogRetentionDays
+    ResetRuntimeLookupCaches()
+    RefreshMenuCaches()
 }
 
 ; 验证配置是否正确加载
 ValidateConfiguration() {
+    global g_MenuCooldownMs, g_LogRetentionDays
     ; 检查关键配置项是否正确加载
     configErrors := []
 
@@ -512,10 +465,21 @@ ValidateConfiguration() {
         g_Config.IconSize := 16  ; 使用默认值
     }
 
+    if (g_Config.MenuCooldownMs < 50 || g_Config.MenuCooldownMs > 1000) {
+        configErrors.Push("MenuCooldownMs配置错误（允许范围: 50-1000）")
+        g_Config.MenuCooldownMs := Integer(GetConfigDefault("Settings", "MenuCooldownMs", "150"))
+    }
+
+    if (g_Config.LogRetentionDays < 1 || g_Config.LogRetentionDays > 365) {
+        configErrors.Push("LogRetentionDays配置错误（允许范围: 1-365）")
+        g_Config.LogRetentionDays := Integer(GetConfigDefault("Settings", "LogRetentionDays", "7"))
+    }
+
     ; 检查开关配置
     if (g_Config.EnableGetWindowsFolderActivePath != "0" && g_Config.EnableGetWindowsFolderActivePath != "1") {
         configErrors.Push("EnableGetWindowsFolderActivePath开关配置错误")
-        g_Config.EnableGetWindowsFolderActivePath := "1"  ; 使用默认值
+        g_Config.EnableGetWindowsFolderActivePath := GetConfigDefault("Settings", "EnableGetWindowsFolderActivePath",
+            "0")
     }
 
     ; 如果有配置错误，显示警告
@@ -527,6 +491,158 @@ ValidateConfiguration() {
         errorMsg .= "`n已使用默认值修复。建议检查配置文件。"
         MsgBox(errorMsg, "配置验证警告", "Icon! T10")
     }
+
+    g_MenuCooldownMs := g_Config.MenuCooldownMs
+    g_LogRetentionDays := g_Config.LogRetentionDays
+}
+
+RefreshMenuCaches() {
+    LoadQuickLaunchCache()
+    LoadCustomPathsCache()
+    LoadRecentPathsCache()
+}
+
+ResetRuntimeLookupCaches() {
+    global g_AppExecutableCache, g_ProcessIconCache, g_RuntimeLookupMissCache
+
+    g_AppExecutableCache := Map()
+    g_ProcessIconCache := Map()
+    g_RuntimeLookupMissCache := { appExe: Map(), processIcon: Map() }
+}
+
+LoadQuickLaunchCache() {
+    global g_QuickLaunchCache
+
+    section := "QuickLaunchApps"
+    enabled := true
+    maxDisplayCount := 2
+    appList := []
+
+    try {
+        enabled := Integer(UTF8IniRead(g_Config.IniFile, section, "EnableQuickLaunchApps", "1")) = 1
+    } catch {
+        enabled := true
+    }
+
+    try {
+        maxDisplayCount := Integer(UTF8IniRead(g_Config.IniFile, section, "MaxDisplayCount", "2"))
+    } catch {
+        maxDisplayCount := 2
+    }
+    if (maxDisplayCount < 0) {
+        maxDisplayCount := 0
+    }
+
+    loop {
+        appIndex := A_Index
+        appConfig := UTF8IniRead(g_Config.IniFile, section, "App" . appIndex, "")
+        if (appConfig = "") {
+            break
+        }
+
+        parts := StrSplit(appConfig, "|")
+        if (parts.Length >= 2) {
+            appList.Push({
+                displayName: parts[1],
+                processName: parts[2],
+                exePath: parts.Length >= 3 ? parts[3] : "",
+                hotkey: parts.Length >= 4 ? parts[4] : ""
+            })
+        }
+    }
+
+    g_QuickLaunchCache := {
+        enabled: enabled,
+        maxDisplayCount: maxDisplayCount,
+        apps: appList
+    }
+}
+
+LoadCustomPathsCache() {
+    global g_CustomPathsCache
+
+    showCustomName := g_Config.ShowCustomName = "1"
+    pinnedPaths := []
+    normalPaths := []
+
+    loop 20 {
+        pathKey := "Path" . A_Index
+        pathValue := UTF8IniRead(g_Config.IniFile, "CustomPaths", pathKey, "")
+        if (pathValue = "") {
+            continue
+        }
+
+        displayName := ""
+        actualPath := ""
+        isPinned := false
+
+        if InStr(pathValue, "|") {
+            parts := StrSplit(pathValue, "|", " `t")
+            if (parts.Length >= 2) {
+                displayName := parts[1]
+                actualPath := parts[2]
+                if (parts.Length >= 3 && Trim(parts[3]) = "1") {
+                    isPinned := true
+                }
+            } else {
+                displayName := pathValue
+                actualPath := pathValue
+            }
+        } else {
+            SplitPath(pathValue, &folderName)
+            displayName := folderName != "" ? folderName : pathValue
+            actualPath := pathValue
+        }
+
+        expandedPath := ExpandEnvironmentVariables(actualPath)
+        if !IsValidFolder(expandedPath) {
+            continue
+        }
+
+        finalDisplayText := showCustomName ? displayName : expandedPath
+        pathObj := { display: finalDisplayText, path: expandedPath, isPinned: isPinned }
+
+        if (isPinned) {
+            pinnedPaths.Push(pathObj)
+        } else {
+            normalPaths.Push(pathObj)
+        }
+    }
+
+    g_CustomPathsCache := {
+        pinnedPaths: pinnedPaths,
+        normalPaths: normalPaths
+    }
+}
+
+LoadRecentPathsCache() {
+    global g_RecentPathsCache
+
+    recentPaths := []
+    maxPaths := Integer(g_Config.MaxRecentPaths)
+    if (maxPaths <= 0) {
+        maxPaths := 1
+    }
+
+    loop maxPaths {
+        recentValue := UTF8IniRead(g_Config.IniFile, "RecentPaths", "Recent" . A_Index, "")
+        if (recentValue = "") {
+            continue
+        }
+
+        if InStr(recentValue, "|") {
+            parts := StrSplit(recentValue, "|", " `t")
+            pathValue := parts.Length >= 2 ? parts[2] : recentValue
+        } else {
+            pathValue := recentValue
+        }
+
+        if IsValidFolder(pathValue) {
+            recentPaths.Push(pathValue)
+        }
+    }
+
+    g_RecentPathsCache := recentPaths
 }
 ;============================================================================
 ; 热键注册
@@ -582,14 +698,86 @@ LogMessage(message, level := "INFO") {
     }
     
     try {
-        timestamp := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
-        logEntry := timestamp . " [" . level . "] " . message
-        
-        ; 写入日志文件
-        logFile := A_ScriptDir . "\\QuickSwitch.log"
-        FileAppend(logEntry . "`n", logFile, "UTF-8")
+        AppendDailyLog("QuickSwitch", level, message)
     } catch {
         ; 日志写入失败时静默处理
+    }
+}
+
+LogPerfSummary(message, level := "INFO") {
+    global g_LogEnabled
+
+    if (!g_LogEnabled) {
+        return
+    }
+
+    try {
+        AppendDailyLog("QuickSwitchPerf", level, message)
+    } catch {
+        ; 性能日志写入失败时静默处理
+    }
+}
+
+AppendDailyLog(logPrefix, level, message) {
+    EnsureDailyLogCleanup()
+    logFile := GetDailyLogFilePath(logPrefix)
+    timestamp := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+
+    for line in StrSplit(message, "`n") {
+        if (line = "") {
+            continue
+        }
+        logEntry := timestamp . " [" . level . "] " . line
+        FileAppend(logEntry . "`n", logFile, "UTF-8")
+    }
+}
+
+GetDailyLogFilePath(logPrefix) {
+    logDir := A_ScriptDir . "\\logs"
+    if !DirExist(logDir) {
+        DirCreate(logDir)
+    }
+
+    dateText := FormatTime(A_Now, "yyyy-MM-dd")
+    return logDir . "\\" . logPrefix . "_" . dateText . ".log"
+}
+
+EnsureDailyLogCleanup() {
+    global g_LogEnabled, g_LastLogCleanupDate
+
+    if (!g_LogEnabled) {
+        return
+    }
+
+    today := FormatTime(A_Now, "yyyy-MM-dd")
+    if (g_LastLogCleanupDate = today) {
+        return
+    }
+
+    CleanupExpiredLogFiles()
+    g_LastLogCleanupDate := today
+}
+
+CleanupExpiredLogFiles() {
+    global g_LogRetentionDays
+
+    logDir := A_ScriptDir . "\\logs"
+    if !DirExist(logDir) {
+        return
+    }
+
+    retentionDays := g_LogRetentionDays
+    if (retentionDays < 1) {
+        retentionDays := 1
+    }
+
+    cutoffTime := DateAdd(A_Now, -retentionDays, "Days")
+    Loop Files, logDir . "\\QuickSwitch*.log" {
+        try {
+            if (A_LoopFileTimeModified < cutoffTime) {
+                FileDelete(A_LoopFileFullPath)
+            }
+        }
     }
 }
 
@@ -611,7 +799,7 @@ LogPathExtraction(winID, method, path, success := true) {
         
         LogMessage(message, "DEBUG")
     } catch {
-        ; 日志记录失败时静默处理
+        ; 日志写入失败时静默处理
     }
 }
 
@@ -644,7 +832,10 @@ CreateTrayMenu() {
 
     ; 添加主要功能菜单项
     A_TrayMenu.Add("设置", OpenConfigFile)
-    ; A_TrayMenu.Add()  ; 分隔符
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("输出性能摘要", DumpMenuPerfSummaryFromTray)
+    A_TrayMenu.Add("清空性能统计", ResetMenuPerfStatsFromTray)
+    A_TrayMenu.Add()
     A_TrayMenu.Add("关于", ShowAboutFromTray)
     A_TrayMenu.Add("重启", RestartApplication)
     A_TrayMenu.Add("退出", ExitApplication)
@@ -738,13 +929,290 @@ ExitApplication(*) {
     }
 }
 
+DumpMenuPerfSummaryFromTray(*) {
+    global g_MenuPerfMinSamples, g_MenuPerfTopN, g_LogEnabled
+    summary := BuildMenuPerfSummaryText(g_MenuPerfMinSamples, g_MenuPerfTopN)
+    if (summary = "") {
+        MsgBox("暂无性能统计样本。请先触发几次菜单后再查看。", "性能统计", "T3")
+        return
+    }
+
+    if (g_LogEnabled) {
+        LogPerfSummary(summary, "INFO")
+    }
+    MsgBox(summary, "菜单性能摘要", "T8")
+}
+
+ResetMenuPerfStatsFromTray(*) {
+    global g_LogEnabled
+    ResetMenuPerfStats()
+    if (g_LogEnabled) {
+        LogMessage("菜单性能统计已手动清空", "INFO")
+    }
+    MsgBox("菜单性能统计已清空。", "性能统计", "T2")
+}
+
+LogMenuBuildElapsed(menuName, startTick, itemCount := 0) {
+    global g_LogEnabled
+    elapsedMs := A_TickCount - startTick
+    if (!g_LogEnabled) {
+        return
+    }
+
+    UpdateMenuPerfStats(menuName, "__TOTAL__", elapsedMs, itemCount)
+    MaybeLogMenuPerfSummary()
+
+    level := elapsedMs >= 150 ? "WARN" : "DEBUG"
+    LogMessage("菜单构建耗时: " . menuName . ", elapsed=" . elapsedMs . "ms, items=" . itemCount, level)
+}
+
+LogMenuStageElapsed(menuName, stageName, &stageTick, totalStartTick, itemCount := -1) {
+    global g_LogEnabled
+    nowTick := A_TickCount
+
+    if (!g_LogEnabled) {
+        stageTick := nowTick
+        return
+    }
+
+    deltaMs := nowTick - stageTick
+    totalMs := nowTick - totalStartTick
+    UpdateMenuPerfStats(menuName, stageName, deltaMs, itemCount)
+
+    level := deltaMs >= 120 ? "WARN" : "DEBUG"
+
+    message := "菜单阶段耗时: " . menuName . ", stage=" . stageName . ", delta=" . deltaMs . "ms, total=" . totalMs . "ms"
+    if (itemCount >= 0) {
+        message .= ", items=" . itemCount
+    }
+
+    LogMessage(message, level)
+    stageTick := nowTick
+}
+
+ResetMenuPerfStats() {
+    global g_MenuPerfStats, g_MenuPerfLastSummaryTick
+    g_MenuPerfStats := Map()
+    g_MenuPerfLastSummaryTick := 0
+}
+
+UpdateMenuPerfStats(menuName, stageName, elapsedMs, itemCount := -1) {
+    global g_MenuPerfStats
+
+    statKey := menuName . "|" . stageName
+    if (!g_MenuPerfStats.Has(statKey)) {
+        g_MenuPerfStats[statKey] := {
+            menu: menuName,
+            stage: stageName,
+            count: 0,
+            total: 0,
+            max: 0,
+            last: 0,
+            itemTotal: 0,
+            itemSamples: 0
+        }
+    }
+
+    stat := g_MenuPerfStats[statKey]
+    stat.count += 1
+    stat.total += elapsedMs
+    stat.last := elapsedMs
+    if (elapsedMs > stat.max) {
+        stat.max := elapsedMs
+    }
+    if (itemCount >= 0) {
+        stat.itemTotal += itemCount
+        stat.itemSamples += 1
+    }
+}
+
+GetTopMenuPerfEntries(entries, topN) {
+    topEntries := []
+    if (topN <= 0) {
+        return topEntries
+    }
+
+    for entry in entries {
+        inserted := false
+        loop topEntries.Length {
+            if (entry.score > topEntries[A_Index].score) {
+                topEntries.InsertAt(A_Index, entry)
+                inserted := true
+                break
+            }
+        }
+
+        if (!inserted) {
+            topEntries.Push(entry)
+        }
+
+        while (topEntries.Length > topN) {
+            topEntries.Pop()
+        }
+    }
+
+    return topEntries
+}
+
+BuildMenuPerfSummaryText(minSamples := 3, topN := 5) {
+    global g_MenuPerfStats
+
+    if (minSamples < 1) {
+        minSamples := 1
+    }
+    if (topN < 1) {
+        topN := 1
+    }
+
+    entries := []
+    for statKey, stat in g_MenuPerfStats {
+        if (stat.count < minSamples) {
+            continue
+        }
+
+        avgMs := stat.total / stat.count
+        entries.Push({
+            menu: stat.menu,
+            stage: stat.stage,
+            count: stat.count,
+            avg: Round(avgMs, 1),
+            max: stat.max,
+            last: stat.last,
+            avgItems: stat.itemSamples > 0 ? Round(stat.itemTotal / stat.itemSamples, 1) : -1,
+            score: avgMs + (stat.max * 0.2)
+        })
+    }
+
+    if (entries.Length = 0) {
+        return ""
+    }
+
+    finalTopN := Min(entries.Length, topN)
+    topEntries := GetTopMenuPerfEntries(entries, finalTopN)
+    if (topEntries.Length = 0) {
+        return ""
+    }
+
+    summary := "菜单性能Top" . topEntries.Length . "慢段统计`n"
+    for entry in topEntries {
+        line := "- " . entry.menu . "/" . entry.stage
+            . " avg=" . entry.avg . "ms"
+            . " max=" . entry.max . "ms"
+            . " count=" . entry.count
+            . " last=" . entry.last . "ms"
+        if (entry.avgItems >= 0) {
+            line .= " avgItems=" . entry.avgItems
+        }
+        summary .= line . "`n"
+    }
+
+    return RTrim(summary, "`n")
+}
+
+MaybeLogMenuPerfSummary(force := false) {
+    global g_LogEnabled, g_MenuPerfStats, g_MenuPerfLastSummaryTick
+    global g_MenuPerfSummaryIntervalMs, g_MenuPerfTopN, g_MenuPerfMinSamples
+
+    if (!g_LogEnabled) {
+        return
+    }
+
+    nowTick := A_TickCount
+    if (!force && g_MenuPerfLastSummaryTick != 0
+        && (nowTick - g_MenuPerfLastSummaryTick) < g_MenuPerfSummaryIntervalMs) {
+        return
+    }
+
+    summary := BuildMenuPerfSummaryText(g_MenuPerfMinSamples, g_MenuPerfTopN)
+    if (summary = "") {
+        g_MenuPerfLastSummaryTick := nowTick
+        return
+    }
+
+    LogPerfSummary(summary, "INFO")
+    g_MenuPerfLastSummaryTick := nowTick
+}
+
+TryAcquireMenuLock(owner := "") {
+    global g_MenuActive, g_MenuLockToken, g_MenuLockOwner, g_LastMenuOpenTick
+    static nextToken := 0
+
+    if (g_MenuActive) {
+        ReportMenuLockReject("active:" . g_MenuLockOwner, owner)
+        return 0
+    }
+
+    if (IsMenuRequestThrottled()) {
+        ReportMenuLockReject("throttled", owner)
+        return 0
+    }
+
+    nextToken += 1
+    if (nextToken > 0x7FFFFFFF) {
+        nextToken := 1
+    }
+
+    g_MenuActive := true
+    g_MenuLockToken := nextToken
+    g_MenuLockOwner := owner
+    g_LastMenuOpenTick := A_TickCount
+    LogMessage("菜单锁获取: owner=" . owner . ", token=" . nextToken, "DEBUG")
+    return nextToken
+}
+
+ReleaseMenuLock(lockToken := 0) {
+    global g_MenuActive, g_MenuLockToken, g_MenuLockOwner
+
+    if (lockToken != 0 && lockToken != g_MenuLockToken) {
+        LogMessage("忽略过期菜单解锁: token=" . lockToken . ", current=" . g_MenuLockToken, "DEBUG")
+        return
+    }
+
+    if (g_MenuActive) {
+        LogMessage("菜单锁释放: owner=" . g_MenuLockOwner . ", token=" . g_MenuLockToken, "DEBUG")
+    }
+
+    g_MenuActive := false
+    g_MenuLockToken := 0
+    g_MenuLockOwner := ""
+}
+
+ScheduleMenuUnlock(lockToken, delayMs := 150) {
+    if (delayMs <= 0) {
+        ReleaseMenuLock(lockToken)
+        return
+    }
+    SetTimer(ReleaseMenuLock.Bind(lockToken), -delayMs)
+}
+
+IsMenuRequestThrottled() {
+    global g_LastMenuOpenTick, g_MenuCooldownMs
+    if (g_LastMenuOpenTick = 0) {
+        return false
+    }
+    return (A_TickCount - g_LastMenuOpenTick) < g_MenuCooldownMs
+}
+
+ReportMenuLockReject(reason, owner := "") {
+    global g_LastMenuLockRejectTick, g_LastMenuLockRejectReason
+
+    nowTick := A_TickCount
+    if (reason = g_LastMenuLockRejectReason && (nowTick - g_LastMenuLockRejectTick) < 500) {
+        return
+    }
+
+    g_LastMenuLockRejectReason := reason
+    g_LastMenuLockRejectTick := nowTick
+    LogMessage("菜单锁拒绝: reason=" . reason . ", owner=" . owner, "DEBUG")
+}
+
 ; ============================================================================
 ; 智能菜单显示
 ; ============================================================================
 
 ShowSmartMenu(*) {
     ; 如果菜单已经激活，则不重复显示
-    if (g_MenuActive) {
+    if (g_MenuActive || IsMenuRequestThrottled()) {
         return
     }
 
@@ -998,136 +1466,122 @@ UpdateLastTwoWindows(currentWindow) {
 }
 
 ShowWindowSwitchMenu(*) {
-    global g_MenuItems, g_MenuActive
-
-    g_MenuActive := true
+    global g_MenuItems
+    lockToken := TryAcquireMenuLock("WindowSwitch")
+    if (!lockToken) {
+        return
+    }
     g_MenuItems := []
+    startTick := A_TickCount
+    stageTick := startTick
 
-    ; 创建上下文菜单
-    contextMenu := Menu()
-    contextMenu.Add("QuickSwitch - 程序切换", (*) => "")
-    contextMenu.Default := "QuickSwitch - 程序切换"
-    contextMenu.Disable("QuickSwitch - 程序切换")
+    try {
+        windowSnapshot := WinGetList()
+        LogMenuStageElapsed("WindowSwitch", "snapshot", &stageTick, startTick, g_MenuItems.Length)
+        PrewarmProcessIconCacheFromWindows(windowSnapshot)
+        LogMenuStageElapsed("WindowSwitch", "prewarm_icon_cache", &stageTick, startTick, g_MenuItems.Length)
 
-    hasMenuItems := false
+        ; 创建上下文菜单
+        contextMenu := Menu()
+        contextMenu.Add("QuickSwitch - 程序切换", (*) => "")
+        contextMenu.Default := "QuickSwitch - 程序切换"
+        contextMenu.Disable("QuickSwitch - 程序切换")
 
-    ; 添加置顶程序
-    hasMenuItems := AddPinnedWindows(contextMenu) || hasMenuItems
+        hasMenuItems := false
 
-    ; 添加分隔符
-    if (hasMenuItems) {
-        contextMenu.Add()
-    }
+        ; 添加置顶程序
+        hasMenuItems := AddPinnedWindows(contextMenu, windowSnapshot) || hasMenuItems
+        LogMenuStageElapsed("WindowSwitch", "add_pinned", &stageTick, startTick, g_MenuItems.Length)
 
-    ; 添加历史窗口
-    hasMenuItems := AddHistoryWindows(contextMenu) || hasMenuItems
-
-    ; 添加分隔符
-    if (hasMenuItems) {
-        contextMenu.Add()
-    }
-
-    ; 添加快速启动应用程序按钮
-    quickLaunchAdded := AddQuickLaunchApps(contextMenu)
-
-    ; 添加设置菜单
-    if (quickLaunchAdded) {
-        contextMenu.Add()
-    }
-    AddWindowSettingsMenu(contextMenu)
-
-    ; 配置菜单外观
-    contextMenu.Color := g_Config.MenuColor
-
-    ; 根据配置显示菜单 - 程序切换菜单
-    if (g_Config.WindowSwitchPosition = "mouse") {
-        ; 在鼠标位置显示
-        MouseGetPos(&mouseX, &mouseY)
-        try {
-            contextMenu.Show(mouseX, mouseY)
-        } catch {
-            contextMenu.Show(100, 100)
+        ; 添加分隔符
+        if (hasMenuItems) {
+            contextMenu.Add()
         }
-    } else {
-        ; 在固定位置显示
-        try {
-            contextMenu.Show(g_Config.WindowSwitchPosX, g_Config.WindowSwitchPosY)
-        } catch {
-            contextMenu.Show(100, 100)
-        }
-    }
 
-    SetTimer(() => g_MenuActive := false, -200)
+        ; 添加历史窗口
+        hasMenuItems := AddHistoryWindows(contextMenu, windowSnapshot) || hasMenuItems
+        LogMenuStageElapsed("WindowSwitch", "add_history", &stageTick, startTick, g_MenuItems.Length)
+
+        ; 添加分隔符
+        if (hasMenuItems) {
+            contextMenu.Add()
+        }
+
+        ; 添加快速启动应用程序按钮
+        quickLaunchAdded := AddQuickLaunchApps(contextMenu)
+        LogMenuStageElapsed("WindowSwitch", "add_quick_launch", &stageTick, startTick, g_MenuItems.Length)
+
+        ; 添加设置菜单
+        if (quickLaunchAdded) {
+            contextMenu.Add()
+        }
+        AddWindowSettingsMenu(contextMenu, windowSnapshot)
+        LogMenuStageElapsed("WindowSwitch", "add_settings", &stageTick, startTick, g_MenuItems.Length)
+
+        ; 配置菜单外观
+        contextMenu.Color := g_Config.MenuColor
+
+        ; 根据配置显示菜单 - 程序切换菜单
+        if (g_Config.WindowSwitchPosition = "mouse") {
+            ; 在鼠标位置显示
+            MouseGetPos(&mouseX, &mouseY)
+            try {
+                contextMenu.Show(mouseX, mouseY)
+            } catch {
+                contextMenu.Show(100, 100)
+            }
+        } else {
+            ; 在固定位置显示
+            try {
+                contextMenu.Show(g_Config.WindowSwitchPosX, g_Config.WindowSwitchPosY)
+            } catch {
+                contextMenu.Show(100, 100)
+            }
+        }
+        LogMenuStageElapsed("WindowSwitch", "menu_show", &stageTick, startTick, g_MenuItems.Length)
+    } finally {
+        LogMenuBuildElapsed("WindowSwitch", startTick, g_MenuItems.Length)
+        ScheduleMenuUnlock(lockToken, 150)
+    }
 }
 
 
 
 AddQuickLaunchApps(contextMenu) {
-    ; 从配置文件中读取快速启动应用程序列表
     added := false
-    
-    ; 读取QuickLaunchApps配置段
-    section := "QuickLaunchApps"
-    
-    ; 检查是否启用快速启动应用程序功能
-    enableQuickLaunchApps := Integer(UTF8IniRead(g_Config.IniFile, section, "EnableQuickLaunchApps", "1"))
-    if (enableQuickLaunchApps != 1) {
+    cache := g_QuickLaunchCache
+
+    if (!cache.enabled) {
         return false
     }
-    
-    ; 读取最大显示数量配置
-    maxDisplayCount := Integer(UTF8IniRead(g_Config.IniFile, section, "MaxDisplayCount", "2"))
-    
-    ; 获取所有配置项
-    appCount := 0
-    appList := []
-    loop {
-        appCount++
-        appConfig := UTF8IniRead(g_Config.IniFile, section, "App" . appCount, "")
-        if (appConfig = "") {
-            break
-        }
-        
-        ; 解析配置格式: 显示名称|进程名|可执行文件路径(可选)|快捷键(可选)
-        parts := StrSplit(appConfig, "|")
-        if (parts.Length >= 2) {
-            displayName := parts[1]
-            processName := parts[2]
-            exePath := parts.Length >= 3 ? parts[3] : ""
-            appHotkey := parts.Length >= 4 ? parts[4] : ""
-            
-            ; 添加到应用程序列表
-            appList.Push({
-                displayName: displayName,
-                processName: processName,
-                exePath: exePath,
-                hotkey: appHotkey
-            })
-        }
+
+    appList := cache.apps
+    if (appList.Length = 0) {
+        return false
     }
-    
+
+    maxDisplayCount := cache.maxDisplayCount
+    displayCount := Min(appList.Length, maxDisplayCount)
+
     ; 分级显示应用程序
-    if (appList.Length > 0) {
-        ; 显示前maxDisplayCount个应用程序
-        loop Min(appList.Length, maxDisplayCount) {
-            app := appList[A_Index]
-            if (AddQuickLaunchApp(contextMenu, app.displayName, app.processName, app.exePath, app.hotkey)) {
-                added := true
-            }
-        }
-        
-        ; 如果还有更多应用程序，添加到"更多"子菜单
-        if (appList.Length > maxDisplayCount) {
-            moreMenu := Menu()
-            loop (appList.Length - maxDisplayCount) {
-                app := appList[maxDisplayCount + A_Index]
-                AddQuickLaunchApp(moreMenu, app.displayName, app.processName, app.exePath, app.hotkey)
-            }
-            contextMenu.Add("更多", moreMenu)
+    loop displayCount {
+        app := appList[A_Index]
+        if (AddQuickLaunchApp(contextMenu, app.displayName, app.processName, app.exePath, app.hotkey)) {
             added := true
         }
     }
-    
+
+    ; 如果还有更多应用程序，添加到"更多"子菜单
+    if (appList.Length > displayCount) {
+        moreMenu := Menu()
+        loop (appList.Length - displayCount) {
+            app := appList[displayCount + A_Index]
+            AddQuickLaunchApp(moreMenu, app.displayName, app.processName, app.exePath, app.hotkey)
+        }
+        contextMenu.Add("更多", moreMenu)
+        added := true
+    }
+
     return added
 }
 
@@ -1305,13 +1759,42 @@ IsWeChatActive() {
 }
 
 FindAppExecutable(processName) {
+    global g_AppExecutableCache, g_RuntimeLookupMissCache, g_RuntimeLookupMissCooldownMs
+
     ; 根据进程名查找可执行文件路径
-    
+    processKey := StrLower(Trim(processName))
+    if (processKey = "") {
+        return ""
+    }
+
+    appMissCache := g_RuntimeLookupMissCache.appExe
+    if (appMissCache.Has(processKey)) {
+        if ((A_TickCount - appMissCache[processKey]) < g_RuntimeLookupMissCooldownMs) {
+            return ""
+        }
+        appMissCache.Delete(processKey)
+    }
+
+    if (g_AppExecutableCache.Has(processKey)) {
+        cachedPath := g_AppExecutableCache[processKey]
+        if (cachedPath != "" && FileExist(cachedPath)) {
+            return cachedPath
+        }
+        g_AppExecutableCache.Delete(processKey)
+    }
+
     ; 首先尝试通过进程列表查找
     try {
-        for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" . processName . "'")
+        for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" . processKey . "'")
         {
-            return process.ExecutablePath
+            exePath := process.ExecutablePath
+            if (exePath != "" && FileExist(exePath)) {
+                g_AppExecutableCache[processKey] := exePath
+                if (appMissCache.Has(processKey)) {
+                    appMissCache.Delete(processKey)
+                }
+                return exePath
+            }
         }
     } catch {
         ; 如果WMI查询失败，使用其他方法
@@ -1322,6 +1805,10 @@ FindAppExecutable(processName) {
     
     for path in appPaths {
         if (FileExist(path)) {
+            g_AppExecutableCache[processKey] := path
+            if (appMissCache.Has(processKey)) {
+                appMissCache.Delete(processKey)
+            }
             return path
         }
     }
@@ -1334,6 +1821,10 @@ FindAppExecutable(processName) {
             appPath := RegRead(regPath[1], regPath[2])
             if (appPath != "") {
                 if (FileExist(appPath)) {
+                    g_AppExecutableCache[processKey] := appPath
+                    if (appMissCache.Has(processKey)) {
+                        appMissCache.Delete(processKey)
+                    }
                     return appPath
                 }
             }
@@ -1342,15 +1833,17 @@ FindAppExecutable(processName) {
         }
     }
     
+    appMissCache[processKey] := A_TickCount
     return ""
 }
 
 GetCommonAppPaths(processName) {
     ; 返回常见应用程序的默认安装路径
     paths := []
+    processKey := StrLower(Trim(processName))
     
     ; 微信相关路径
-    if (processName = "WeChat.exe" || processName = "Weixin.exe") {
+    if (processKey = "wechat.exe" || processKey = "weixin.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\WeChat\\WeChat.exe")
         paths.Push(A_ProgramFiles " (x86)\\Tencent\\WeChat\\WeChat.exe")
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\WeChat\\WeChat.exe")
@@ -1358,27 +1851,27 @@ GetCommonAppPaths(processName) {
     }
     
     ; Tim相关路径
-    if (processName = "Tim.exe") {
+    if (processKey = "tim.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\Tim\\Bin\\Tim.exe")
         paths.Push(A_ProgramFiles " (x86)\\Tencent\\Tim\\Bin\\Tim.exe")
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\Tim\\Bin\\Tim.exe")
     }
     
     ; QQ相关路径
-    if (processName = "QQ.exe") {
+    if (processKey = "qq.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\QQ\\Bin\\QQ.exe")
         paths.Push(A_ProgramFiles " (x86)\\Tencent\\QQ\\Bin\\QQ.exe")
     }
     
     ; 钉钉相关路径
-    if (processName = "DingTalk.exe") {
+    if (processKey = "dingtalk.exe") {
         paths.Push(A_ProgramFiles "\\DingDing\\DingTalkLauncher.exe")
         paths.Push(A_ProgramFiles " (x86)\\DingDing\\DingTalkLauncher.exe")
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\DingTalk\\DingTalk.exe")
     }
     
     ; 企业微信相关路径
-    if (processName = "WXWork.exe") {
+    if (processKey = "wxwork.exe") {
         paths.Push(A_ProgramFiles "\\WXWork\\WXWork.exe")
         paths.Push(A_ProgramFiles " (x86)\\WXWork\\WXWork.exe")
     }
@@ -1391,33 +1884,34 @@ GetCommonAppPaths(processName) {
 GetRegistryAppPaths(processName) {
     ; 返回注册表查找路径
     registryPaths := []
+    processKey := StrLower(Trim(processName))
     
     ; 微信注册表路径
-    if (processName = "WeChat.exe" || processName = "Weixin.exe") {
+    if (processKey = "wechat.exe" || processKey = "weixin.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WeChat", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WeChat", "InstallPath"])
     }
     
     ; Tim注册表路径
-    if (processName = "Tim.exe") {
+    if (processKey = "tim.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\Tim", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\Tim", "InstallPath"])
     }
     
     ; QQ注册表路径
-    if (processName = "QQ.exe") {
+    if (processKey = "qq.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\QQ", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\QQ", "InstallPath"])
     }
     
     ; 钉钉注册表路径
-    if (processName = "DingTalk.exe") {
+    if (processKey = "dingtalk.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\DingTalk", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\DingTalk", "InstallPath"])
     }
     
     ; 企业微信注册表路径
-    if (processName = "WXWork.exe") {
+    if (processKey = "wxwork.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WXWork", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WXWork", "InstallPath"])
     }
@@ -1425,9 +1919,11 @@ GetRegistryAppPaths(processName) {
     return registryPaths
 }
 
-AddPinnedWindows(contextMenu) {
+AddPinnedWindows(contextMenu, allWindows := "") {
     added := false
-    allWindows := WinGetList()
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
 
     for winID in allWindows {
         try {
@@ -1437,7 +1933,7 @@ AddPinnedWindows(contextMenu) {
             if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
                 displayText := CreateDisplayText(winTitle, processName)
                 AddWindowMenuItemWithQuickAccess(contextMenu, displayText, WindowChoiceHandler.Bind(winID), processName,
-                true)
+                true, allWindows)
                 added := true
             }
         } catch {
@@ -1448,7 +1944,7 @@ AddPinnedWindows(contextMenu) {
     return added
 }
 
-AddHistoryWindows(contextMenu) {
+AddHistoryWindows(contextMenu, allWindows := "") {
     added := false
 
     for windowInfo in g_WindowHistory {
@@ -1463,7 +1959,7 @@ AddHistoryWindows(contextMenu) {
 
             displayText := CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
             AddWindowMenuItemWithQuickAccess(contextMenu, displayText, WindowChoiceHandler.Bind(windowInfo.ID),
-            windowInfo.ProcessName)
+            windowInfo.ProcessName, false, allWindows)
             added := true
 
         } catch {
@@ -1474,7 +1970,11 @@ AddHistoryWindows(contextMenu) {
     return added
 }
 
-AddWindowSettingsMenu(contextMenu) {
+AddWindowSettingsMenu(contextMenu, allWindows := "") {
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
+
     settingsMenu := Menu()
 
     ; 添加运行模式子菜单
@@ -1520,21 +2020,21 @@ AddWindowSettingsMenu(contextMenu) {
 
             displayText := CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
 
-            ; 添加到关闭菜单
-            closeMenu.Add(displayText, CloseAppHandler.Bind(windowInfo.ProcessName, windowInfo.ID))
-            try {
-                closeMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName), , g_Config.IconSize)
-            }
-            closeMenuAdded := true
+                ; 添加到关闭菜单
+                closeMenu.Add(displayText, CloseAppHandler.Bind(windowInfo.ProcessName, windowInfo.ID))
+                try {
+                    closeMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
+                }
+                closeMenuAdded := true
 
             ; 如果不是置顶程序，添加到置顶菜单
-            if (!IsPinnedApp(windowInfo.ProcessName)) {
-                pinnedMenu.Add(displayText, AddToPinnedHandler.Bind(windowInfo.ProcessName))
-                try {
-                    pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName), , g_Config.IconSize)
+                if (!IsPinnedApp(windowInfo.ProcessName)) {
+                    pinnedMenu.Add(displayText, AddToPinnedHandler.Bind(windowInfo.ProcessName))
+                    try {
+                        pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
+                    }
+                    pinnedMenuAdded := true
                 }
-                pinnedMenuAdded := true
-            }
 
         } catch {
             continue
@@ -1542,7 +2042,6 @@ AddWindowSettingsMenu(contextMenu) {
     }
 
     ; 然后遍历所有窗口查找置顶的程序（用于取消置顶）
-    allWindows := WinGetList()
     for winID in allWindows {
         try {
             if (!WinExist("ahk_id " . winID)) {
@@ -1559,7 +2058,7 @@ AddWindowSettingsMenu(contextMenu) {
                 ; 添加到取消置顶菜单
                 unpinnedMenu.Add(displayText, RemoveFromPinnedHandler.Bind(processName))
                 try {
-                    unpinnedMenu.SetIcon(displayText, GetProcessIcon(processName), , g_Config.IconSize)
+                    unpinnedMenu.SetIcon(displayText, GetProcessIcon(processName, allWindows), , g_Config.IconSize)
                 }
                 unpinnedMenuAdded := true
             }
@@ -1599,7 +2098,7 @@ AddWindowSettingsMenu(contextMenu) {
     contextMenu.Add("设置", settingsMenu)
 }
 
-AddWindowMenuItemWithQuickAccess(contextMenu, displayText, handler, processName, isPinned := false) {
+AddWindowMenuItemWithQuickAccess(contextMenu, displayText, handler, processName, isPinned := false, allWindows := "") {
     g_MenuItems.Push({ Handler: handler, Text: displayText })
 
     finalDisplayText := displayText
@@ -1615,7 +2114,7 @@ AddWindowMenuItemWithQuickAccess(contextMenu, displayText, handler, processName,
     contextMenu.Add(finalDisplayText, handler)
 
     try {
-        iconPath := GetProcessIcon(processName)
+        iconPath := GetProcessIcon(processName, allWindows)
         contextMenu.SetIcon(finalDisplayText, iconPath, , g_Config.IconSize)
     }
 }
@@ -1646,19 +2145,80 @@ CreateDisplayText(winTitle, processName) {
     return displayText
 }
 
-GetProcessIcon(processName) {
+PrewarmProcessIconCacheFromWindows(allWindows) {
+    global g_ProcessIconCache
+
+    if !IsObject(allWindows) {
+        return
+    }
+
+    for winID in allWindows {
+        try {
+            processName := WinGetProcessName("ahk_id " . winID)
+            processKey := StrLower(Trim(processName))
+            if (processKey = "" || g_ProcessIconCache.Has(processKey)) {
+                continue
+            }
+
+            pid := WinGetPID("ahk_id " . winID)
+            iconPath := GetModuleFileName(pid)
+            if (iconPath != "" && FileExist(iconPath)) {
+                g_ProcessIconCache[processKey] := iconPath
+            }
+        } catch {
+            continue
+        }
+    }
+}
+
+GetProcessIcon(processName, allWindows := "") {
+    global g_ProcessIconCache, g_RuntimeLookupMissCache, g_RuntimeLookupMissCooldownMs
+
+    processKey := StrLower(Trim(processName))
+    if (processKey = "") {
+        return "shell32.dll"
+    }
+
+    iconMissCache := g_RuntimeLookupMissCache.processIcon
+    if (iconMissCache.Has(processKey)) {
+        if ((A_TickCount - iconMissCache[processKey]) < g_RuntimeLookupMissCooldownMs) {
+            return "shell32.dll"
+        }
+        iconMissCache.Delete(processKey)
+    }
+
+    if (processKey != "" && g_ProcessIconCache.Has(processKey)) {
+        cachedIconPath := g_ProcessIconCache[processKey]
+        if (cachedIconPath != "" && FileExist(cachedIconPath)) {
+            return cachedIconPath
+        }
+        g_ProcessIconCache.Delete(processKey)
+    }
+
+    windowsToScan := allWindows
+    if !IsObject(windowsToScan) {
+        windowsToScan := WinGetList()
+    }
+
     try {
-        allWindows := WinGetList()
-        for winID in allWindows {
+        for winID in windowsToScan {
             try {
-                if (WinGetProcessName("ahk_id " . winID) = processName) {
+                if (StrLower(WinGetProcessName("ahk_id " . winID)) = processKey) {
                     pid := WinGetPID("ahk_id " . winID)
-                    return GetModuleFileName(pid)
+                    iconPath := GetModuleFileName(pid)
+                    if (processKey != "" && iconPath != "" && FileExist(iconPath)) {
+                        g_ProcessIconCache[processKey] := iconPath
+                        if (iconMissCache.Has(processKey)) {
+                            iconMissCache.Delete(processKey)
+                        }
+                    }
+                    return iconPath
                 }
             }
         }
     }
 
+    iconMissCache[processKey] := A_TickCount
     return "shell32.dll"
 }
 
@@ -1689,9 +2249,7 @@ QuickSwitchLastTwo(*) {
 }
 
 WindowChoiceHandler(winID, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try {
         WinActivate("ahk_id " . winID)
@@ -1707,9 +2265,7 @@ WindowChoiceHandler(winID, *) {
 }
 
 CloseAppHandler(processName, winID, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try {
         WinClose("ahk_id " . winID)
@@ -1853,75 +2409,95 @@ ShowFileDialogMenu(winID) {
 }
 
 ShowFileDialogMenuInternal() {
-    global g_MenuItems, g_MenuActive
+    global g_MenuItems
 
     ; 双重检查：如果菜单已经激活，则不重复显示
     if (g_MenuActive) {
         return
     }
 
-    g_MenuActive := true
+    lockToken := TryAcquireMenuLock("FileDialog")
+    if (!lockToken) {
+        return
+    }
     g_MenuItems := []
+    startTick := A_TickCount
+    stageTick := startTick
 
-    contextMenu := Menu()
-    contextMenu.Add("QuickSwitch - 路径切换", (*) => "")
-    contextMenu.Default := "QuickSwitch - 路径切换"
-    contextMenu.Disable("QuickSwitch - 路径切换")
+    try {
+        fileManagerWindows := WinGetList()
+        LogMenuStageElapsed("FileDialog", "snapshot", &stageTick, startTick, g_MenuItems.Length)
 
-    hasMenuItems := false
+        contextMenu := Menu()
+        contextMenu.Add("QuickSwitch - 路径切换", (*) => "")
+        contextMenu.Default := "QuickSwitch - 路径切换"
+        contextMenu.Disable("QuickSwitch - 路径切换")
 
-    ; 扫描文件管理器窗口
-    if g_Config.SupportTC = "1" {
-        hasMenuItems := AddTotalCommanderFolders(contextMenu) || hasMenuItems
-    }
-    if g_Config.SupportExplorer = "1" {
-        hasMenuItems := AddExplorerFolders(contextMenu) || hasMenuItems
-    }
-    if g_Config.SupportXY = "1" {
-        hasMenuItems := AddXYplorerFolders(contextMenu) || hasMenuItems
-    }
-    if g_Config.SupportOpus = "1" {
-        hasMenuItems := AddOpusFolders(contextMenu) || hasMenuItems
-    }
+        hasMenuItems := false
 
-    ; 添加自定义路径
-    if g_Config.EnableCustomPaths = "1" {
-        hasMenuItems := AddCustomPaths(contextMenu) || hasMenuItems
-    }
-
-    ; 添加最近路径
-    if g_Config.EnableRecentPaths = "1" {
-        hasMenuItems := AddRecentPaths(contextMenu) || hasMenuItems
-    }
-
-    ; 添加发送到文件管理器选项
-    AddSendToFileManagerMenu(contextMenu)
-
-    ; 添加设置菜单
-    AddFileDialogSettingsMenu(contextMenu)
-
-    ; 配置菜单外观
-    contextMenu.Color := g_Config.MenuColor
-
-    ; 根据配置显示菜单 - 路径切换菜单
-    if (g_Config.PathSwitchPosition = "mouse") {
-        ; 在鼠标位置显示
-        MouseGetPos(&mouseX, &mouseY)
-        try {
-            contextMenu.Show(mouseX, mouseY)
-        } catch {
-            contextMenu.Show(200, 200)
+        ; 扫描文件管理器窗口
+        if g_Config.SupportTC = "1" {
+            hasMenuItems := AddTotalCommanderFolders(contextMenu, fileManagerWindows) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "scan_tc", &stageTick, startTick, g_MenuItems.Length)
         }
-    } else {
-        ; 在固定位置显示
-        try {
-            contextMenu.Show(g_Config.PathSwitchPosX, g_Config.PathSwitchPosY)
-        } catch {
-            contextMenu.Show(200, 200)
+        if g_Config.SupportExplorer = "1" {
+            hasMenuItems := AddExplorerFolders(contextMenu, fileManagerWindows) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "scan_explorer", &stageTick, startTick, g_MenuItems.Length)
         }
-    }
+        if g_Config.SupportXY = "1" {
+            hasMenuItems := AddXYplorerFolders(contextMenu, fileManagerWindows) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "scan_xyplorer", &stageTick, startTick, g_MenuItems.Length)
+        }
+        if g_Config.SupportOpus = "1" {
+            hasMenuItems := AddOpusFolders(contextMenu, fileManagerWindows) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "scan_opus", &stageTick, startTick, g_MenuItems.Length)
+        }
 
-    SetTimer(() => g_MenuActive := false, -200)
+        ; 添加自定义路径
+        if g_Config.EnableCustomPaths = "1" {
+            hasMenuItems := AddCustomPaths(contextMenu) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "add_custom_paths", &stageTick, startTick, g_MenuItems.Length)
+        }
+
+        ; 添加最近路径
+        if g_Config.EnableRecentPaths = "1" {
+            hasMenuItems := AddRecentPaths(contextMenu) || hasMenuItems
+            LogMenuStageElapsed("FileDialog", "add_recent_paths", &stageTick, startTick, g_MenuItems.Length)
+        }
+
+        ; 添加发送到文件管理器选项
+        AddSendToFileManagerMenu(contextMenu)
+        LogMenuStageElapsed("FileDialog", "add_send_to", &stageTick, startTick, g_MenuItems.Length)
+
+        ; 添加设置菜单
+        AddFileDialogSettingsMenu(contextMenu)
+        LogMenuStageElapsed("FileDialog", "add_settings", &stageTick, startTick, g_MenuItems.Length)
+
+        ; 配置菜单外观
+        contextMenu.Color := g_Config.MenuColor
+
+        ; 根据配置显示菜单 - 路径切换菜单
+        if (g_Config.PathSwitchPosition = "mouse") {
+            ; 在鼠标位置显示
+            MouseGetPos(&mouseX, &mouseY)
+            try {
+                contextMenu.Show(mouseX, mouseY)
+            } catch {
+                contextMenu.Show(200, 200)
+            }
+        } else {
+            ; 在固定位置显示
+            try {
+                contextMenu.Show(g_Config.PathSwitchPosX, g_Config.PathSwitchPosY)
+            } catch {
+                contextMenu.Show(200, 200)
+            }
+        }
+        LogMenuStageElapsed("FileDialog", "menu_show", &stageTick, startTick, g_MenuItems.Length)
+    } finally {
+        LogMenuBuildElapsed("FileDialog", startTick, g_MenuItems.Length)
+        ScheduleMenuUnlock(lockToken, 150)
+    }
 }
 
 DetectFileDialog(winID) {
@@ -2354,65 +2930,13 @@ FeedDialogSysListView(winID, folderPath) {
 AddCustomPaths(contextMenu) {
     added := false
     customPathsMenu := Menu()  ; 普通路径的子菜单
-    customPaths := []
-    pinnedPaths := []  ; 置顶路径列表
-    normalPaths := []  ; 普通路径列表
-
-    ; 读取显示模式设置
-    showCustomName := UTF8IniRead(g_Config.IniFile, "CustomPaths", "ShowCustomName", "0") = "1"
-
-    ; 解析所有自定义路径
-    loop 20 {
-        pathKey := "Path" . A_Index
-        pathValue := UTF8IniRead(g_Config.IniFile, "CustomPaths", pathKey, "")
-
-        if (pathValue != "") {
-            displayName := ""
-            actualPath := ""
-            isPinned := false
-
-            if InStr(pathValue, "|") {
-                parts := StrSplit(pathValue, "|", " `t")
-                if (parts.Length >= 2) {
-                    displayName := parts[1]
-                    actualPath := parts[2]
-
-                    ; 检查是否有第三个参数表示置顶 (|1)
-                    if (parts.Length >= 3 && Trim(parts[3]) = "1") {
-                        isPinned := true
-                    }
-                } else {
-                    displayName := pathValue
-                    actualPath := pathValue
-                }
-            } else {
-                SplitPath(pathValue, &folderName)
-                displayName := folderName != "" ? folderName : pathValue
-                actualPath := pathValue
-            }
-
-            expandedPath := ExpandEnvironmentVariables(actualPath)
-
-            if IsValidFolder(expandedPath) {
-                ; 决定显示的文本：根据开关决定显示自定义名称还是完整路径
-                finalDisplayText := showCustomName ? displayName : expandedPath
-
-                pathObj := { display: finalDisplayText, path: expandedPath, isPinned: isPinned }
-
-                ; 根据是否置顶分类存储
-                if (isPinned) {
-                    pinnedPaths.Push(pathObj)
-                } else {
-                    normalPaths.Push(pathObj)
-                }
-                added := true
-            }
-        }
-    }
+    pinnedPaths := g_CustomPathsCache.pinnedPaths
+    normalPaths := g_CustomPathsCache.normalPaths
 
     ; 如果有任何自定义路径，添加分割线
     if (pinnedPaths.Length > 0 || normalPaths.Length > 0) {
         contextMenu.Add()
+        added := true
     }
 
     ; 先添加置顶路径到主菜单（在分割线下面，与收藏路径一起）
@@ -2442,31 +2966,7 @@ AddCustomPaths(contextMenu) {
 AddRecentPaths(contextMenu) {
     added := false
     recentPathsMenu := Menu()
-    recentPaths := []
-    maxPaths := Integer(g_Config.MaxRecentPaths)
-
-    loop maxPaths {
-        recentKey := "Recent" . A_Index
-        recentValue := UTF8IniRead(g_Config.IniFile, "RecentPaths", recentKey, "")
-
-        if (recentValue != "") {
-            if InStr(recentValue, "|") {
-                parts := StrSplit(recentValue, "|", " `t")
-                if (parts.Length >= 2) {
-                    pathValue := parts[2]
-                } else {
-                    pathValue := recentValue
-                }
-            } else {
-                pathValue := recentValue
-            }
-
-            if IsValidFolder(pathValue) {
-                recentPaths.Push(pathValue)
-                added := true
-            }
-        }
-    }
+    recentPaths := g_RecentPathsCache
 
     if (recentPaths.Length > 0) {
         for pathValue in recentPaths {
@@ -2477,6 +2977,7 @@ AddRecentPaths(contextMenu) {
         contextMenu.Add()
         contextMenu.Add(g_Config.RecentPathsTitle, recentPathsMenu)
         try contextMenu.SetIcon(g_Config.RecentPathsTitle, "shell32.dll", 269, g_Config.IconSize)
+        added := true
     }
 
     return added
@@ -2542,9 +3043,7 @@ AddFileMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconInde
 }
 
 FolderChoiceHandler(folderPath, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
@@ -2553,9 +3052,7 @@ FolderChoiceHandler(folderPath, *) {
 }
 
 RecentPathChoiceHandler(folderPath, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
@@ -2564,9 +3061,7 @@ RecentPathChoiceHandler(folderPath, *) {
 }
 
 AutoSwitchHandler(*) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     UTF8IniWrite("1", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "1"
@@ -2617,36 +3112,28 @@ GetWindowsFolderActivePath(*) {
 }
 
 NotNowHandler(*) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try UTF8IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := ""
 }
 
 AutoMenuHandler(*) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     UTF8IniWrite("2", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "2"
 }
 
 ManualHandler(*) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try UTF8IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := ""
 }
 
 NeverHandler(*) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     UTF8IniWrite("0", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
     g_CurrentDialog.Action := "0"
@@ -2698,9 +3185,7 @@ GetCurrentDialogPath() {
 }
 
 SendToTCHandler(dialogPath, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try {
         tcWindow := WinExist("ahk_class TTOTAL_CMD")
@@ -2726,9 +3211,7 @@ SendToTCHandler(dialogPath, *) {
 }
 
 SendToExplorerHandler(dialogPath, *) {
-    global g_MenuActive
-    ; 立即重置菜单状态
-    g_MenuActive := false
+    ReleaseMenuLock()
 
     try {
         Run("explorer.exe `"" . dialogPath . "`"")
@@ -2785,14 +3268,18 @@ RecordRecentPath(folderPath) {
         try UTF8IniDelete(g_Config.IniFile, "RecentPaths", "Recent" . entryIndex)
         entryIndex++
     }
+
+    LoadRecentPathsCache()
 }
 ; ============================================================================
 ; 文件对话框菜单功能
 ; ============================================================================
 
-AddTotalCommanderFolders(contextMenu) {
+AddTotalCommanderFolders(contextMenu, allWindows := "") {
     added := false
-    allWindows := WinGetList()
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
 
     for winID in allWindows {
         try {
@@ -2830,9 +3317,11 @@ AddTotalCommanderFolders(contextMenu) {
     return added
 }
 
-AddExplorerFolders(contextMenu) {
+AddExplorerFolders(contextMenu, allWindows := "") {
     added := false
-    allWindows := WinGetList()
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
 
     for winID in allWindows {
         try {
@@ -2853,9 +3342,11 @@ AddExplorerFolders(contextMenu) {
     return added
 }
 
-AddXYplorerFolders(contextMenu) {
+AddXYplorerFolders(contextMenu, allWindows := "") {
     added := false
-    allWindows := WinGetList()
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
 
     for winID in allWindows {
         try {
@@ -2891,9 +3382,11 @@ AddXYplorerFolders(contextMenu) {
     return added
 }
 
-AddOpusFolders(contextMenu) {
+AddOpusFolders(contextMenu, allWindows := "") {
     added := false
-    allWindows := WinGetList()
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
 
     for winID in allWindows {
         try {
@@ -3186,7 +3679,7 @@ MonitorFileDialogs() {
     static dialogProcessed := false
 
     ; 如果菜单正在显示，暂停监控
-    if (g_MenuActive) {
+    if (g_MenuActive || IsMenuRequestThrottled()) {
         return
     }
 
@@ -3273,20 +3766,23 @@ ProcessFileDialog() {
     } else if (g_CurrentDialog.Action = "2") {
         ; 自动弹出菜单模式
         ; 延迟一点时间确保对话框完全加载
-        SetTimer(DelayedShowMenu, -200)
+        SetTimer(DelayedShowMenu.Bind(g_CurrentDialog.WinID), -200)
     } else {
         ; Show menu mode - 不自动显示菜单，等待用户按热键
     }
 }
 
-DelayedShowMenu() {
+DelayedShowMenu(expectedWinID) {
+    if (expectedWinID != g_CurrentDialog.WinID) {
+        return
+    }
     if (g_CurrentDialog.WinID != "" && WinExist("ahk_id " . g_CurrentDialog.WinID)) {
         ShowFileDialogMenuInternal()
     }
 }
 
 CleanupFileDialogGlobals() {
-    global g_CurrentDialog, g_MenuItems, g_MenuActive
+    global g_CurrentDialog, g_MenuItems
 
     ; 重置全局变量
     g_CurrentDialog.WinID := ""
@@ -3294,7 +3790,7 @@ CleanupFileDialogGlobals() {
     g_CurrentDialog.FingerPrint := ""
     g_CurrentDialog.Action := ""
     g_MenuItems := []
-    g_MenuActive := false
+    ReleaseMenuLock()
 }
 
 ; 使用Accessibility API获取鼠标下的对象名称

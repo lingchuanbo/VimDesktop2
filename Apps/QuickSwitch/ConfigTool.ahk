@@ -9,6 +9,7 @@ global MyGui := ""
 global Data := Map()
 
 #Include lib\UTF8Ini.ahk
+#Include lib\ConfigSchema.ahk
 
 Main()
 
@@ -17,41 +18,69 @@ Main() {
     CreateGUI()
 }
 
+ReadConfigValue(section, key, fallback := "") {
+    global IniFile
+    defaultValue := GetConfigDefault(section, key, fallback)
+    return UTF8IniRead(IniFile, section, key, defaultValue)
+}
+
+ReadConfigInt(section, key, min := "", max := "") {
+    defaultValue := GetConfigDefault(section, key, "0")
+    value := ReadConfigValue(section, key, defaultValue)
+    try {
+        number := Integer(value)
+    } catch {
+        number := Integer(defaultValue)
+    }
+
+    if (min != "" && number < min) {
+        number := min
+    }
+    if (max != "" && number > max) {
+        number := max
+    }
+    return number
+}
+
+ReadConfigBool(section, key) {
+    return ReadConfigInt(section, key, 0, 1)
+}
+
 ReadAllConfig() {
     global Data
-    Data["MainHotkey"] := UTF8IniRead(IniFile, "Settings", "MainHotkey", "^q")
-    Data["QuickSwitchHotkey"] := UTF8IniRead(IniFile, "Settings", "QuickSwitchHotkey", "^Tab")
-    Data["GetWindowsFolderActivePathKey"] := UTF8IniRead(IniFile, "Settings", "GetWindowsFolderActivePathKey", "!w")
-    Data["EnableGetWindowsFolderActivePath"] := UTF8IniRead(IniFile, "Settings", "EnableGetWindowsFolderActivePath", "0")
-    Data["MaxHistoryCount"] := UTF8IniRead(IniFile, "Settings", "MaxHistoryCount", "10")
-    Data["EnableQuickAccess"] := UTF8IniRead(IniFile, "Settings", "EnableQuickAccess", "1")
-    Data["QuickAccessKeys"] := UTF8IniRead(IniFile, "Settings", "QuickAccessKeys", "123456789abcdefghijklmnopqrstuvwxyz")
-    Data["RunMode"] := UTF8IniRead(IniFile, "Settings", "RunMode", "0")
-    Data["MenuColor"] := UTF8IniRead(IniFile, "Display", "MenuColor", "C0C59C")
-    Data["IconSize"] := UTF8IniRead(IniFile, "Display", "IconSize", "16")
-    Data["ShowWindowTitle"] := UTF8IniRead(IniFile, "Display", "ShowWindowTitle", "1")
-    Data["ShowProcessName"] := UTF8IniRead(IniFile, "Display", "ShowProcessName", "1")
-    Data["WindowSwitchPosition"] := UTF8IniRead(IniFile, "WindowSwitchMenu", "Position", "mouse")
-    Data["WindowSwitchFixedPosX"] := UTF8IniRead(IniFile, "WindowSwitchMenu", "FixedPosX", "100")
-    Data["WindowSwitchFixedPosY"] := UTF8IniRead(IniFile, "WindowSwitchMenu", "FixedPosY", "100")
-    Data["PathSwitchPosition"] := UTF8IniRead(IniFile, "PathSwitchMenu", "Position", "fixed")
-    Data["PathSwitchFixedPosX"] := UTF8IniRead(IniFile, "PathSwitchMenu", "FixedPosX", "100")
-    Data["PathSwitchFixedPosY"] := UTF8IniRead(IniFile, "PathSwitchMenu", "FixedPosY", "100")
-    Data["TotalCommander"] := UTF8IniRead(IniFile, "FileManagers", "TotalCommander", "1")
-    Data["Explorer"] := UTF8IniRead(IniFile, "FileManagers", "Explorer", "1")
-    Data["XYplorer"] := UTF8IniRead(IniFile, "FileManagers", "XYplorer", "1")
-    Data["DirectoryOpus"] := UTF8IniRead(IniFile, "FileManagers", "DirectoryOpus", "1")
-    Data["EnableCustomPaths"] := UTF8IniRead(IniFile, "CustomPaths", "EnableCustomPaths", "1")
-    Data["CustomPathsMenuTitle"] := UTF8IniRead(IniFile, "CustomPaths", "MenuTitle", "收藏路径")
-    Data["ShowCustomName"] := UTF8IniRead(IniFile, "CustomPaths", "ShowCustomName", "0")
-    Data["EnableRecentPaths"] := UTF8IniRead(IniFile, "RecentPaths", "EnableRecentPaths", "1")
-    Data["RecentPathsMenuTitle"] := UTF8IniRead(IniFile, "RecentPaths", "MenuTitle", "最近打开")
-    Data["MaxRecentPaths"] := UTF8IniRead(IniFile, "RecentPaths", "MaxRecentPaths", "10")
-    Data["EnableQuickLaunchApps"] := UTF8IniRead(IniFile, "QuickLaunchApps", "EnableQuickLaunchApps", "1")
-    Data["MaxDisplayCount"] := UTF8IniRead(IniFile, "QuickLaunchApps", "MaxDisplayCount", "3")
-    
-    ; [Theme]
-    Data["DarkMode"] := UTF8IniRead(IniFile, "Theme", "DarkMode", "0")
+    Data["MainHotkey"] := ReadConfigValue("Settings", "MainHotkey")
+    Data["QuickSwitchHotkey"] := ReadConfigValue("Settings", "QuickSwitchHotkey")
+    Data["GetWindowsFolderActivePathKey"] := ReadConfigValue("Settings", "GetWindowsFolderActivePathKey")
+    Data["EnableGetWindowsFolderActivePath"] := ReadConfigBool("Settings", "EnableGetWindowsFolderActivePath")
+    Data["MenuCooldownMs"] := ReadConfigInt("Settings", "MenuCooldownMs", 50, 1000)
+    Data["MaxHistoryCount"] := ReadConfigInt("Settings", "MaxHistoryCount", 1, 50)
+    Data["EnableQuickAccess"] := ReadConfigBool("Settings", "EnableQuickAccess")
+    Data["QuickAccessKeys"] := ReadConfigValue("Settings", "QuickAccessKeys")
+    Data["RunMode"] := ReadConfigInt("Settings", "RunMode", 0, 2)
+    Data["LogRetentionDays"] := ReadConfigInt("Settings", "LogRetentionDays", 1, 365)
+    Data["MenuColor"] := ReadConfigValue("Display", "MenuColor")
+    Data["IconSize"] := ReadConfigInt("Display", "IconSize", 8, 64)
+    Data["ShowWindowTitle"] := ReadConfigBool("Display", "ShowWindowTitle")
+    Data["ShowProcessName"] := ReadConfigBool("Display", "ShowProcessName")
+    Data["WindowSwitchPosition"] := ReadConfigValue("WindowSwitchMenu", "Position")
+    Data["WindowSwitchFixedPosX"] := ReadConfigInt("WindowSwitchMenu", "FixedPosX", -32768, 32767)
+    Data["WindowSwitchFixedPosY"] := ReadConfigInt("WindowSwitchMenu", "FixedPosY", -32768, 32767)
+    Data["PathSwitchPosition"] := ReadConfigValue("PathSwitchMenu", "Position")
+    Data["PathSwitchFixedPosX"] := ReadConfigInt("PathSwitchMenu", "FixedPosX", -32768, 32767)
+    Data["PathSwitchFixedPosY"] := ReadConfigInt("PathSwitchMenu", "FixedPosY", -32768, 32767)
+    Data["TotalCommander"] := ReadConfigBool("FileManagers", "TotalCommander")
+    Data["Explorer"] := ReadConfigBool("FileManagers", "Explorer")
+    Data["XYplorer"] := ReadConfigBool("FileManagers", "XYplorer")
+    Data["DirectoryOpus"] := ReadConfigBool("FileManagers", "DirectoryOpus")
+    Data["EnableCustomPaths"] := ReadConfigBool("CustomPaths", "EnableCustomPaths")
+    Data["CustomPathsMenuTitle"] := ReadConfigValue("CustomPaths", "MenuTitle")
+    Data["ShowCustomName"] := ReadConfigBool("CustomPaths", "ShowCustomName")
+    Data["EnableRecentPaths"] := ReadConfigBool("RecentPaths", "EnableRecentPaths")
+    Data["RecentPathsMenuTitle"] := ReadConfigValue("RecentPaths", "MenuTitle")
+    Data["MaxRecentPaths"] := ReadConfigInt("RecentPaths", "MaxRecentPaths", 1, 50)
+    Data["EnableQuickLaunchApps"] := ReadConfigBool("QuickLaunchApps", "EnableQuickLaunchApps")
+    Data["MaxDisplayCount"] := ReadConfigInt("QuickLaunchApps", "MaxDisplayCount", 1, 20)
+    Data["DarkMode"] := ReadConfigBool("Theme", "DarkMode")
 }
 
 CreateGUI() {
@@ -90,6 +119,9 @@ CreateBasicTab(Tab) {
     MyGui.Add("Text", "x400 y180", "最大历史记录数:")
     Data["MaxHistoryCountCtrl"] := MyGui.Add("Edit", "x550 y175 w80", Data["MaxHistoryCount"])
     MyGui.Add("UpDown", "Range1-50", Data["MaxHistoryCount"])
+    MyGui.Add("Text", "x400 y205", "菜单节流(ms):")
+    Data["MenuCooldownMsCtrl"] := MyGui.Add("Edit", "x550 y200 w80", Data["MenuCooldownMs"])
+    MyGui.Add("UpDown", "Range50-1000", Data["MenuCooldownMs"])
     
     ; 主题设置
     MyGui.Add("GroupBox", "x390 y230 w360 h80", "主题设置")
@@ -98,6 +130,9 @@ CreateBasicTab(Tab) {
     MyGui.Add("GroupBox", "x20 y230 w730 h80", "快速访问键")
     MyGui.Add("Text", "x30 y255", "快速访问键序列:")
     Data["QuickAccessKeysCtrl"] := MyGui.Add("Edit", "x30 y275 w710", Data["QuickAccessKeys"])
+    MyGui.Add("Text", "x540 y255", "日志保留(天):")
+    Data["LogRetentionDaysCtrl"] := MyGui.Add("Edit", "x630 y252 w70", Data["LogRetentionDays"])
+    MyGui.Add("UpDown", "Range1-365", Data["LogRetentionDays"])
     MyGui.Add("GroupBox", "x20 y320 w730 h100", "最近路径设置")
     Data["EnableRecentPathsCtrl"] := MyGui.Add("Checkbox", "x30 y345 Checked" Data["EnableRecentPaths"], "启用最近路径")
     MyGui.Add("Text", "x30 y370", "菜单标题:")
