@@ -17,6 +17,7 @@ global INIObject := Object()
 global PluginConfigs := Object()
 global Lang := Object()
 global VimDesktop_ExtensionPIDs := Map() ; 存储扩展功能的进程ID
+global VimDesktop_ConfigHotReloadIntervalMs := 5000
 
 VimDesktop_Global.ConfigPath := A_ScriptDir "\Custom\vimd.ini"
 VimDesktop_Global.Editor := FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ?
@@ -31,8 +32,10 @@ INIObject := EasyINI(VimDesktop_Global.ConfigPath)
 ; 从配置文件读取 default_enable_show_info 设置
 VimDesktop_Global.default_enable_show_info := INIObject.config.default_enable_show_info
 VimDesktop_LoadPluginConfigs() ; 加载插件配置
+ConfigService.Init(INIObject, PluginConfigs)
 LangString := FileRead(A_ScriptDir "\lang\" INIObject.config.lang ".json", "UTF-8")
 Lang := JSON.parse(LangString)
+ConfigService.ValidateAndReport(INIObject.config.enable_debug = 1)
 
 try
     TraySetIcon(".\Custom\vimd.ico")
@@ -88,6 +91,7 @@ VimDesktop_TrayMenuCreate() ; 生成托盘菜单
 VimDesktop_AutoStartExtensions() ; 自动启动扩展功能
 
 VimDesktop_Run()
+VimDesktop_StartConfigHotReload()
 
 VimDesktop_TrayMenuCreate() {
     global VimDesktop_TrayMenu
@@ -95,6 +99,7 @@ VimDesktop_TrayMenuCreate() {
     VimDesktop_TrayMenu.delete()
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Manager"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["Setting"], VimDesktop_TrayHandler)
+    VimDesktop_TrayMenu.Add(Lang["TrayMenu"]["ConfigReport"], VimDesktop_TrayHandler)
     VimDesktop_TrayMenu.Add() ; 添加分隔符
 
     ; 添加扩展功能子菜单
@@ -213,9 +218,70 @@ VimDesktop_TrayHandler(Item, *) {
             VimDConfig_KeyMapEdit()
         case Lang["TrayMenu"]["Setting"]:
             run VimDesktop_Global.ConfigPath
+        case Lang["TrayMenu"]["ConfigReport"]:
+            VimDesktop_OpenConfigValidationReport()
         case Lang["TrayMenu"]["EditCustom"]:
             try
                 run Format("{1} .\Custom\Custom.ahk", VimDesktop_Global.Editor)
+    }
+}
+
+VimDesktop_OpenConfigValidationReport() {
+    reportPath := A_ScriptDir "\Custom\config_validation.log"
+
+    ; 每次点击都实时刷新报告，避免读取旧内容
+    ConfigService.RefreshIfChanged(false)
+    ConfigService.ValidateAndReport(false, true, reportPath)
+
+    try {
+        Run Format('"{1}" "{2}"', VimDesktop_Global.Editor, reportPath)
+    } catch {
+        try Run reportPath
+    }
+}
+
+VimDesktop_StartConfigHotReload(intervalMs := "") {
+    global VimDesktop_ConfigHotReloadIntervalMs
+    if (intervalMs = "")
+        intervalMs := VimDesktop_ConfigHotReloadIntervalMs
+    if (intervalMs <= 0)
+        return
+    SetTimer(VimDesktop_ConfigHotReloadTick, intervalMs)
+}
+
+VimDesktop_ConfigHotReloadTick() {
+    global INIObject
+    static isRunning := false
+    if (isRunning)
+        return
+    isRunning := true
+
+    try {
+        enableDebug := false
+        try enableDebug := (INIObject.config.enable_debug = 1)
+        reportPath := A_ScriptDir "\Custom\config_validation.log"
+
+        result := ConfigService.RefreshIfChanged(true, enableDebug, reportPath)
+        if (IsObject(result) && result.Has("changed") && result["changed"])
+            VimDesktop_ApplyRuntimeConfig()
+    } catch Error as e {
+        VimD_Log("WARN", "CONFIG_HOT_RELOAD_TICK", "配置热加载检测失败", e)
+    } finally {
+        isRunning := false
+    }
+}
+
+VimDesktop_ApplyRuntimeConfig() {
+    global VimDesktop_Global
+    global vim
+    try {
+        configCache := _LoadMainConfig()
+        VimDesktop_Global.default_enable_show_info := configCache["default_enable_show_info"]
+        VimDesktop_Global.Editor := configCache["editor"]
+        _ApplyThemeSettings(configCache["theme_mode"])
+        try vim.Debug(configCache["enable_debug"] == 1)
+    } catch Error as e {
+        VimD_Log("WARN", "CONFIG_HOT_RELOAD_APPLY", "应用热加载配置失败", e)
     }
 }
 
@@ -339,6 +405,7 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
 #Include .\core\VimDConfig.ahk
 #Include .\Lib\Class_JSON.Ahk
 #Include .\lib\class_EasyIni.ahk
+#Include .\lib\ConfigService.ahk
 #Include .\lib\DynamicFileMenu.ahk
 #Include .\lib\MD_Gen.ahk
 #Include .\lib\SingleDoubleLongPress.ahk

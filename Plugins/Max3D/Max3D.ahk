@@ -6,97 +6,119 @@ Version=1.0
 Comment=3DsMax插件
 */
 Max3D() {
-    ; 热键映射数组
-    KeyArray := Array()
+    pluginName := "Max3D"
+    exeName := "3dsmax.exe"
 
-    ; 模式切换
-    KeyArray.push({ Key: "<insert>", Mode: "普通模式", Group: "模式", Func: "ModeChange", Param: "VIM模式", Comment: "切换到【VIM模式】" })
-    KeyArray.push({ Key: "<insert>", Mode: "VIM模式", Group: "模式", Func: "ModeChange", Param: "普通模式", Comment: "切换到【普通模式】" })
-    KeyArray.push({ Key: "<esc>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
-
-    ; 搜索功能
-    KeyArray.push({ Key: "<s-e>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转90.ms", Comment: "旋转90" })
-    KeyArray.push({ Key: "h", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转90.ms", Comment: "旋转90" })
-
-    KeyArray.push({ Key: "<s-r>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "旋转-90.ms", Comment: "旋转-90" })
-    KeyArray.push({ Key: "<LB-e>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_EditPoly.ms", Comment: "添加 EditPoly" })
-    KeyArray.push({ Key: "<LB-d>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_DeleteMesh.ms", Comment: "添加 DeleteMesh" })
-    KeyArray.push({ Key: "<LB-u>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Unwrap_UVW.ms", Comment: "添加 Unwrap_UVW" })
-    KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_Relax.ms", Comment: "添加 Mod_Relax" })
-    KeyArray.push({ Key: "<LB-s>", Mode: "VIM模式", Group: "控制", Func: "Script_3DsMax", Param: "Mod_meshsmooth.ms", Comment: "添加 Meshsmooth" })
-
-    ; 菜单
-    KeyArray.push({ Key: "3", Mode: "VIM模式", Group: "打开", Func: "Max3D_Menu", Param: "", Comment: "功能菜单" })
-
-    ;KeyArray.push({ Key: "1", Mode: "VIM模式", Group: "搜索", Func: "SingleDoubleFullHandlers", Param: "1|Everything_1|Everything_2|Everything_3",Comment: "单击/双击/长按"})
-
-    ; 打开
-    KeyArray.push({ Key: "of", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openMaxfileDir.ms", Comment: "打开 Max文件所在位置" })
-    KeyArray.push({ Key: "or", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "openRenderDir.ms", Comment: "打开 渲染文件所在位置" })
-    KeyArray.push({ Key: "oo", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40003", Comment: "打开 文件" })
-    KeyArray.push({ Key: "om", Mode: "VIM模式", Group: "打开", Func: "Script_3DsMax", Param: "id40195", Comment: "打开 融合文件" })
-
-
-    ; 渲染
-    KeyArray.push({ Key: "qc", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "BatchCloneRender.ms", Comment: "批量克隆渲染" })
-    KeyArray.push({ Key: "qb", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "BatchRenderP.ms", Comment: "批量渲染工具" })
-    KeyArray.push({ Key: "qq", Mode: "VIM模式", Group: "渲染", Func: "Script_3DsMax", Param: "RenderQ.ms", Comment: "快速渲染" })
-    KeyArray.push({ Key: "qt", Mode: "VIM模式", Group: "渲染", Func: "Max3D_RenderDirtoTC", Param: "", Comment: "快速渲染到TC激活面板" })
-    KeyArray.push({ Key: "qs", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "Render.ms", Comment: "快速渲染-文件同级目录" })
-    KeyArray.push({ Key: "qa", Mode: "VIM模式", Group: "项目", Func: "Script_3DsMax", Param: "RenderLayer.ms", Comment: "分层渲染" })
-    KeyArray.push({ Key: "qx", Mode: "VIM模式", Group: "项目", Func: "Max3D_WinClose", Param: "", Comment: "批量渲染工具" })
-
-
-    ; FumeFX
-    KeyArray.push({ Key: "ff", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_FXdef.ms", Comment: "FumeFX快速创建" })
-    KeyArray.push({ Key: "fa", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_AddLight.ms", Comment: "FumeFX快速创建" })
-    KeyArray.push({ Key: "fo", Mode: "VIM模式", Group: "FumeFX", Func: "Script_3DsMax", Param: "FumeFX_DefaultOpenUI.ms", Comment: "打开FumenFX" })
-
-    ; 视图
-    KeyArray.push({ Key: "<Numpad0>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Switch", Param: "", Comment: "视图切换大小" })
-    KeyArray.push({ Key: "<Numpad2>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Front", Param: "", Comment: "前视图" })
-    KeyArray.push({ Key: "<LB-Numpad2>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Back", Param: "", Comment: "后视图" })
-    KeyArray.push({ Key: "<Numpad6>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Left", Param: "", Comment: "左视图" })
-    KeyArray.push({ Key: "<Numpad4>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Right", Param: "", Comment: "右视图" })
-    KeyArray.push({ Key: "<Numpad8>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Top", Param: "", Comment: "顶视图" })
-    KeyArray.push({ Key: "<LB-Numpad8>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Buttom", Param: "", Comment: "底视图" })
-    KeyArray.push({ Key: "<Numpad5>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Perspective", Param: "", Comment: "透视图" })
-    KeyArray.push({ Key: "<Numpad1>", Mode: "VIM模式", Group: "视图", Func: "Max3D_Viewport_Camera", Param: "", Comment: "摄像机视图" })
-
-
-    ; 帮助
-    KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "帮助", Func: "VIMD_ShowKeyHelpWithGui", Param: "Max3D", Comment: "显示所有按键(ToolTip)" })
-
-
-    ; 类别显示控制
-    KeyArray.push({ Key: "hc", Mode: "VIM模式", Group: "显示", Func: "Script_3DsMax", Param: "hideByCategoryGUI.ms", Comment: "类别显示控制面板" })
-    KeyArray.push({ Key: "/ct", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTexture.ms", Comment: "收集 贴图到文件目录下" })
-    KeyArray.push({ Key: "/co", Mode: "VIM模式", Group: "帮助", Func: "Script_3DsMax", Param: "CollectorTextureAdvanced.ms",Comment: "收集 贴图到文件目录下-高级" })
-
-    ; 设置
-    KeyArray.push({ Key: ":u", Mode: "VIM模式", Group: "设置", Func: "Script_3DsMax", Param: "UnitSettings.ms", Comment: "单位设置" })
-    KeyArray.push({ Key: ":a", Mode: "VIM模式", Group: "设置", Func: "Script_3DsMax", Param: "Initialization.ms", Comment: "场景初始设置" })
+    keyArray := Max3D_BuildKeymap()
 
     ; 注册窗体
-    vim.SetWin("Max3D", "3DsMax", "3dsmax.exe")
+    vim.SetWin(pluginName, "3DsMax", exeName)
+
+    timeoutMs := ConfigService.GetPluginTimeout(pluginName, 300, pluginName)
+    imeCfg := ConfigService.GetPluginIMEConfig(pluginName, {
+        enabled: true,
+        enableDebug: false,
+        checkInterval: 200,
+        enableMouseClick: true,
+        maxRetries: 3,
+        autoSwitchTimeout: 5000,
+        specialHandling: "ignoreIBeamWithoutControl"
+    }, pluginName)
 
     ; 设置超时
-    vim.SetTimeOut(300, "Max3D")
+    vim.SetTimeOut(timeoutMs, pluginName)
 
     ; 注册热键
-    RegisterPluginKeys(KeyArray, "Max3D")
+    RegisterPluginKeys(keyArray, pluginName)
 
     ; 设置自动IME切换（优化延迟配置）
-    AutoIMESwitcher.Setup("3dsmax.exe", {
-        enabled: true,  ; 是否启用自动IME切换，可以通过配置文件修改
-        enableDebug: false,  ; 关闭调试信息，减少干扰
-        checkInterval: 200,  ; 减少检查间隔，提高响应速度
-        enableMouseClick: true,
+    Max3D_SetupIME(exeName, imeCfg)
+}
+
+Max3D_BuildKeymap() {
+    keyArray := []
+
+    ; 模式切换
+    Max3D_AddKey(keyArray, "<insert>", "普通模式", "模式", "ModeChange", "VIM模式", "切换到【VIM模式】")
+    Max3D_AddKey(keyArray, "<insert>", "VIM模式", "模式", "ModeChange", "普通模式", "切换到【普通模式】")
+    Max3D_AddKey(keyArray, "<esc>", "VIM模式", "模式", "VIMD_清除输入键", "", "清除输入键及提示")
+
+    ; 搜索功能
+    Max3D_AddKey(keyArray, "<s-e>", "VIM模式", "控制", "Script_3DsMax", "旋转90.ms", "旋转90")
+    Max3D_AddKey(keyArray, "h", "VIM模式", "控制", "Script_3DsMax", "旋转90.ms", "旋转90")
+    Max3D_AddKey(keyArray, "<s-r>", "VIM模式", "控制", "Script_3DsMax", "旋转-90.ms", "旋转-90")
+    Max3D_AddKey(keyArray, "<LB-e>", "VIM模式", "控制", "Script_3DsMax", "Mod_EditPoly.ms", "添加 EditPoly")
+    Max3D_AddKey(keyArray, "<LB-d>", "VIM模式", "控制", "Script_3DsMax", "Mod_DeleteMesh.ms", "添加 DeleteMesh")
+    Max3D_AddKey(keyArray, "<LB-u>", "VIM模式", "控制", "Script_3DsMax", "Mod_Unwrap_UVW.ms", "添加 Unwrap_UVW")
+    Max3D_AddKey(keyArray, "<LB-r>", "VIM模式", "控制", "Script_3DsMax", "Mod_Relax.ms", "添加 Mod_Relax")
+    Max3D_AddKey(keyArray, "<LB-s>", "VIM模式", "控制", "Script_3DsMax", "Mod_meshsmooth.ms", "添加 Meshsmooth")
+
+    ; 菜单
+    Max3D_AddKey(keyArray, "3", "VIM模式", "打开", "Max3D_Menu", "", "功能菜单")
+
+    ;Max3D_AddKey(keyArray, "1", "VIM模式", "搜索", "SingleDoubleFullHandlers", "1|Everything_1|Everything_2|Everything_3", "单击/双击/长按")
+
+    ; 打开
+    Max3D_AddKey(keyArray, "of", "VIM模式", "打开", "Script_3DsMax", "openMaxfileDir.ms", "打开 Max文件所在位置")
+    Max3D_AddKey(keyArray, "or", "VIM模式", "打开", "Script_3DsMax", "openRenderDir.ms", "打开 渲染文件所在位置")
+    Max3D_AddKey(keyArray, "oo", "VIM模式", "打开", "Script_3DsMax", "id40003", "打开 文件")
+    Max3D_AddKey(keyArray, "om", "VIM模式", "打开", "Script_3DsMax", "id40195", "打开 融合文件")
+
+    ; 渲染
+    Max3D_AddKey(keyArray, "qc", "VIM模式", "项目", "Script_3DsMax", "BatchCloneRender.ms", "批量克隆渲染")
+    Max3D_AddKey(keyArray, "qb", "VIM模式", "项目", "Script_3DsMax", "BatchRenderP.ms", "批量渲染工具")
+    Max3D_AddKey(keyArray, "qq", "VIM模式", "渲染", "Script_3DsMax", "RenderQ.ms", "快速渲染")
+    Max3D_AddKey(keyArray, "qt", "VIM模式", "渲染", "Max3D_RenderDirtoTC", "", "快速渲染到TC激活面板")
+    Max3D_AddKey(keyArray, "qs", "VIM模式", "项目", "Script_3DsMax", "Render.ms", "快速渲染-文件同级目录")
+    Max3D_AddKey(keyArray, "qa", "VIM模式", "项目", "Script_3DsMax", "RenderLayer.ms", "分层渲染")
+    Max3D_AddKey(keyArray, "qx", "VIM模式", "项目", "Max3D_WinClose", "", "批量渲染工具")
+
+    ; FumeFX
+    Max3D_AddKey(keyArray, "ff", "VIM模式", "FumeFX", "Script_3DsMax", "FumeFX_FXdef.ms", "FumeFX快速创建")
+    Max3D_AddKey(keyArray, "fa", "VIM模式", "FumeFX", "Script_3DsMax", "FumeFX_AddLight.ms", "FumeFX快速创建")
+    Max3D_AddKey(keyArray, "fo", "VIM模式", "FumeFX", "Script_3DsMax", "FumeFX_DefaultOpenUI.ms", "打开FumenFX")
+
+    ; 视图
+    Max3D_AddKey(keyArray, "<Numpad0>", "VIM模式", "视图", "Max3D_Viewport_Switch", "", "视图切换大小")
+    Max3D_AddKey(keyArray, "<Numpad2>", "VIM模式", "视图", "Max3D_Viewport_Front", "", "前视图")
+    Max3D_AddKey(keyArray, "<LB-Numpad2>", "VIM模式", "视图", "Max3D_Viewport_Back", "", "后视图")
+    Max3D_AddKey(keyArray, "<Numpad6>", "VIM模式", "视图", "Max3D_Viewport_Left", "", "左视图")
+    Max3D_AddKey(keyArray, "<Numpad4>", "VIM模式", "视图", "Max3D_Viewport_Right", "", "右视图")
+    Max3D_AddKey(keyArray, "<Numpad8>", "VIM模式", "视图", "Max3D_Viewport_Top", "", "顶视图")
+    Max3D_AddKey(keyArray, "<LB-Numpad8>", "VIM模式", "视图", "Max3D_Viewport_Buttom", "", "底视图")
+    Max3D_AddKey(keyArray, "<Numpad5>", "VIM模式", "视图", "Max3D_Viewport_Perspective", "", "透视图")
+    Max3D_AddKey(keyArray, "<Numpad1>", "VIM模式", "视图", "Max3D_Viewport_Camera", "", "摄像机视图")
+
+    ; 帮助
+    Max3D_AddKey(keyArray, "?", "VIM模式", "帮助", "VIMD_ShowKeyHelpWithGui", "Max3D", "显示所有按键(ToolTip)")
+
+    ; 类别显示控制
+    Max3D_AddKey(keyArray, "hc", "VIM模式", "显示", "Script_3DsMax", "hideByCategoryGUI.ms", "类别显示控制面板")
+    Max3D_AddKey(keyArray, "/ct", "VIM模式", "帮助", "Script_3DsMax", "CollectorTexture.ms", "收集 贴图到文件目录下")
+    Max3D_AddKey(keyArray, "/co", "VIM模式", "帮助", "Script_3DsMax", "CollectorTextureAdvanced.ms", "收集 贴图到文件目录下-高级")
+
+    ; 设置
+    Max3D_AddKey(keyArray, ":u", "VIM模式", "设置", "Script_3DsMax", "UnitSettings.ms", "单位设置")
+    Max3D_AddKey(keyArray, ":a", "VIM模式", "设置", "Script_3DsMax", "Initialization.ms", "场景初始设置")
+
+    return keyArray
+}
+
+Max3D_AddKey(keyArray, key, mode, group, func, param, comment) {
+    keyArray.Push({ Key: key, Mode: mode, Group: group, Func: func, Param: param, Comment: comment })
+}
+
+Max3D_SetupIME(exeName, imeCfg) {
+    AutoIMESwitcher.Setup(exeName, {
+        enabled: imeCfg.enabled,  ; 是否启用自动IME切换，可以通过配置文件修改
+        enableDebug: imeCfg.enableDebug,  ; 关闭调试信息，减少干扰
+        checkInterval: imeCfg.checkInterval,  ; 减少检查间隔，提高响应速度
+        enableMouseClick: imeCfg.enableMouseClick,
         inputControlPatterns: ["Edit", "Edit2", "Edit3", "MXS_Scintilla", "EDITDUMMY"],
         cursorTypes: ["IBeam"],  ; 根据鼠标光标类型判断
-        maxRetries: 3,  ; 减少重试次数，提高速度
-        autoSwitchTimeout: 5000,  ; 5秒超时
-        specialHandling: "ignoreIBeamWithoutControl"  ; 特殊处理：忽略只有IBeam光标但没有输入控件的情况
+        maxRetries: imeCfg.maxRetries,  ; 减少重试次数，提高速度
+        autoSwitchTimeout: imeCfg.autoSwitchTimeout,  ; 5秒超时
+        specialHandling: imeCfg.specialHandling  ; 特殊处理：忽略只有IBeam光标但没有输入控件的情况
     })
 }
 
@@ -112,6 +134,7 @@ Max3D_RenderDirtoTC() {
     setPath := StrReplace(srcDIR, "\", "\\") "\\"
     setPreset := A_ScriptDir "\plugins\Max3D\Script\commands\QuikeRenderTC.ms"
     try {
+        MsCode := ""
         MsCode .= "    --确保脚本在 3DsMax 中正确执行`n"
         MsCode .= "    rendSaveFile = true `n"
         MsCode .= "    theName = `"" "10000" "`" `n"

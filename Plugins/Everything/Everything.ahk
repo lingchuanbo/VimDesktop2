@@ -19,35 +19,20 @@ global EverythingConfig := {
 ReadEverythingConfig() {
     global EverythingConfig
 
-    ; 配置文件路径
-    configFile := A_ScriptDir . "\Plugins\Everything\everything.ini"
-
     ; 重置为默认配置
     EverythingConfig.everything_path := ""
     EverythingConfig.enable_double_click := true
     EverythingConfig.show_debug_info := false
 
-    ; 读取配置文件
-    if FileExist(configFile) {
-        try {
-            ; 读取Everything路径
-            path := IniRead(configFile, "Everything", "everything_path", "")
-            if (path != "") {
-                EverythingConfig.everything_path := path
-            }
-
-            ; 读取双击启动开关
-            enableDoubleClick := IniRead(configFile, "Everything", "enable_double_click", "true")
-            EverythingConfig.enable_double_click := (enableDoubleClick = "true")
-
-            ; 读取调试信息开关
-            showDebugInfo := IniRead(configFile, "Everything", "show_debug_info", "false")
-            EverythingConfig.show_debug_info := (showDebugInfo = "true")
-
-        } catch as e {
-            ; 配置文件读取失败，使用默认值
-            MsgBox("读取Everything配置文件失败: " . e.message . "`n使用默认配置", "配置警告")
-        }
+    ; 统一使用配置服务
+    try {
+        EverythingConfig.everything_path := ConfigService.GetPluginValue("Everything", "everything_path", "", "Everything")
+        EverythingConfig.enable_double_click := ConfigService.GetPluginBoolValue("Everything", "enable_double_click", true,
+            "Everything")
+        EverythingConfig.show_debug_info := ConfigService.GetPluginBoolValue("Everything", "show_debug_info", false,
+            "Everything")
+    } catch {
+        ; 保持默认值
     }
 
     return EverythingConfig
@@ -58,20 +43,24 @@ EverythingConfig := ReadEverythingConfig()
 
 ; 保存配置到文件
 SaveEverythingConfig() {
-    configFile := A_ScriptDir . "\Plugins\Everything\everything.ini"
-
+    ; 统一通过配置服务写入
     try {
-        ; 写入配置
-        IniWrite(EverythingConfig.everything_path, configFile, "Everything", "everything_path")
-        IniWrite(EverythingConfig.enable_double_click ? "true" : "false", configFile, "Everything",
-            "enable_double_click")
-        IniWrite(EverythingConfig.show_debug_info ? "true" : "false", configFile, "Everything", "show_debug_info")
+        ok1 := ConfigService.SetPluginValue("Everything", "everything_path", EverythingConfig.everything_path, "Everything")
+        ok2 := ConfigService.SetPluginValue("Everything", "enable_double_click",
+            EverythingConfig.enable_double_click ? "true" : "false", "Everything")
+        ok3 := ConfigService.SetPluginValue("Everything", "show_debug_info",
+            EverythingConfig.show_debug_info ? "true" : "false", "Everything")
+        ok4 := ConfigService.SavePluginConfig("Everything")
 
-        return true
+        if (ok1 && ok2 && ok3 && ok4)
+            return true
     } catch as e {
         MsgBox("保存Everything配置文件失败: " . e.message, "配置错误")
         return false
     }
+
+    MsgBox("保存Everything配置文件失败: ConfigService返回失败", "配置错误")
+    return false
 }
 
 ; 切换双击启动功能
@@ -143,17 +132,10 @@ Run_Everything(*) {
     ; 优先从everything.ini配置文件获取路径
     everythingPath := EverythingConfig.everything_path
 
-    ; 如果配置文件中没有路径，尝试从其他配置源读取
+    ; 通过统一配置服务二次兜底
     if (!everythingPath) {
         try {
-            ; 从插件独立配置文件读取
-            if (PluginConfigs.HasOwnProp("Everything") && PluginConfigs.Everything.HasOwnProp("Everything")) {
-                everythingPath := PluginConfigs.Everything.Everything.everything_path
-            }
-            ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
-            else if (INIObject.HasOwnProp("Everything")) {
-                everythingPath := INIObject.Everything.everything_path
-            }
+            everythingPath := ConfigService.GetPluginValue("Everything", "everything_path", "", "Everything")
         } catch {
             ; 配置读取失败，使用默认路径
         }

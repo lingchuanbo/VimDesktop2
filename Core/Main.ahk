@@ -5,9 +5,44 @@
 ; 3. 批量处理 - 减少循环开销
 ; 4. 内存清理 - 及时释放不需要的资源
 
+; 主配置常量（运行时通过 _InitMainConstants 保底赋值）
+MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
+MAIN_MEMORY_OPT_INTERVAL_MS := 300000
+MAIN_CMD_CACHE_MAX := 100
+MAIN_PLUGIN_SKIP_REGEX := "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
+MAIN_PLUGIN_SETTING_REGEX := "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
+
 VimDesktop_Run() {
+    _InitMainConstants()
     global vim := class_vim()
 
+    configCache := _LoadMainConfig()
+
+    VimDesktop_Global.default_enable_show_info := configCache["default_enable_show_info"]
+    VimDesktop_Global.Editor := configCache["editor"]
+
+    _InitMemoryOptimizer()
+
+    ; 给 check.ahk 使用
+    IniWrite A_ScriptHwnd, A_Temp "\vimd_auto.ini", "auto", "hwnd"
+
+    _EnsureConfigFile()
+
+    _InitLogAndDebug(configCache)
+
+    ; 应用保存的主题设置
+    _ApplyThemeSettings(configCache["theme_mode"])
+
+    CheckPlugin()
+    CheckHotKey()
+
+    _StartGlobalWindowMonitor()
+
+    ; 用于接收来自 check.ahk 的信息
+    OnMessage 0x4a, ReceiveWMCopyData
+}
+
+_LoadMainConfig() {
     ; 缓存配置访问，避免重复读取
     static configCache := Map()
 
@@ -18,7 +53,8 @@ VimDesktop_Run() {
         configCache["enable_log"] := INIObject.config.enable_log
         configCache["enable_debug"] := INIObject.config.enable_debug
         configCache["theme_mode"] := INIObject.config.theme_mode
-    } catch {
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_CONFIG_CACHE_READ", "读取全局配置失败，回退默认值", e)
         ; 使用默认值
         configCache["default_enable_show_info"] := 0
         configCache["editor"] := "notepad.exe"
@@ -27,23 +63,29 @@ VimDesktop_Run() {
         configCache["theme_mode"] := "system"
     }
 
-    VimDesktop_Global.default_enable_show_info := configCache["default_enable_show_info"]
-    VimDesktop_Global.Editor := configCache["editor"]
+    return configCache
+}
 
+_InitMemoryOptimizer() {
+    _InitMainConstants()
+    global MAIN_MEMORY_OPT_INTERVAL_MS
     ; 启用内存优化器 - 每5分钟清理一次内存
     try {
-        MemoryOptimizer.Enable(300000)
-    } catch {
+        MemoryOptimizer.Enable(MAIN_MEMORY_OPT_INTERVAL_MS)
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_MEMORY_OPT_INIT", "内存优化器初始化失败", e)
         ; 忽略内存优化器初始化错误
     }
+}
 
-    ; 给 check.ahk 使用
-    IniWrite A_ScriptHwnd, A_Temp "\vimd_auto.ini", "auto", "hwnd"
-
+_EnsureConfigFile() {
     if (!FileExist(VimDesktop_Global.ConfigPath)) {
         FileCopy ".\Custom\vimd.ini.help.txt", VimDesktop_Global.ConfigPath
     }
+}
 
+_InitLogAndDebug(configCache) {
+    global vim
     ; 延迟初始化日志和调试
     if (configCache["enable_log"] == 1) {
         global logObject := Logger(A_ScriptDir "\debug.log")
@@ -52,22 +94,6 @@ VimDesktop_Run() {
     if (configCache["enable_debug"] == 1) {
         vim.Debug(true)
     }
-
-    ; 应用保存的主题设置
-    _ApplyThemeSettings(configCache["theme_mode"])
-
-    CheckPlugin()
-    CheckHotKey()
-
-    ; 启动全局窗口监控（用于清除按键缓存）
-    try {
-        ToolTipInfoManager.StartGlobalWindowMonitor()
-    } catch {
-        ; 忽略全局窗口监控启动错误
-    }
-
-    ; 用于接收来自 check.ahk 的信息
-    OnMessage 0x4a, ReceiveWMCopyData
 }
 
 ; 优化的主题设置函数
@@ -81,19 +107,32 @@ _ApplyThemeSettings(themeMode) {
             default:
                 WindowsTheme.SetAppMode("Default")
         }
-    } catch {
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_THEME_APPLY", "应用主题失败，回退系统默认", e)
         WindowsTheme.SetAppMode("Default")
     }
 }
 
+_StartGlobalWindowMonitor() {
+    ; 启动全局窗口监控（用于清除按键缓存）
+    try {
+        ToolTipInfoManager.StartGlobalWindowMonitor()
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_WINDOW_MONITOR_START", "全局窗口监控启动失败", e)
+        ; 忽略全局窗口监控启动错误
+    }
+}
+
 CheckPlugin(LoadAll := 0) {
+    _InitMainConstants()
+    global MAIN_PLUGIN_SCAN_INTERVAL_MS
     ; 缓存插件目录扫描结果
     static pluginDirs := []
     static lastScanTime := 0
 
     ; 只在必要时重新扫描插件目录（每30秒最多一次）
     currentTime := A_TickCount
-    if (currentTime - lastScanTime > 30000 || pluginDirs.Length == 0) {
+    if (currentTime - lastScanTime > MAIN_PLUGIN_SCAN_INTERVAL_MS || pluginDirs.Length == 0) {
         pluginDirs := []
         loop files, A_ScriptDir "\plugins\*", "D" {
             pluginDirs.Push(A_LoopFileName)
@@ -106,14 +145,9 @@ CheckPlugin(LoadAll := 0) {
     newPlugins := []
 
     for _, pluginName in pluginDirs {
-        Plugin := ""
-        try {
-            Plugin := INIObject.plugins.%pluginName%
-        } catch {
-            Plugin := ""
-        }
+        Plugin := INIObject.plugins.HasOwnProp(pluginName) ? INIObject.plugins.%pluginName% : ""
 
-        PluginFile := A_ScriptDir "\plugins\" pluginName "\" pluginName ".ahk"
+        PluginFile := _Main_GetPluginFilePath(pluginName)
         if (Plugin == "" && FileExist(PluginFile)) {
             newPlugins.Push(pluginName)
             HasNewPlugin := true
@@ -136,13 +170,7 @@ CheckPlugin(LoadAll := 0) {
 ; 批量处理新插件
 _ProcessNewPlugins(newPlugins) {
     ; 确保sections存在
-    _sections := INIObject.GetSections()
-    if (!InStr(_sections, "plugins")) {
-        INIObject.AddSection("plugins")
-    }
-    if (!InStr(_sections, "plugins_DefaultMode")) {
-        INIObject.AddSection("plugins_DefaultMode")
-    }
+    _EnsureIniSections(["plugins", "plugins_DefaultMode"])
 
     for _, pluginName in newPlugins {
         MsgBox Format(Lang["General"]["Plugin_New"], pluginName), Lang["General"]["Info"], "4160"
@@ -159,12 +187,14 @@ _ProcessNewPlugins(newPlugins) {
             INIObject.plugins.%pluginName% := 1
 
         ; 读取默认模式
-        PluginFile := A_ScriptDir "\plugins\" pluginName "\" pluginName ".ahk"
+        PluginFile := _Main_GetPluginFilePath(pluginName)
         _defaultMode := ""
         try {
             fileContent := FileRead(PluginFile, "UTF-8")
             if (RegExMatch(fileContent, 'im)Mode:\s*\"(.*?)\"', &m))
                 _defaultMode := m[1]
+        } catch Error as e {
+            VimD_Log("WARN", "MAIN_PLUGIN_DEFAULTMODE_READ", "读取插件默认模式失败: " pluginName, e)
         }
 
         Rst := INIObject.AddKey("plugins_DefaultMode", pluginName, _defaultMode)
@@ -185,7 +215,7 @@ _LoadPlugins(LoadAll) {
         if (plugin == "EasyIni_KeyComment")
             continue
 
-        pluginFile := A_ScriptDir "\plugins\" plugin "\" plugin ".ahk"
+        pluginFile := _Main_GetPluginFilePath(plugin)
         if (FileExist(pluginFile)) {
             validPlugins[plugin] := flag
         } else {
@@ -198,6 +228,8 @@ _LoadPlugins(LoadAll) {
         try {
             INIObject.DeleteKey("plugins", plugin)
             INIObject.DeleteKey("plugins_DefaultMode", plugin)
+        } catch Error as e {
+            VimD_Log("WARN", "MAIN_PLUGIN_INVALID_CLEAN", "清理无效插件配置失败: " plugin, e)
         }
     }
 
@@ -209,7 +241,9 @@ _LoadPlugins(LoadAll) {
     for plugin, flag in validPlugins {
         if (LoadAll || flag) {
             vim.LoadPlugin(plugin)
-            vim.GetWin(plugin).status := flag
+            winObj := vim.GetWin(plugin)
+            winObj.status := flag
+            _ApplyExternalPluginOverrides(plugin)
         }
     }
 }
@@ -225,6 +259,8 @@ _SetDefaultModes() {
             winObj.defaultMode := mode
             vim.mode(mode, plugin)
             winObj.Inside := 0
+        } catch Error as e {
+            VimD_Log("WARN", "MAIN_DEFAULT_MODE_SET", "设置插件默认模式失败: " plugin, e)
         }
     }
 }
@@ -245,37 +281,44 @@ _ProcessGlobalHotKeys() {
     _default_Mode := "normal"
     _enabled := 0
 
+    globalConfig := _ReadGlobalConfig()
+    _enabled := globalConfig.Has("enabled") ? globalConfig["enabled"] : 0
+    _default_Mode := globalConfig.Has("default_Mode") ? globalConfig["default_Mode"] : "normal"
+
+    _ProcessGlobalMappings(globalConfig, _enabled)
+    _SetGlobalWindowState(_enabled, _default_Mode)
+}
+
+_ReadGlobalConfig() {
     ; 批量读取全局配置
     globalConfig := Map()
     for key, value in INIObject.global.OwnProps() {
         if (key != "EasyIni_KeyComment")
             globalConfig[key] := value
     }
+    return globalConfig
+}
 
-    ; 检查是否启用
-    if (globalConfig.Has("enabled"))
-        _enabled := globalConfig["enabled"]
-
-    ; 获取默认模式
-    if (globalConfig.Has("default_Mode"))
-        _default_Mode := globalConfig["default_Mode"]
-
-    ; 处理热键映射
+_ProcessGlobalMappings(globalConfig, enabled) {
     for key, action in globalConfig {
         if (key == "enabled" || key == "default_Mode")
             continue
 
-        _ProcessHotKeyMapping(key, action, "global", _enabled)
+        _ProcessHotKeyMapping(key, action, "global", enabled)
     }
+}
 
+_SetGlobalWindowState(enabled, defaultMode) {
     ; 设置全局窗体状态
     globalWin := vim.GetWin("global")
-    globalWin.status := _enabled
-    globalWin.defaultMode := _default_Mode
+    globalWin.status := enabled
+    globalWin.defaultMode := defaultMode
     globalWin.Inside := 1
 
     try {
-        vim.mode(_default_Mode, "global")
+        vim.mode(defaultMode, "global")
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_GLOBAL_MODE_SET", "设置全局默认模式失败", e)
     }
 }
 
@@ -291,36 +334,58 @@ _ProcessExcludeWindows() {
 
 ; 处理插件热键
 _ProcessPluginHotKeys(LoadAll) {
+    _InitMainConstants()
+    global MAIN_PLUGIN_SKIP_REGEX, MAIN_PLUGIN_SETTING_REGEX
     ; 预编译正则表达式
-    static skipRegex :=
-        "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
-    static settingRegex :=
-        "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
+    skipRegex := MAIN_PLUGIN_SKIP_REGEX
+    settingRegex := MAIN_PLUGIN_SETTING_REGEX
 
     for PluginName, Key in INIObject.OwnProps() {
         if (RegExMatch(PluginName, skipRegex))
             continue
+        if (!IsObject(Key)) {
+            _Main_LogInvalidPluginConfig(PluginName, Key, "config_not_object")
+            continue
+        }
 
         ; 批量读取插件配置
-        pluginConfig := _ReadPluginConfig(Key)
+        pluginConfig := _ReadPluginConfig(Key, PluginName)
+        hasMappings := _HasPluginMappings(Key, settingRegex)
+
+        ; 仅配置覆盖（无热键映射），不走内置插件逻辑
+        if (!hasMappings) {
+            _ApplyPluginConfigOverrides(PluginName, pluginConfig)
+            continue
+        }
 
         ; 检查是否启用
         if (!LoadAll && !pluginConfig["enabled"])
             continue
 
         ; 设置窗体
-        _SetupPluginWindow(PluginName, pluginConfig)
+        winObj := _SetupPluginWindow(PluginName, pluginConfig)
 
         ; 处理热键映射
         _ProcessPluginMappings(PluginName, Key, pluginConfig, settingRegex)
 
         ; 设置插件状态
-        _SetPluginStatus(PluginName, pluginConfig)
+        _SetPluginStatus(PluginName, pluginConfig, winObj)
     }
 }
 
+_HasPluginMappings(Key, settingRegex) {
+    for keyName, action in Key.OwnProps() {
+        if (RegExMatch(keyName, settingRegex)
+            || keyName == "default_Mode"
+            || keyName == "EasyIni_SectionComment")
+            continue
+        return true
+    }
+    return false
+}
+
 ; 读取插件配置
-_ReadPluginConfig(Key) {
+_ReadPluginConfig(Key, pluginName := "") {
     config := Map()
     config["enabled"] := 0
     config["set_class"] := ""
@@ -329,13 +394,81 @@ _ReadPluginConfig(Key) {
     config["set_max_count"] := 100
     config["enable_show_info"] := 0
     config["default_Mode"] := "normal"
+    present := Map()
 
+    if (!IsObject(Key)) {
+        if (pluginName != "")
+            _Main_LogInvalidPluginConfig(pluginName, Key, "config_not_object")
+        return config
+    }
     for prop, value in Key.OwnProps() {
         if (config.Has(prop))
             config[prop] := value
+        present[prop] := true
     }
 
+    if (pluginName != "")
+        _MergePluginIniConfig(config, present, pluginName)
+    config["_present"] := present
     return config
+}
+
+_MergePluginIniConfig(config, present, pluginName) {
+    try {
+        sectionName := pluginName
+
+        if (!present.Has("set_class")) {
+            raw := ConfigService.GetPluginValue(pluginName, "set_class", "", sectionName, false)
+            if (raw != "") {
+                config["set_class"] := raw
+                present["set_class"] := true
+            }
+        }
+        if (!present.Has("set_file")) {
+            raw := ConfigService.GetPluginValue(pluginName, "set_file", "", sectionName, false)
+            if (raw != "") {
+                config["set_file"] := raw
+                present["set_file"] := true
+            }
+        }
+        if (!present.Has("set_time_out")) {
+            raw := ConfigService.GetPluginValue(pluginName, "set_time_out", "", sectionName, false)
+            if (raw != "" && RegExMatch(raw, "^-?\d+$")) {
+                config["set_time_out"] := Integer(raw)
+                present["set_time_out"] := true
+            }
+        }
+        if (!present.Has("set_max_count")) {
+            raw := ConfigService.GetPluginValue(pluginName, "set_max_count", "", sectionName, false)
+            if (raw != "" && RegExMatch(raw, "^-?\d+$")) {
+                config["set_max_count"] := Integer(raw)
+                present["set_max_count"] := true
+            }
+        }
+        if (!present.Has("enable_show_info")) {
+            raw := ConfigService.GetPluginValue(pluginName, "enable_show_info", "", sectionName, false)
+            if (raw != "") {
+                config["enable_show_info"] := _ParseBoolValue(raw, config["enable_show_info"])
+                present["enable_show_info"] := true
+            }
+        }
+        if (!present.Has("enabled")) {
+            raw := ConfigService.GetPluginValue(pluginName, "enabled", "", sectionName, false)
+            if (raw != "") {
+                config["enabled"] := _ParseBoolValue(raw, config["enabled"])
+                present["enabled"] := true
+            }
+        }
+        if (!present.Has("default_Mode")) {
+            raw := ConfigService.GetPluginValue(pluginName, "default_Mode", "", sectionName, false)
+            if (raw != "") {
+                config["default_Mode"] := raw
+                present["default_Mode"] := true
+            }
+        }
+    } catch {
+        ; 读取插件ini失败时忽略，保持现有配置
+    }
 }
 
 ; 设置插件窗体
@@ -347,6 +480,41 @@ _SetupPluginWindow(PluginName, config) {
     if (config["enable_show_info"] == 1) {
         win.SetInfo(true)
     }
+    return win
+}
+
+_ApplyPluginConfigOverrides(PluginName, config) {
+    if !IsObject(vim)
+        return
+    winObj := vim.GetWin(PluginName)
+    if !IsObject(winObj)
+        return
+
+    present := config.Has("_present") ? config["_present"] : Map()
+
+    hasClassOverride := present.Has("set_class") && config["set_class"] != ""
+    hasFileOverride := present.Has("set_file") && config["set_file"] != ""
+
+    if (hasClassOverride || hasFileOverride) {
+        classVal := hasClassOverride ? config["set_class"] : winObj.class
+        fileVal := hasFileOverride ? config["set_file"] : winObj.filepath
+        if (classVal != "" || fileVal != "")
+            vim.SetWin(PluginName, classVal, fileVal)
+    }
+
+    if (present.Has("set_time_out"))
+        vim.SetTimeOut(config["set_time_out"], PluginName)
+    if (present.Has("set_max_count"))
+        vim.SetMaxCount(config["set_max_count"], PluginName)
+    if (present.Has("enable_show_info"))
+        winObj.SetInfo(_ParseBoolValue(config["enable_show_info"], winObj.Info ? 1 : 0))
+}
+
+_ApplyExternalPluginOverrides(pluginName) {
+    if (INIObject.HasOwnProp(pluginName))
+        return
+    config := _ReadPluginConfig({}, pluginName)
+    _ApplyPluginConfigOverrides(pluginName, config)
 }
 
 ; 处理插件映射
@@ -360,14 +528,17 @@ _ProcessPluginMappings(PluginName, Key, config, settingRegex) {
 }
 
 ; 设置插件状态
-_SetPluginStatus(PluginName, config) {
-    winObj := vim.GetWin(PluginName)
+_SetPluginStatus(PluginName, config, winObj := "") {
+    if (!IsObject(winObj))
+        winObj := vim.GetWin(PluginName)
     winObj.status := config["enabled"]
     winObj.defaultMode := config["default_Mode"]
     winObj.Inside := 1
 
     try {
         vim.mode(config["default_Mode"], PluginName)
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_PLUGIN_MODE_SET", "设置插件模式失败: " PluginName, e)
     }
 }
 
@@ -417,27 +588,18 @@ _ParseActionString(actionStr) {
 }
 
 VIMD_CMD(Param) {
+    _InitMainConstants()
+    global MAIN_CMD_CACHE_MAX
     ; 缓存正则表达式匹配结果
     static cmdCache := Map()
 
     if (cmdCache.Has(Param)) {
         cmdType := cmdCache[Param]
     } else {
-        cmdType := ""
-        if (RegExMatch(Param, "i)^(run)\|", &m)) {
-            cmdType := "run"
-        } else if (RegExMatch(Param, "i)^(key)\|", &m)) {
-            cmdType := "key"
-        } else if (RegExMatch(Param, "i)^(dir)\|", &m)) {
-            cmdType := "dir"
-        } else if (RegExMatch(Param, "i)^(tccmd)\|", &m)) {
-            cmdType := "tccmd"
-        } else if (RegExMatch(Param, "i)^(wshkey)\|", &m)) {
-            cmdType := "wshkey"
-        }
+        cmdType := _VIMD_GetCmdType(Param)
 
         ; 缓存结果，但限制缓存大小
-        if (cmdCache.Count < 100) {
+        if (cmdCache.Count < MAIN_CMD_CACHE_MAX) {
             cmdCache[Param] := cmdType
         }
     }
@@ -455,6 +617,74 @@ VIMD_CMD(Param) {
         case "wshkey":
             _HandleWshKeyCommand(SubStr(Param, 8))
     }
+}
+
+_VIMD_GetCmdType(param) {
+    if (RegExMatch(param, "i)^(run)\|"))
+        return "run"
+    if (RegExMatch(param, "i)^(key)\|"))
+        return "key"
+    if (RegExMatch(param, "i)^(dir)\|"))
+        return "dir"
+    if (RegExMatch(param, "i)^(tccmd)\|"))
+        return "tccmd"
+    if (RegExMatch(param, "i)^(wshkey)\|"))
+        return "wshkey"
+    return ""
+}
+
+_Main_GetPluginFilePath(pluginName) {
+    return A_ScriptDir "\plugins\" pluginName "\" pluginName ".ahk"
+}
+
+_EnsureIniSections(sectionNames) {
+    _sections := INIObject.GetSections()
+    for _, sectionName in sectionNames {
+        if (!InStr(_sections, sectionName)) {
+            INIObject.AddSection(sectionName)
+        }
+    }
+}
+
+_Main_LogInvalidPluginConfig(pluginName, keyValue, reason := "") {
+    typeInfo := ""
+    try {
+        typeInfo := " type=" Type(keyValue)
+    }
+    msg := "插件配置无效: " pluginName
+    if (reason != "")
+        msg .= " (" reason ")"
+    if (typeInfo != "")
+        msg .= typeInfo
+    VimD_Log("WARN", "MAIN_PLUGIN_CONFIG_INVALID", msg)
+}
+
+_ParseBoolValue(value, defaultValue := 0) {
+    normalized := StrLower(Trim(value ""))
+    if (normalized = "1" || normalized = "true" || normalized = "yes" || normalized = "on")
+        return 1
+    if (normalized = "0" || normalized = "false" || normalized = "no" || normalized = "off")
+        return 0
+    return defaultValue
+}
+
+_InitMainConstants() {
+    global MAIN_PLUGIN_SCAN_INTERVAL_MS
+    global MAIN_MEMORY_OPT_INTERVAL_MS
+    global MAIN_CMD_CACHE_MAX
+    global MAIN_PLUGIN_SKIP_REGEX
+    global MAIN_PLUGIN_SETTING_REGEX
+
+    if (!IsSet(MAIN_PLUGIN_SCAN_INTERVAL_MS) || MAIN_PLUGIN_SCAN_INTERVAL_MS = "")
+        MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
+    if (!IsSet(MAIN_MEMORY_OPT_INTERVAL_MS) || MAIN_MEMORY_OPT_INTERVAL_MS = "")
+        MAIN_MEMORY_OPT_INTERVAL_MS := 300000
+    if (!IsSet(MAIN_CMD_CACHE_MAX) || MAIN_CMD_CACHE_MAX = "")
+        MAIN_CMD_CACHE_MAX := 100
+    if (!IsSet(MAIN_PLUGIN_SKIP_REGEX) || MAIN_PLUGIN_SKIP_REGEX = "")
+        MAIN_PLUGIN_SKIP_REGEX := "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
+    if (!IsSet(MAIN_PLUGIN_SETTING_REGEX) || MAIN_PLUGIN_SETTING_REGEX = "")
+        MAIN_PLUGIN_SETTING_REGEX := "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
 }
 
 ; 处理目录命令

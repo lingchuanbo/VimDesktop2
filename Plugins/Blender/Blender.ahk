@@ -22,7 +22,8 @@ Blender() {
     vim.SetWin("Blender", "GHOST_WindowClass", "Blender.exe")
 
     ; 设置超时
-    vim.SetTimeOut(300, "Blender")
+    timeoutMs := ConfigService.GetPluginTimeout("Blender", 300, "Blender")
+    vim.SetTimeOut(timeoutMs, "Blender")
 
     ; 注册热键
     RegisterPluginKeys(KeyArray, "Blender")

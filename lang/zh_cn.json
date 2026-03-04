@@ -19,6 +19,7 @@
     "TrayMenu": {
         "Manager": "&E) 热键管理器",
         "Setting": "&S) 配置",
+        "ConfigReport": "&V) 配置体检报告",
         "EditCustom": "&C) 编辑Custom",
         "Extensions": "&T) 扩展功能",
         "Reload": "&R) 重启 Win+Y",

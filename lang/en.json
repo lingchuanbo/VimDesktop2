@@ -19,6 +19,7 @@
     "TrayMenu": {
         "Manager": "&E) HotKey Manager",
         "Setting": "&S) Settings",
+        "ConfigReport": "&V) Config Validation Report",
         "EditCustom": "&C) Edit Custom",
         "Extensions": "&T) Extensions",
         "Reload": "&R) Reload",

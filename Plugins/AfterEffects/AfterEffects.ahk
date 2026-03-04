@@ -57,6 +57,7 @@ AfterEffects() {
     KeyArray.push({ Key: "qc", Mode: "VIM模式", Group: "项目", Func: "Script_AfterEffects", Param: "分层渲染.jsx", Comment: "渲染 分层" })
     KeyArray.push({ Key: "qa", Mode: "VIM模式", Group: "项目", Func: "render_menu", Param: "", Comment: "渲染菜单" })
 
+
     ; 效果
     KeyArray.push({ Key: "<LB-t>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&Tint.jsx",Comment: "添加 Tint" })
     KeyArray.push({ Key: "<LB-r>", Mode: "VIM模式", Group: "效果", Func: "Script_AfterEffects", Param: "AddEffect\&RoughenEdges.jsx",Comment: "添加 RoughenEdges" })
@@ -78,21 +79,32 @@ AfterEffects() {
     ; vim.SetWin("AfterEffects", "", "AfterFX.exe")
     vim.SetWin("AfterEffects", "AE_CApplication_\\d+\\.\\d+(?:\\.\\d+)?", "AfterFX.exe")
 
+    timeoutMs := ConfigService.GetPluginTimeout("AfterEffects", 300, "AfterEffects")
+    imeCfg := ConfigService.GetPluginIMEConfig("AfterEffects", {
+        enabled: true,
+        enableDebug: false,
+        checkInterval: 200,
+        enableMouseClick: true,
+        maxRetries: 3,
+        autoSwitchTimeout: 5000,
+        specialHandling: ""
+    }, "AfterEffects")
+
     ;设置超时
-    vim.SetTimeOut(300, "AfterEffects")
+    vim.SetTimeOut(timeoutMs, "AfterEffects")
 
     RegisterPluginKeys(KeyArray, "AfterEffects")
 
     ; 设置自动IME切换（优化延迟配置）
     AutoIMESwitcher.Setup("AfterFX.exe", {
-        enabled: true,  ; 是否启用自动IME切换，可以通过配置文件修改
-        enableDebug: false,  ; 关闭调试信息，减少干扰
-        checkInterval: 200,  ; 减少检查间隔，提高响应速度
-        enableMouseClick: true,
+        enabled: imeCfg.enabled,  ; 是否启用自动IME切换，可以通过配置文件修改
+        enableDebug: imeCfg.enableDebug,  ; 关闭调试信息，减少干扰
+        checkInterval: imeCfg.checkInterval,  ; 减少检查间隔，提高响应速度
+        enableMouseClick: imeCfg.enableMouseClick,
         inputControlPatterns: ["Edit", "Edit2", "Edit3"],
         cursorTypes: ["IBeam"],  ; 移除Unknown，避免误判
-        maxRetries: 3,  ; 减少重试次数，提高速度
-        autoSwitchTimeout: 5000  ; 5秒超时
+        maxRetries: imeCfg.maxRetries,  ; 减少重试次数，提高速度
+        autoSwitchTimeout: imeCfg.autoSwitchTimeout  ; 5秒超时
     })
 }
 ;PluginName_Before() ;如有，值=true时，直接发送键值，不执行命令

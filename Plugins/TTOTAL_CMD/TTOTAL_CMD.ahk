@@ -12,16 +12,28 @@ global TC_Global := object()
 
 ; 从插件配置文件读取TC路径信息
 TC_GetConfig() {
-    ; 优先从插件独立配置文件读取
-    if (PluginConfigs.HasOwnProp("TTOTAL_CMD") && PluginConfigs.TTOTAL_CMD.HasOwnProp("TTOTAL_CMD")) {
-        return PluginConfigs.TTOTAL_CMD.TTOTAL_CMD
+    ; 统一使用配置服务
+    try {
+        configObj := ConfigService.GetPluginSection("TTOTAL_CMD", "TTOTAL_CMD", true)
+        if TC_HasConfigValues(configObj)
+            return configObj
+    } catch {
+        ; 使用默认值
     }
-    ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
-    else if (INIObject.HasOwnProp("TTOTAL_CMD")) {
-        return INIObject.TTOTAL_CMD
-    }
-    ; 如果都没有，返回空对象
+
     return {}
+}
+
+TC_HasConfigValues(configObj) {
+    if !IsObject(configObj)
+        return false
+
+    for key, value in configObj.OwnProps() {
+        if (key = "EasyIni_KeyComment" || key = "EasyIni_SectionComment")
+            continue
+        return true
+    }
+    return false
 }
 
 tcConfig := TC_GetConfig()
@@ -1356,18 +1368,10 @@ TC_OtherPanel_GotoNextDir() {
 Run_TotalCommander(*) {
     ; 从插件配置文件获取TC路径
     tcPath := ""
-    try {
-        ; 优先从插件独立配置文件读取
-        if (PluginConfigs.HasOwnProp("TTOTAL_CMD") && PluginConfigs.TTOTAL_CMD.HasOwnProp("TTOTAL_CMD")) {
-            tcPath := PluginConfigs.TTOTAL_CMD.TTOTAL_CMD.tc_path
-        }
-        ; 如果插件配置不存在，尝试从主配置文件读取（向后兼容）
-        else if (INIObject.HasOwnProp("TTOTAL_CMD")) {
-            tcPath := INIObject.TTOTAL_CMD.tc_path
-        }
-    } catch {
-        ; 配置读取失败，使用默认路径
-    }
+    try
+        tcPath := ConfigService.GetPluginValue("TTOTAL_CMD", "tc_path", "", "TTOTAL_CMD")
+    catch
+        tcPath := ""
     
     ; 如果配置中没有路径，尝试默认路径
     if (!tcPath) {

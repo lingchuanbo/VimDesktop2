@@ -83,7 +83,7 @@ class MemoryOptimizer {
             this.CleanupWorkingSet()
 
         } catch as e {
-            ; 忽略清理过程中的错误，避免影响主程序
+            VimD_LogOnce("WARN", "MEM_CLEANUP_FAIL", "内存清理失败", e)
         }
     }
 
@@ -102,13 +102,13 @@ class MemoryOptimizer {
             if (IsSet(ToolTipManager)) {
                 try {
                     ToolTipManager.Reset()
-                } catch {
-                    ; 忽略重置错误
+                } catch as e {
+                    VimD_LogOnce("WARN", "MEM_TOOLTIP_RESET_FAIL", "ToolTipManager 重置失败", e)
                 }
             }
 
-        } catch {
-            ; 忽略ToolTip清理错误
+        } catch as e {
+            VimD_LogOnce("WARN", "MEM_TOOLTIP_CLEAN_FAIL", "ToolTip 清理失败", e)
         }
     }
 
@@ -125,13 +125,13 @@ class MemoryOptimizer {
                     if (BTT.HasOwnProp("_cachedDPI")) {
                         BTT._cachedDPI.Clear()
                     }
-                } catch {
-                    ; 忽略清理错误
+                } catch as e {
+                    VimD_LogOnce("WARN", "MEM_GDIPLUS_CLEAN_FAIL", "GDI+ 清理失败", e)
                 }
             }
 
-        } catch {
-            ; 忽略GDI+清理错误
+        } catch as e {
+            VimD_LogOnce("WARN", "MEM_GDIPLUS_FAIL", "GDI+ 清理异常", e)
         }
     }
 
@@ -150,8 +150,8 @@ class MemoryOptimizer {
                 VimDesktop_Global.showToolTipStatus := 0
             }
 
-        } catch {
-            ; 忽略垃圾回收错误
+        } catch as e {
+            VimD_LogOnce("WARN", "MEM_GC_FAIL", "垃圾回收清理失败", e)
         }
     }
 
@@ -169,8 +169,8 @@ class MemoryOptimizer {
             ; 清理堆内存
             DllCall("kernel32.dll\HeapCompact", "ptr", DllCall("kernel32.dll\GetProcessHeap", "ptr"), "uint", 0)
 
-        } catch {
-            ; 忽略API调用错误
+        } catch as e {
+            VimD_LogOnce("WARN", "MEM_WORKINGSET_FAIL", "工作集清理失败", e)
         }
     }
 

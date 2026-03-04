@@ -38,7 +38,7 @@ LaunchOrShow(ExePath, tClass, NewTitle := "") {
                     try WinSetTitle(NewTitle, "ahk_class " . tClass)
             }
         } catch Error as e {
-            ; 忽略错误，继续执行
+            VimD_Log("WARN", "RUN_WINDOW_TOGGLE", "切换现有窗口状态失败: " tClass, e)
         }
     }
     ; 如果窗口不存在，运行程序
@@ -61,11 +61,11 @@ LaunchOrShow(ExePath, tClass, NewTitle := "") {
                     if (NewTitle != "")
                         try WinSetTitle(NewTitle, "ahk_class " . tClass)
                 } catch Error as e {
-                    ; 忽略错误，继续执行
+                    VimD_Log("WARN", "RUN_WINDOW_ACTIVATE", "激活新启动窗口失败: " tClass, e)
                 }
             }
         } catch Error as e {
-            ; 忽略错误，继续执行
+            VimD_Log("ERROR", "RUN_WINDOW_LAUNCH", "启动程序失败: " ExePath, e)
         }
     }
 
@@ -74,7 +74,7 @@ LaunchOrShow(ExePath, tClass, NewTitle := "") {
         if (NewTitle != "" && WinExist("ahk_class " . tClass))
             WinSetTitle(NewTitle, "ahk_class " . tClass)
     } catch Error as e {
-        ; 忽略错误
+        VimD_Log("WARN", "RUN_WINDOW_SETTITLE_FINAL", "最终设置窗口标题失败: " tClass, e)
     }
 }
 

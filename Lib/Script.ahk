@@ -293,40 +293,28 @@ class AfterEffects_InitConfig {
     }
     
     static LoadConfig() {
-        configFile := A_ScriptDir "\plugins\AfterEffects\AfterEffects.ini"
-        
-        if FileExist(configFile) {
-            try {
-                ini := EasyIni(configFile)
-                
-                ; 读取日志开关
-                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("EnableLogging") {
-                    ; 明确检查 true 和 false
-                    value := StrLower(Trim(ini.Config.EnableLogging))
-                    if (value = "false" || value = "0" || value = "no" || value = "off") {
-                        this.ENABLE_LOGGING := false
-                    } else if (value = "true" || value = "1" || value = "yes" || value = "on") {
-                        this.ENABLE_LOGGING := true
-                    }
-                    ; 如果值不是预期的，保持默认值
-                }
-                
-                ; 读取日志级别
-                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("LogLevel") {
-                    logLevel := ini.Config.LogLevel
-                    if InStr("DEBUG,INFO,WARN,ERROR", logLevel) {
-                        this.LOG_LEVEL := logLevel
-                    }
-                }
-                
-                ; 读取日志文件路径
-                if ini.HasOwnProp("Config") && ini.Config.HasOwnProp("LogFile") {
-                    this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\" ini.Config.LogFile
-                }
-                
-            } catch {
-                ; 配置文件读取失败，使用默认值
+        ; 每次加载先恢复默认值，避免旧值残留
+        this.LOG_LEVEL := "INFO"
+        this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\init_log.txt"
+        this.ENABLE_LOGGING := true
+
+        ; 统一使用配置服务
+        try {
+            this.ENABLE_LOGGING := ConfigService.GetPluginBoolValue("AfterEffects", "EnableLogging", true, "Config")
+
+            logLevel := StrUpper(Trim(ConfigService.GetPluginValue("AfterEffects", "LogLevel", "INFO", "Config")))
+            if InStr("|DEBUG|INFO|WARN|ERROR|", "|" logLevel "|")
+                this.LOG_LEVEL := logLevel
+
+            logFile := Trim(ConfigService.GetPluginValue("AfterEffects", "LogFile", "", "Config"))
+            if (logFile != "") {
+                if (RegExMatch(logFile, "^[A-Za-z]:\\") || SubStr(logFile, 1, 2) = "\\\\")
+                    this.LOG_FILE := logFile
+                else
+                    this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\" logFile
             }
+        } catch {
+            ; 保持默认值
         }
     }
 
@@ -743,17 +731,16 @@ run_BlenderScript(filePath) {
  * @param {String} scriptPath - 完整的脚本文件路径
  */
 RunBlenderScriptWithPath(scriptPath) {
-    ; 读取Blender配置
-    configFile := A_ScriptDir "\Plugins\Blender\Blender.ini"
-    if FileExist(configFile) {
-        try {
-            pyExe := IniRead(configFile, "Blender", "python_path", "")
-        } catch as e {
-            MsgBox "读取Blender配置文件失败: " . e.Message . "`n使用默认Python路径", "配置警告"
-            pyExe := "C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe"
-        }
-    } else {
-        pyExe := "C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe"
+    defaultPy := "C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe"
+    pyExe := defaultPy
+
+    ; 统一读取配置服务
+    try {
+        pyFromConfig := ConfigService.GetPluginValue("Blender", "python_path", "", "Blender")
+        if (pyFromConfig != "" && FileExist(pyFromConfig))
+            pyExe := pyFromConfig
+    } catch {
+        ; 保持默认路径
     }
     
     pyClient := A_ScriptDir "\Plugins\Blender\Send_to_Blender.py" ; 客户端脚本路径

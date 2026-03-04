@@ -53,13 +53,20 @@ VIMD_清除输入键() {
     ; 确保CapsLock状态被关闭，防止卡在大写状态
     SetCapsLockState "AlwaysOff"
 
+    _VIMD_CleanupToolTips()
+    _VIMD_MemoryCleanup()
+}
+
+_VIMD_CleanupToolTips() {
     ; BTT tooltip清理 - 清理所有tooltip实例
     try {
         BTTCleanupAll()
     } catch {
         ; 忽略BTT清理错误，不影响主功能
     }
+}
 
+_VIMD_MemoryCleanup() {
     ; 执行内存优化清理
     try {
         if (IsSet(MemoryOptimizer)) {
@@ -67,7 +74,7 @@ VIMD_清除输入键() {
         }
     } catch {
         ; 忽略内存优化错误，不影响主功能
-        MemoryOptimizer.ManualCleanup()
+        try MemoryOptimizer.ManualCleanup()
     }
 }
 
@@ -84,6 +91,109 @@ VIMD_重复上次热键() {
     SendInput vim.LastHotKey
 }
 
+_VIMD_ParseHelpParam(param) {
+    global vim
+    result := Map("win", "", "mode", "")
+    if (param != "") {
+        params := StrSplit(param, "|")
+        result["win"] := params[1]
+        result["mode"] := params.Length > 1 ? params[2] : ""
+    } else {
+        result["win"] := vim.LastFoundWin
+        result["mode"] := ""
+    }
+    return result
+}
+
+_VIMD_GetModeObj(win, mode) {
+    global vim
+    if strlen(mode) {
+        winObj := vim.GetWin(win)
+        return winObj.modeList[mode]
+    }
+    return vim.getMode(win)
+}
+
+_VIMD_GetActionComment(actionObj, key) {
+    if (actionObj.Type = 1) {
+        ActionDescList := actionObj.Comment
+        if (IsObject(ActionDescList) && ActionDescList.Has(key)) {
+            actionDesc := StrSplit(ActionDescList[key], "|")
+            return (actionDesc.Length >= 2) ? actionDesc[2] : ActionDescList[key]
+        }
+        return ActionDescList
+    }
+    return actionObj.Comment
+}
+
+_VIMD_GetDisplayComment(actionObj, key) {
+    comment := _VIMD_GetActionComment(actionObj, key)
+    if (comment != "")
+        return comment
+
+    funcName := actionObj.Function ? actionObj.Function : ""
+    param := actionObj.Param ? actionObj.Param : ""
+    if (funcName != "" && param != "")
+        return funcName "(" param ")"
+    if (funcName != "")
+        return funcName
+    return param
+}
+
+_VIMD_GetActionGroup(actionObj) {
+    return actionObj.Group ? actionObj.Group : "未分组"
+}
+
+_VIMD_GetHelpContext(param, resolveModeName := false) {
+    global vim
+    parsed := _VIMD_ParseHelpParam(param)
+    win := parsed["win"]
+    mode := parsed["mode"]
+    modeObj := _VIMD_GetModeObj(win, mode)
+    if (resolveModeName && !strlen(mode))
+        mode := vim.GetCurMode(win)
+    return { win: win, mode: mode, modeObj: modeObj }
+}
+
+_VIMD_CollectGroupedKeysForMode(pluginName, modeName) {
+    global vim
+    groupedKeys := Map()
+    if (!vim.ActionList.Has(pluginName) || !vim.ActionList[pluginName].Has(modeName))
+        return groupedKeys
+
+    for keyName, actionObj in vim.ActionList[pluginName][modeName] {
+        key := actionObj.OriKey ? actionObj.OriKey : keyName
+        comment := _VIMD_GetDisplayComment(actionObj, keyName)
+        group := _VIMD_GetActionGroup(actionObj)
+
+        if (!groupedKeys.Has(group))
+            groupedKeys[group] := []
+
+        groupedKeys[group].Push({ key: key, comment: comment })
+    }
+    return groupedKeys
+}
+
+_VIMD_BuildGroupedKeysText(groupedKeys, indent := "") {
+    keyList := ""
+    for group, keys in groupedKeys {
+        keyList .= indent "◆ " group " ◆`n"
+        for _, keyInfo in keys {
+            keyList .= indent "  " keyInfo.key "`t" keyInfo.comment "`n"
+        }
+        keyList .= "`n"
+    }
+    return keyList
+}
+
+_VIMD_BuildAlignedKeyTable(keys, alignWidth := 30) {
+    keyTable := ""
+    for _, keyInfo in keys {
+        keyTable .= keyInfo.key "`t" keyInfo.comment "`n"
+    }
+    return KyFunc_AutoAligned(keyTable, , alignWidth)
+}
+
 /* VIMD_ShowKeyHelp【示当前模式下，所有热键及相应的功能】
     函数:  VIMD_ShowKeyHelp
     作用:  显示当前模式下，所有热键及相应的功能，超过40行，自动换行
@@ -97,21 +207,10 @@ VIMD_ShowKeyHelp(param := "") {
     global vim
     global current_keyMap := ""
 
-    ; 解析参数
-    if (param != "") {
-        params := StrSplit(param, "|")
-        win := params[1]
-        mode := params.Length > 1 ? params[2] : ""
-    } else {
-        win := vim.LastFoundWin
-        mode := ""
-    }
-
-    if strlen(mode) {
-        winObj := vim.GetWin(win)
-        modeObj := winObj.modeList[mode]
-    } else
-        modeObj := vim.getMode(win)
+    context := _VIMD_GetHelpContext(param)
+    win := context.win
+    mode := context.mode
+    modeObj := context.modeObj
 
     ; 收集按键信息，按Group分组
     groupedKeys := Map()
@@ -129,20 +228,10 @@ VIMD_ShowKeyHelp(param := "") {
         HotKeyStr := vim.ShiftUpper(HotKeyStr)
 
         ; 获取注释
-        if (actionObj.Type = 1) {
-            ActionDescList := actionObj.Comment
-            if (IsObject(ActionDescList) && ActionDescList.Has(key)) {
-                actionDesc := StrSplit(ActionDescList[key], "|")
-                comment := (actionDesc.Length >= 2) ? actionDesc[2] : ActionDescList[key]
-            } else {
-                comment := ActionDescList
-            }
-        } else {
-            comment := actionObj.Comment
-        }
+        comment := _VIMD_GetDisplayComment(actionObj, key)
 
         ; 获取分组
-        group := actionObj.Group ? actionObj.Group : "未分组"
+        group := _VIMD_GetActionGroup(actionObj)
 
         ; 如果该分组不存在，创建一个新数组
         if (!groupedKeys.Has(group))
@@ -161,13 +250,7 @@ VIMD_ShowKeyHelp(param := "") {
         current_keyMap .= "◆ " group " ◆`n"
 
         ; 添加该分组下的所有按键
-        keyTable := ""
-        for _, keyInfo in keys {
-            keyTable .= keyInfo.key "`t" keyInfo.comment "`n"
-        }
-
-        ; 对每个分组内的按键表格进行对齐
-        keyTable := KyFunc_AutoAligned(keyTable, , 30)
+        keyTable := _VIMD_BuildAlignedKeyTable(keys, 30)
         current_keyMap .= keyTable "`n"
     }
 
@@ -242,13 +325,7 @@ HideInfo(force := false) {
     ToolTipInfoManager.Hide()
 
     ; BTT提示关闭后进行内存优化，清理累积的内存
-    try {
-        if (IsSet(MemoryOptimizer)) {
-            MemoryOptimizer.ManualCleanup()
-        }
-    } catch {
-        ; 忽略内存优化错误，不影响主功能
-    }
+    _VIMD_MemoryCleanup()
 }
 
 /*
@@ -265,6 +342,7 @@ class ToolTipInfoManager {
     static windowHook := 0
     static lastActiveWindow := 0
     static tooltipRect := { x: 0, y: 0, w: 0, h: 0 }
+    static configCache := 0
     
     ; 全局窗口监控（独立于提示显示状态）
     static globalWindowHook := 0
@@ -273,6 +351,7 @@ class ToolTipInfoManager {
 
     ; 显示提示信息并启动监控
     static Show(text, x := "", y := "", whichToolTip := 1) {
+        this._LoadConfigCache()
         ; 先显示提示
         ToolTipManager.Show(text, x, y, whichToolTip)
         this.isShowing := true
@@ -290,12 +369,8 @@ class ToolTipInfoManager {
             return
 
         ; 检查配置是否允许自动隐藏
-        try {
-            if (!INIObject.config.tooltip_auto_hide)
-                return
-        } catch {
-            ; 如果读取配置失败，默认允许隐藏
-        }
+        if (!this._IsConfigEnabled("tooltip_auto_hide", true))
+            return
 
         this._DoHide()
     }
@@ -322,14 +397,7 @@ class ToolTipInfoManager {
     static _ClearKeyCache(reason := "自动隐藏") {
         try {
             ; 检查配置是否启用按键缓存清除
-            clearKeyCache := true
-            try {
-                clearKeyCache := INIObject.config.tooltip_clear_key_cache_on_hide
-            } catch {
-                ; 如果读取配置失败，默认启用
-            }
-            
-            if (!clearKeyCache)
+            if (!this._IsConfigEnabled("tooltip_clear_key_cache_on_hide", true))
                 return
             
             ; 获取当前窗口和对象
@@ -345,41 +413,70 @@ class ToolTipInfoManager {
                 
                 ; 如果启用调试，记录清除操作
                 try {
-                    if (INIObject.config.enable_debug) {
+                    if (this._IsConfigEnabled("enable_debug", false)) {
                         vim._Debug.Add(reason "时清除按键缓存: " winName " (原缓存: " oldKeyTemp ")")
                     }
                 } catch {
                     ; 忽略调试记录错误
                 }
             }
-        } catch {
-            ; 忽略清除按键缓存时的错误，不影响主功能
+        } catch as e {
+            VimD_LogOnce("WARN", "TTI_CLEAR_KEYCACHE_FAIL", "清除按键缓存失败", e)
         }
     }
 
     ; 启动监控
     static _StartMonitoring() {
-        try {
-            ; 启动超时定时器
-            timeoutMs := INIObject.config.tooltip_hide_timeout
-            if (timeoutMs > 0) {
-                this.hideTimer := SetTimer(() => ToolTipInfoManager._OnTimeout(), -timeoutMs)
-            }
+        ; 启动超时定时器
+        timeoutMs := this._GetCachedConfig("tooltip_hide_timeout", 5000)
+        if (timeoutMs > 0) {
+            this._SetHideTimer(timeoutMs)
+        }
 
-            ; 启动鼠标监控
-            if (INIObject.config.tooltip_hide_on_mouse_leave || INIObject.config.tooltip_hide_on_click_outside) {
-                this._StartMouseMonitoring()
-            }
-
-            ; 启动窗口监控
-            if (INIObject.config.tooltip_hide_on_window_change) {
-                this._StartWindowMonitoring()
-            }
-        } catch {
-            ; 如果读取配置失败，使用默认行为
-            this.hideTimer := SetTimer(() => ToolTipInfoManager._OnTimeout(), -5000)
+        ; 启动鼠标监控
+        if (this._IsConfigEnabled("tooltip_hide_on_mouse_leave", false) || this._IsConfigEnabled("tooltip_hide_on_click_outside", false)) {
             this._StartMouseMonitoring()
+        }
+
+        ; 启动窗口监控
+        if (this._IsConfigEnabled("tooltip_hide_on_window_change", false)) {
             this._StartWindowMonitoring()
+        }
+    }
+
+    static _SetHideTimer(timeoutMs) {
+        if (timeoutMs <= 0)
+            return
+        this.hideTimer := SetTimer(() => ToolTipInfoManager._OnTimeout(), -timeoutMs)
+    }
+
+    static _IsConfigEnabled(key, defaultValue := true) {
+        return this._GetCachedConfig(key, defaultValue)
+    }
+
+    static _LoadConfigCache() {
+        this.configCache := Map()
+        this.configCache["tooltip_auto_hide"] := this._GetConfigValue("tooltip_auto_hide", true)
+        this.configCache["tooltip_hide_timeout"] := this._GetConfigValue("tooltip_hide_timeout", 5000)
+        this.configCache["tooltip_hide_on_mouse_leave"] := this._GetConfigValue("tooltip_hide_on_mouse_leave", false)
+        this.configCache["tooltip_hide_on_click_outside"] := this._GetConfigValue("tooltip_hide_on_click_outside", false)
+        this.configCache["tooltip_hide_on_window_change"] := this._GetConfigValue("tooltip_hide_on_window_change", false)
+        this.configCache["tooltip_global_window_monitor"] := this._GetConfigValue("tooltip_global_window_monitor", true)
+        this.configCache["tooltip_clear_key_cache_on_hide"] := this._GetConfigValue("tooltip_clear_key_cache_on_hide", true)
+        this.configCache["enable_debug"] := this._GetConfigValue("enable_debug", false)
+    }
+
+    static _GetCachedConfig(key, defaultValue) {
+        if (IsObject(this.configCache) && this.configCache.Has(key))
+            return this.configCache[key]
+        return this._GetConfigValue(key, defaultValue)
+    }
+
+    static _GetConfigValue(key, defaultValue) {
+        try {
+            return INIObject.config.%key%
+        } catch {
+            return defaultValue
         }
     }
 
@@ -409,10 +506,7 @@ class ToolTipInfoManager {
 
     ; 停止鼠标监控
     static _StopMouseMonitoring() {
-        if (this.mouseHook) {
-            SetTimer(this.mouseHook, 0)
-            this.mouseHook := 0
-        }
+        this._StopTimerHook("mouseHook")
     }
 
     ; 启动窗口监控
@@ -426,10 +520,7 @@ class ToolTipInfoManager {
 
     ; 停止窗口监控
     static _StopWindowMonitoring() {
-        if (this.windowHook) {
-            SetTimer(this.windowHook, 0)
-            this.windowHook := 0
-        }
+        this._StopTimerHook("windowHook")
     }
 
     ; 检查鼠标状态
@@ -442,25 +533,24 @@ class ToolTipInfoManager {
             MouseGetPos(&mouseX, &mouseY)
 
             ; 检查是否点击了鼠标（左键或右键）
-            if (INIObject.config.tooltip_hide_on_click_outside) {
+            if (this._IsConfigEnabled("tooltip_hide_on_click_outside", false)) {
                 if (GetKeyState("LButton", "P") || GetKeyState("RButton", "P")) {
                     ; 检查点击是否在提示框外
-                    if (!this._IsMouseInTooltip(mouseX, mouseY)) {
-                        this.Hide()
+                    if (this._HideIfMouseOutside(mouseX, mouseY)) {
                         return
                     }
                 }
             }
 
             ; 检查鼠标是否离开提示区域
-            if (INIObject.config.tooltip_hide_on_mouse_leave) {
+            if (this._IsConfigEnabled("tooltip_hide_on_mouse_leave", false)) {
                 if (!this._IsMouseInTooltip(mouseX, mouseY)) {
                     ; 给一个小的延迟，避免鼠标快速移动时误触发
                     SetTimer(() => ToolTipInfoManager._DelayedHideCheck(), -500)
                 }
             }
-        } catch {
-            ; 忽略鼠标检测错误
+        } catch as e {
+            VimD_LogOnce("WARN", "TTI_MOUSE_CHECK_FAIL", "鼠标检测失败", e)
         }
     }
 
@@ -474,8 +564,8 @@ class ToolTipInfoManager {
             if (currentWindow != this.lastActiveWindow) {
                 this.Hide()
             }
-        } catch {
-            ; 忽略窗口检测错误
+        } catch as e {
+            VimD_LogOnce("WARN", "TTI_WINDOW_CHECK_FAIL", "窗口检测失败", e)
         }
     }
 
@@ -488,9 +578,7 @@ class ToolTipInfoManager {
     static _DelayedHideCheck() {
         if (this.isShowing) {
             MouseGetPos(&newX, &newY)
-            if (!this._IsMouseInTooltip(newX, newY)) {
-                this.Hide()
-            }
+            this._HideIfMouseOutside(newX, newY)
         }
     }
 
@@ -528,19 +616,23 @@ class ToolTipInfoManager {
             mouseY >= this.tooltipRect.y - margin &&
             mouseY <= this.tooltipRect.y + this.tooltipRect.h + margin)
     }
+
+    static _HideIfMouseOutside(mouseX, mouseY) {
+        if (!this._IsMouseInTooltip(mouseX, mouseY)) {
+            this.Hide()
+            return true
+        }
+        return false
+    }
     
     ; 启动全局窗口监控
     static StartGlobalWindowMonitor() {
-        try {
-            ; 检查配置是否启用全局窗口监控
-            if (!INIObject.config.tooltip_global_window_monitor)
-                return
-            ; 检查配置是否启用按键缓存清除
-            if (!INIObject.config.tooltip_clear_key_cache_on_hide)
-                return
-        } catch {
-            ; 如果读取配置失败，默认启用
-        }
+        this._LoadConfigCache()
+        ; 检查配置是否启用全局窗口监控与按键缓存清除
+        if (!this._IsConfigEnabled("tooltip_global_window_monitor", true))
+            return
+        if (!this._IsConfigEnabled("tooltip_clear_key_cache_on_hide", true))
+            return
         
         if (this.globalWindowHook)
             return
@@ -552,11 +644,16 @@ class ToolTipInfoManager {
     
     ; 停止全局窗口监控
     static StopGlobalWindowMonitor() {
-        if (this.globalWindowHook) {
-            SetTimer(this.globalWindowHook, 0)
-            this.globalWindowHook := 0
-        }
+        this._StopTimerHook("globalWindowHook")
         this.globalWindowMonitorEnabled := false
+    }
+
+    static _StopTimerHook(hookField) {
+        hookId := this.%hookField%
+        if (hookId) {
+            SetTimer(hookId, 0)
+            this.%hookField% := 0
+        }
     }
     
     ; 检查全局窗口状态
@@ -568,8 +665,8 @@ class ToolTipInfoManager {
                 this._ClearKeyCache("窗口切换")
                 this.globalLastActiveWindow := currentWindow
             }
-        } catch {
-            ; 忽略窗口检测错误
+        } catch as e {
+            VimD_LogOnce("WARN", "TTI_GLOBAL_WINDOW_CHECK_FAIL", "全局窗口检测失败", e)
         }
     }
 }
@@ -594,24 +691,10 @@ VIMD_ShowKeyHelpMD(param := "") {
         return
     }
 
-    ; 解析参数
-    if (param != "") {
-        params := StrSplit(param, "|")
-        win := params[1]
-        mode := params.Length > 1 ? params[2] : ""
-    } else {
-        win := vim.LastFoundWin
-        mode := ""
-    }
-
-    ; 获取模式对象
-    if strlen(mode) {
-        winObj := vim.GetWin(win)
-        modeObj := winObj.modeList[mode]
-    } else {
-        modeObj := vim.getMode(win)
-        mode := vim.GetCurMode(win)
-    }
+    context := _VIMD_GetHelpContext(param, true)
+    win := context.win
+    mode := context.mode
+    modeObj := context.modeObj
 
     ; 构建Markdown内容
     markdownContent := BuildMarkdownContent(win, mode, modeObj)
@@ -650,20 +733,10 @@ BuildMarkdownContent(win, mode, modeObj) {
         }
 
         ; 获取注释
-        if (actionObj.Type = 1) {
-            ActionDescList := actionObj.Comment
-            if (IsObject(ActionDescList) && ActionDescList.Has(key)) {
-                actionDesc := StrSplit(ActionDescList[key], "|")
-                comment := (actionDesc.Length >= 2) ? actionDesc[2] : ActionDescList[key]
-            } else {
-                comment := ActionDescList
-            }
-        } else {
-            comment := actionObj.Comment
-        }
+        comment := _VIMD_GetDisplayComment(actionObj, key)
 
         ; 获取分组和函数信息
-        group := actionObj.Group ? actionObj.Group : "未分组"
+        group := _VIMD_GetActionGroup(actionObj)
         funcName := actionObj.Function ? actionObj.Function : "未知"
         param := actionObj.Param ? actionObj.Param : ""
 
@@ -948,43 +1021,12 @@ VIMD_ShowKeyHelpWithGui(pluginName) {
 
         ; 按模式显示按键
         for _, modeName in modes {
-            ; 跳过空模式
-            if (!vim.ActionList.Has(pluginName) || !vim.ActionList[pluginName].Has(modeName))
-                continue
-
             displayText .= "【" modeName "】`n"
 
-            ; 收集该模式下的所有按键，按Group分组
-            keyList := ""
-            groupedKeys := Map()
-
-            ; 首先按Group分组收集按键
-            for keyName, actionObj in vim.ActionList[pluginName][modeName] {
-                ; 获取按键、注释和分组
-                key := actionObj.OriKey ? actionObj.OriKey : keyName
-                comment := actionObj.Comment
-                group := actionObj.Group ? actionObj.Group : "未分组"
-
-                ; 如果该分组不存在，创建一个新数组
-                if (!groupedKeys.Has(group))
-                    groupedKeys[group] := []
-
-                ; 将按键信息添加到对应分组
-                groupedKeys[group].Push({ key: key, comment: comment })
-            }
-
-            ; 然后按分组显示按键
-            for group, keys in groupedKeys {
-                ; 添加分组标题
-                keyList .= "  ◆ " group " ◆`n"
-
-                ; 添加该分组下的所有按键
-                for _, keyInfo in keys {
-                    keyList .= "    " keyInfo.key "`t" keyInfo.comment "`n"
-                }
-
-                keyList .= "`n"
-            }
+            groupedKeys := _VIMD_CollectGroupedKeysForMode(pluginName, modeName)
+            if (groupedKeys.Count = 0)
+                continue
+            keyList := _VIMD_BuildGroupedKeysText(groupedKeys, "  ")
 
             ; 添加按键信息到显示文本
             displayText .= keyList
