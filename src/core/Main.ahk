@@ -941,10 +941,13 @@ VimDesktop_ResetPluginMappings(pluginName, disable := false) {
         vim.ActionList.Delete(pluginName)
 
     if IsObject(vim.ActionFromPlugin) {
+        keysToDelete := []
         for key, value in vim.ActionFromPlugin {
             if (value = pluginName)
-                vim.ActionFromPlugin.Delete(key)
+                keysToDelete.Push(key)
         }
+        for _, key in keysToDelete
+            vim.ActionFromPlugin.Delete(key)
     }
 
     if (disable)
