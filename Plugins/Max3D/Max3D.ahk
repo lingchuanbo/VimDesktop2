@@ -132,7 +132,7 @@ Max3D_RenderDirtoTC() {
     ; 修正：winID 未定义，改为传入空值
     srcDIR := GetActiveFileManagerFolder("")
     setPath := StrReplace(srcDIR, "\", "\\") "\\"
-    setPreset := A_ScriptDir "\plugins\Max3D\Script\commands\QuikeRenderTC.ms"
+    setPreset := A_ScriptDir "\..\plugins\Max3D\Script\commands\QuikeRenderTC.ms"
     try {
         MsCode := ""
         MsCode .= "    --确保脚本在 3DsMax 中正确执行`n"
@@ -157,7 +157,7 @@ Max3D_RenderDirtoTC() {
 ; 定义全局脚本路径配置
 GetMax3DScriptPaths() {
     ; 基础目录
-    baseDir := A_ScriptDir "\plugins\Max3D\Script"
+    baseDir := A_ScriptDir "\..\plugins\Max3D\Script"
 
     ; 返回路径配置
     return {

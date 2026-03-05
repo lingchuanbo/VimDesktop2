@@ -250,7 +250,7 @@ AfterEffects_RenderFilesWithTC() {
     ClipWait(1)
     srcDIR := A_Clipboard
     setPath := StrReplace(srcDIR, "\", "\\")
-    setPreset := A_ScriptDir . "\plugins\AfterEffects\Script\OpenLocalFilesRenderTCAtive.jsx"
+    setPreset := A_ScriptDir . "\..\plugins\AfterEffects\Script\OpenLocalFilesRenderTCAtive.jsx"
     ; FileDelete(setPreset) ;避免重复删除文件
     jsCode := "// 清空渲染列队`n"
     jsCode .= "while (app.project.renderQueue.numItems > 0){`n"
@@ -292,7 +292,7 @@ render_menu() {
 ; 定义全局脚本路径配置
 GetAfterEffectsScriptPaths() {
     ; 基础目录
-    baseDir := A_ScriptDir "\plugins\AfterEffects\Script"
+    baseDir := A_ScriptDir "\..\plugins\AfterEffects\Script"
 
     ; 返回路径配置
     return {
@@ -405,7 +405,7 @@ AfterEffects_ApplyExpressionScript(expressionContent, fileName) {
         escapedExpression := StrReplace(escapedExpression, "`"", "\`"")
         ; 注意：不再转义 `r 和 `n，以便保留表达式中的换行符
         ; 创建临时JSX脚本
-        tempScriptPath := A_ScriptDir "\plugins\AfterEffects\Script\temp_apply_expression.jsx"
+        tempScriptPath := A_ScriptDir "\..\plugins\AfterEffects\Script\temp_apply_expression.jsx"
         ; JSX脚本内容
         jsxCode := "try {`n"
         jsxCode .= "    function main() {`n"

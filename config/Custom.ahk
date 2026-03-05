@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 ; 引入必要的库文件
-#Include ..\Lib\ToolTipEx.ahk
+#Include ..\libs\ToolTipEx.ahk
 
 ; ==============================================================================
 ;  1. 创建划词菜单对象
@@ -120,7 +120,7 @@ claunch() {
     loop {
         notfind := "notfind"
         nowpage := "page" . Format("{:03}", A_Index - 1)
-        name := IniRead(A_ScriptDir "\Apps\ClaunAHK\Data\BoBO\CLaunch.ini", nowpage, "Name", notfind)
+        name := IniRead(A_ScriptDir "\..\apps\ClaunAHK\Data\BoBO\CLaunch.ini", nowpage, "Name", notfind)
         if (name = notfind)
             break
         names.Push(name)
@@ -179,7 +179,7 @@ claunch() {
     claunchY := centerY - claunchHeight / 2
 
     ; 运行CLaunch并设置位置
-    Run A_ScriptDir "\Apps\ClaunAHK\claunch.exe /n /m /p" pagenow
+    Run A_ScriptDir "\..\apps\ClaunAHK\claunch.exe /n /m /p" pagenow
 
     ; 等待CLaunch窗口出现
     WinWait "ahk_exe claunch.exe", , 2
@@ -816,13 +816,13 @@ CloseAllExe() {
     ComSpec := EnvGet("ComSpec")
 
     ; 直接执行批处理文件 - 使用完整路径并确保路径正确
-    batPath := A_ScriptDir "\Apps\CloseAllPortable\CloseAllp.bat"
+    batPath := A_ScriptDir "\..\apps\CloseAllPortable\CloseAllp.bat"
     if FileExist(batPath) {
         ; 显示正在执行的提示
         ToolTipEX("正在关闭程序...", 1)
 
         ; 使用管理员权限运行批处理文件
-        RunWait "*RunAs " ComSpec " /c " batPath, A_ScriptDir
+        RunWait "*RunAs " ComSpec " /c " batPath, A_ScriptDir "\.."
     } else {
         MsgBox "批处理文件不存在: " batPath
         return
@@ -833,7 +833,7 @@ CloseAllExe() {
     SoftDir := EnvGet("SoftDir")
 
     ; 运行无UI的CloseAll64程序
-    closeAllPath := A_ScriptDir "\Apps\CloseAllPortable\App\CloseAll\64\CloseAll64.exe"
+    closeAllPath := A_ScriptDir "\..\apps\CloseAllPortable\App\CloseAll\64\CloseAll64.exe"
     if FileExist(closeAllPath) {
         Run closeAllPath " /NOUI"
     } else {

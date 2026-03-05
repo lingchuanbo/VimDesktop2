@@ -73,9 +73,9 @@ class EasyIni
 				
 				; 优化变量替换 - 只在需要时执行
 				if (InStr(val, "%A_ScriptDir%"))
-					val := StrReplace(val, "%A_ScriptDir%", A_ScriptDir)
+					val := StrReplace(val, "%A_ScriptDir%", A_ScriptDir "\..")
 				if (InStr(val, "%A_WorkingDir%"))
-					val := StrReplace(val, "%A_WorkingDir%", A_ScriptDir)
+					val := StrReplace(val, "%A_WorkingDir%", A_ScriptDir "\..")
 				
 				this.%sCurSec%.%key% := val
 				sPrevKeyForThisSec := key

@@ -2,7 +2,7 @@
 ;原作者: BGM V1 http://www.autohotkey.com/board/topic/95219-dynamicfilemenuahk/
 ;修改者: BoBO
 ;功能: 从文件系统创建动态菜单，支持多种文件格式和子文件夹，支持多格式 *.ms|*.mse [|]分开
-;AHK v2适配: 更新为AHK v2兼容版本 调用示例文件 ..\doc\DynamicMenuExample.ahk
+;AHK v2适配: 更新为AHK v2兼容版本 调用示例文件 ..\docs\DynamicMenuExample.ahk
 ;
 ;新增健壮性改进 (2025年更新):
 ;- 参数验证: 检查目录路径、文件掩码和菜单对象有效性

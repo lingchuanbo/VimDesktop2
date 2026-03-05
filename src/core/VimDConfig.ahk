@@ -173,7 +173,7 @@ _VimDConfig_UpdatePluginHeader(plugin, winObj){
 }
 
 _VimDConfig_LoadPluginInfo(plugin){
-	pluginFile:=A_ScriptDir "\plugins\" plugin "\" plugin ".ahk"
+	pluginFile:=A_ScriptDir "\..\plugins\" plugin "\" plugin ".ahk"
 	if (FileExist(pluginFile)){ ;文件必须存在，跳过内置插件
 		; AHK V2以UTF-8编码，iniRead仅支持ANSI或UTF-16，所以使用整文读取及正则匹配。
 		pluginTxt:=FileRead(pluginFile, "UTF-8")
@@ -354,10 +354,10 @@ _VimDConfig_FindActionInFileList(filePattern, flags, label_Action){
 
 _VimDConfig_GetActionSearchTargets(){
 	return [
-		{ pattern: A_ScriptDir "\plugins\*.ahk", flags: "RF" },
-		{ pattern: A_ScriptDir "\core\*.ahk", flags: "F" },
-		{ pattern: A_ScriptDir "\lib\*.ahk", flags: "F" },
-		{ pattern: A_ScriptDir "\custom\*.ahk", flags: "F" }
+		{ pattern: A_ScriptDir "\..\plugins\*.ahk", flags: "RF" },
+		{ pattern: A_ScriptDir "\..\src\core\*.ahk", flags: "F" },
+		{ pattern: A_ScriptDir "\..\libs\*.ahk", flags: "F" },
+		{ pattern: A_ScriptDir "\..\config\*.ahk", flags: "F" }
 	]
 }
 
@@ -431,16 +431,16 @@ _VimDConfig_ResolveEditorPath(){
 }
 
 VimDConfig_EditConfig(){
-    Run A_ScriptDir "\vimd.ini"
+    Run A_ScriptDir "\..\config\vimd.ini"
 }
 
 VimDConfig_EditCustom(){
     try 
     {
         If (fileExist(VimDesktop_Global.Editor))
-            Run VimDesktop_Global.Editor " " A_ScriptDir "\custom.ahk"
+            Run VimDesktop_Global.Editor " " A_ScriptDir "\..\config\Custom.ahk"
         else
-            Run "notepad.exe"  " " A_ScriptDir "\custom.ahk"
+            Run "notepad.exe"  " " A_ScriptDir "\..\config\Custom.ahk"
     }
 }
 
@@ -649,7 +649,7 @@ SearchFileForKey(Keys, Action, Param, Desc, EditKeyMapping){
         label_mode := Format('Mode:\s*"{1}"', mode)
 
         ;查找插件热键映射
-        pluginFile:=A_ScriptDir "\plugins\" plugin "\" plugin ".ahk"
+        pluginFile:=A_ScriptDir "\..\plugins\" plugin "\" plugin ".ahk"
         _VimDConfig_FindLineByRegex(pluginFile, [label_key, label_mode])
     }
 }

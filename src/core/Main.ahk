@@ -80,7 +80,7 @@ _InitMemoryOptimizer() {
 
 _EnsureConfigFile() {
     if (!FileExist(VimDesktop_Global.ConfigPath)) {
-        FileCopy ".\Custom\vimd.ini.help.txt", VimDesktop_Global.ConfigPath
+        FileCopy A_ScriptDir "\..\config\vimd.ini.help.txt", VimDesktop_Global.ConfigPath
     }
 }
 
@@ -88,7 +88,7 @@ _InitLogAndDebug(configCache) {
     global vim
     ; 延迟初始化日志和调试
     if (configCache["enable_log"] == 1) {
-        global logObject := Logger(A_ScriptDir "\debug.log")
+        global logObject := Logger(A_ScriptDir "\..\debug.log")
     }
 
     if (configCache["enable_debug"] == 1) {
@@ -134,7 +134,7 @@ CheckPlugin(LoadAll := 0) {
     currentTime := A_TickCount
     if (currentTime - lastScanTime > MAIN_PLUGIN_SCAN_INTERVAL_MS || pluginDirs.Length == 0) {
         pluginDirs := []
-        loop files, A_ScriptDir "\plugins\*", "D" {
+        loop files, A_ScriptDir "\..\plugins\*", "D" {
             pluginDirs.Push(A_LoopFileName)
         }
         lastScanTime := currentTime
@@ -175,10 +175,10 @@ _ProcessNewPlugins(newPlugins) {
     for _, pluginName in newPlugins {
         MsgBox Format(Lang["General"]["Plugin_New"], pluginName), Lang["General"]["Info"], "4160"
 
-        if (FileExist(A_ScriptDir "\vimd.exe")) {
-            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', A_ScriptDir)
+        if (FileExist(A_ScriptDir "\..\vimd.exe")) {
+            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', A_ScriptDir "\..")
         } else {
-            Run A_ScriptDir "\plugins\check.ahk"
+            Run A_ScriptDir "\..\plugins\check.ahk"
         }
 
         ; 添加插件配置
@@ -634,7 +634,7 @@ _VIMD_GetCmdType(param) {
 }
 
 _Main_GetPluginFilePath(pluginName) {
-    return A_ScriptDir "\plugins\" pluginName "\" pluginName ".ahk"
+    return A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ahk"
 }
 
 _EnsureIniSections(sectionNames) {

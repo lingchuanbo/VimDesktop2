@@ -684,7 +684,7 @@ VIMD_ShowKeyHelpMD(param := "") {
     global vim
 
     ; 检查 inlyne.exe 是否存在
-    inlyneExe := A_ScriptDir "\Apps\inlyne\inlyne.exe"
+    inlyneExe := A_ScriptDir "\..\apps\inlyne\inlyne.exe"
     if (!FileExist(inlyneExe)) {
         ; 如果 inlyne.exe 不存在，使用原来的 VIMD_ShowKeyHelp 函数
         VIMD_ShowKeyHelp(param)
@@ -828,7 +828,7 @@ GetGroupIcon(group) {
 */
 OpenMarkdownWithInlyne(markdownContent, title) {
     ; inlyne.exe 路径
-    inlyneExe := A_ScriptDir "\Apps\inlyne\inlyne.exe"
+    inlyneExe := A_ScriptDir "\..\apps\inlyne\inlyne.exe"
 
     ; 检查 inlyne.exe 是否存在
     if (!FileExist(inlyneExe)) {

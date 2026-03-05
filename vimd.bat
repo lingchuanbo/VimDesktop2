@@ -1,3 +1,3 @@
 REM vimd.bat
-start "vimd" /min "%~dp0\Apps\AutoHotkey.exe" "%~dp0\vimd.ahk"
+start "vimd" /min "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" "%~dp0\src\vimd.ahk"
 pause

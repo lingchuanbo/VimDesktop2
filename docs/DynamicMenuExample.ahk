@@ -1,5 +1,5 @@
 #Requires AutoHotkey v2.0
-#Include ..\Lib\DynamicFileMenu.ahk
+#Include ..\libs\DynamicFileMenu.ahk
 
 /**
  * 动态文件菜单示例 - AutoHotkey V2
@@ -119,9 +119,9 @@ ShowMultiDirMenu(*) {
         ; 定义要包含的目录路径
         baseDir := A_ScriptDir "\.."  ; 脚本的上一级目录
         dirPaths := [
-            baseDir "\doc",           ; doc目录
-            baseDir "\Core",          ; Core目录
-            baseDir "\Lib"            ; Lib目录
+            baseDir "\docs",          ; docs目录
+            baseDir "\src\core",      ; core目录
+            baseDir "\libs"           ; libs目录
         ]
 
         ; 定义目录显示名称

@@ -1,0 +1,11 @@
+﻿VimDesktop 配置校验报告
+时间: 2026-03-05 12:06:12
+主配置: D:\BoBO\VimDesktop2\src\..\config\vimd.ini
+插件配置文件数: 4
+问题数: 5
+----------------------------------------
+1. 扩展文件不存在: 脚本管理 -> D:\BoBO\VimDesktop2\src\..\apps\AHK2Manage\AHK2Manager.ahk
+2. 路径不存在: Everything.Everything.everything_path -> D:\WorkFlow\tools\TotalCMD\Tools\Everything\Everything.exe
+3. 路径不存在: TTOTAL_CMD.TTOTAL_CMD.tc_path -> D:\WorkFlow\tools\TotalCMD\TOTALCMD.EXE
+4. 路径不存在: TTOTAL_CMD.TTOTAL_CMD.tc_ini_path -> D:\WorkFlow\tools\TotalCMD\WinCMD.ini
+5. 目录不存在: TTOTAL_CMD.TTOTAL_CMD.tc_dir_path -> D:\WorkFlow\tools\TotalCMD

@@ -1,5 +1,5 @@
 #Requires AutoHotkey v2.0
-#Include <class_EasyIni>
+#Include .\class_EasyIni.ahk
 ; ################ Adobe After Effect运行函数 ######################
 
 ; -----------------------------------------------------------------
@@ -87,7 +87,7 @@ Script_AfterEffects(path) {
 ; 构建可能的脚本路径列表
 BuildScriptPaths(path) {
     paths := []
-    baseDir := A_ScriptDir . "\plugins\AfterEffects\Script"
+    baseDir := A_ScriptDir . "\..\plugins\AfterEffects\Script"
     
     ; 如果是绝对路径，直接添加
     if InStr(path, ":") || SubStr(path, 1, 2) = "\\" {
@@ -124,7 +124,7 @@ ExecuteAEScript(scriptPath, AeExePath) {
 
 ; 通过快捷键方式执行脚本
 ExecuteViaHotkey(scriptPath) {
-    runAEScriptFile := A_ScriptDir . "\plugins\AfterEffects\Script\runAEScript.jsx"
+    runAEScriptFile := A_ScriptDir . "\..\plugins\AfterEffects\Script\runAEScript.jsx"
     
     try {
         ; 创建临时执行脚本
@@ -213,7 +213,7 @@ AE_CleanupTempFile(filePath) {
 ; 优化后的 runAeScriptFiles 函数（保留以兼容旧代码）
 runAeScriptFiles(path) {
     ; 使用新的创建临时脚本函数
-    tempFile := A_ScriptDir . "\plugins\AfterEffects\Script\runAEScript.jsx"
+    tempFile := A_ScriptDir . "\..\plugins\AfterEffects\Script\runAEScript.jsx"
     
     try {
         ; 调用优化后的创建临时脚本函数
@@ -284,7 +284,7 @@ class AfterEffects_InitConfig {
     static SCRIPT_PREFIX := "runAEScript"  ; 临时脚本文件前缀
     static SUCCESS_SUFFIX := "init_success" ; 成功标记文件后缀
     static LOG_LEVEL := "INFO"          ; 日志级别 (DEBUG, INFO, WARN, ERROR)
-    static LOG_FILE := A_ScriptDir "\plugins\AfterEffects\init_log.txt" ; 日志文件路径
+    static LOG_FILE := A_ScriptDir "\..\plugins\AfterEffects\init_log.txt" ; 日志文件路径
     static ENABLE_LOGGING := true       ; 日志记录开关
     
     ; 读取配置文件
@@ -295,7 +295,7 @@ class AfterEffects_InitConfig {
     static LoadConfig() {
         ; 每次加载先恢复默认值，避免旧值残留
         this.LOG_LEVEL := "INFO"
-        this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\init_log.txt"
+        this.LOG_FILE := A_ScriptDir "\..\plugins\AfterEffects\init_log.txt"
         this.ENABLE_LOGGING := true
 
         ; 统一使用配置服务
@@ -311,7 +311,7 @@ class AfterEffects_InitConfig {
                 if (RegExMatch(logFile, "^[A-Za-z]:\\") || SubStr(logFile, 1, 2) = "\\\\")
                     this.LOG_FILE := logFile
                 else
-                    this.LOG_FILE := A_ScriptDir "\plugins\AfterEffects\" logFile
+                    this.LOG_FILE := A_ScriptDir "\..\plugins\AfterEffects\" logFile
             }
         } catch {
             ; 保持默认值
@@ -399,7 +399,7 @@ AfterEffects_ValidateEnvironment() {
 
 ; 获取初始化配置
 AfterEffects_GetInitConfig() {
-    baseDir := A_ScriptDir "\plugins\AfterEffects\Script"
+    baseDir := A_ScriptDir "\..\plugins\AfterEffects\Script"
 
     return {
         scriptDir: baseDir,
@@ -581,7 +581,7 @@ Script_3DsMax(Path) {
     ; 检查是否为脚本文件 (.ms|.mse|.py)
     if RegExMatch(Path, "i).*\.(ms|mse|py)$") {
         ; 验证MXSPyCOM.exe是否存在
-        mxsComPath := A_ScriptDir . "\plugins\Max3D\Script\MXSPyCOM.exe"
+        mxsComPath := A_ScriptDir . "\..\plugins\Max3D\Script\MXSPyCOM.exe"
         if !FileExist(mxsComPath) {
             MsgBox "MXSPyCOM.exe 未找到，无法执行脚本文件", "错误", 16
             return
@@ -600,8 +600,8 @@ Script_3DsMax(Path) {
         }
 
         ; 检查相对路径
-        FilePath1 := A_ScriptDir . "\plugins\Max3D\Script\commands\" . Path
-        FilePath2 := A_ScriptDir . "\plugins\Max3D\Script\" . Path
+        FilePath1 := A_ScriptDir . "\..\plugins\Max3D\Script\commands\" . Path
+        FilePath2 := A_ScriptDir . "\..\plugins\Max3D\Script\" . Path
 
         ; 检查文件是否存在并运行
         if FileExist(FilePath2) {
@@ -694,11 +694,11 @@ run_BlenderScript(filePath) {
     }
 
     ; 检查相对路径
-    FilePath1 := A_ScriptDir . "\Plugins\Blender\Script\commands\" . filePath
-    FilePath2 := A_ScriptDir . "\Plugins\Blender\Script\models\" . filePath
-    FilePath3 := A_ScriptDir . "\Plugins\Blender\Script\materials\" . filePath
-    FilePath4 := A_ScriptDir . "\Plugins\Blender\Script\geometrynode\" . filePath
-    FilePath5 := A_ScriptDir . "\Plugins\Blender\Script\" . filePath
+    FilePath1 := A_ScriptDir . "\..\plugins\Blender\Script\commands\" . filePath
+    FilePath2 := A_ScriptDir . "\..\plugins\Blender\Script\models\" . filePath
+    FilePath3 := A_ScriptDir . "\..\plugins\Blender\Script\materials\" . filePath
+    FilePath4 := A_ScriptDir . "\..\plugins\Blender\Script\geometrynode\" . filePath
+    FilePath5 := A_ScriptDir . "\..\plugins\Blender\Script\" . filePath
 
     ; 检查文件是否存在并运行
     if FileExist(FilePath1) {
@@ -743,7 +743,7 @@ RunBlenderScriptWithPath(scriptPath) {
         ; 保持默认路径
     }
     
-    pyClient := A_ScriptDir "\Plugins\Blender\Send_to_Blender.py" ; 客户端脚本路径
+    pyClient := A_ScriptDir "\..\plugins\Blender\Send_to_Blender.py" ; 客户端脚本路径
 
     try {
         cmd := '"' pyExe '" "' pyClient '" "' scriptPath '"'

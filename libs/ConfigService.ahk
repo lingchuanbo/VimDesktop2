@@ -26,7 +26,7 @@ class ConfigService {
     }
 
     static _BuildPluginConfigPathIndex() {
-        pluginsDir := A_ScriptDir "\plugins"
+        pluginsDir := A_ScriptDir "\..\plugins"
         if !DirExist(pluginsDir)
             return
 
@@ -68,7 +68,7 @@ class ConfigService {
     static _GetMainConfigPath() {
         if (IsObject(this.MainConfig) && this.MainConfig.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
             return this.MainConfig.EasyIni_ReservedFor_m_sFile
-        return A_ScriptDir "\Custom\vimd.ini"
+        return A_ScriptDir "\..\config\vimd.ini"
     }
 
     static _GetFileMtime(filePath) {
@@ -283,7 +283,7 @@ class ConfigService {
         if (targetPath = "")
             targetPath := this.GetPluginConfigPath(pluginName)
         if (targetPath = "")
-            targetPath := A_ScriptDir "\plugins\" pluginName "\" pluginName ".ini"
+            targetPath := A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ini"
 
         try {
             this._EnsureParentDir(targetPath)
@@ -381,7 +381,7 @@ class ConfigService {
             langValue := ""
             try langValue := Trim(this.MainConfig.config.lang "")
             if (langValue != "") {
-                langPath := A_ScriptDir "\lang\" langValue ".json"
+                langPath := A_ScriptDir "\..\lang\" langValue ".json"
                 if !FileExist(langPath)
                     issues.Push("语言文件不存在: " langPath)
             }
@@ -446,12 +446,12 @@ class ConfigService {
     }
 
     static WriteValidationReport(issues, logPath := "") {
-        targetPath := (logPath != "") ? logPath : (A_ScriptDir "\Custom\config_validation.log")
+        targetPath := (logPath != "") ? logPath : (A_ScriptDir "\..\config\config_validation.log")
 
         try {
             this._EnsureParentDir(targetPath)
 
-            mainConfigPath := A_ScriptDir "\Custom\vimd.ini"
+            mainConfigPath := A_ScriptDir "\..\config\vimd.ini"
             if (IsObject(this.MainConfig) && this.MainConfig.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
                 mainConfigPath := this.MainConfig.EasyIni_ReservedFor_m_sFile
 
@@ -526,9 +526,9 @@ class ConfigService {
         if (SubStr(pathValue, 1, 2) = "\\\\")
             return pathValue
         if (SubStr(pathValue, 1, 1) = "\")
-            return A_ScriptDir pathValue
+            return A_ScriptDir "\.." pathValue
 
-        return A_ScriptDir "\" pathValue
+        return A_ScriptDir "\..\" pathValue
     }
 
     static _EnsureParentDir(filePath) {
@@ -564,7 +564,7 @@ class ConfigService {
 
         configPath := this.GetPluginConfigPath(pluginName)
         if (configPath = "")
-            configPath := A_ScriptDir "\plugins\" pluginName "\" pluginName ".ini"
+            configPath := A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ini"
 
         try {
             if FileExist(configPath) {

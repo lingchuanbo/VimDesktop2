@@ -10,7 +10,7 @@
 1. 打开3ds Max
 2. 在MAXScript侦听器中输入：
    ```maxscript
-   fileIn "d:\\BoBO\\VimDesktop2\\Plugins\\Max3D\\Script\\commands\\hideByCategoryGUI.ms"
+   fileIn "d:\\BoBO\\VimDesktop2\\plugins\\Max3D\\Script\\commands\\hideByCategoryGUI.ms"
    ```
 
 ### 通过VimDesktop2热键调用

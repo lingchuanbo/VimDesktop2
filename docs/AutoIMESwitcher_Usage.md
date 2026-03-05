@@ -18,7 +18,7 @@ AutoIMESwitcher 是一个通用的自动输入法切换库，可以为任何应�
 ### 1. 引入库文件
 
 ```ahk
-#Include Lib/AutoIMESwitcher.ahk
+#Include libs/AutoIMESwitcher.ahk
 ```
 
 ### 2. 基本设置
@@ -79,7 +79,7 @@ Version=1.0
 Comment=Visual Studio Code
 */
 
-#Include Lib/AutoIMESwitcher.ahk
+#Include libs/AutoIMESwitcher.ahk
 
 VSCode() {
     ; 热键映射数组
@@ -118,7 +118,7 @@ Version=1.0
 Comment=Adobe Photoshop
 */
 
-#Include Lib/AutoIMESwitcher.ahk
+#Include libs/AutoIMESwitcher.ahk
 
 Photoshop() {
     ; 热键映射数组

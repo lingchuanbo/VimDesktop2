@@ -19,9 +19,12 @@ global Lang := Object()
 global VimDesktop_ExtensionPIDs := Map() ; 存储扩展功能的进程ID
 global VimDesktop_ConfigHotReloadIntervalMs := 5000
 
-VimDesktop_Global.ConfigPath := A_ScriptDir "\Custom\vimd.ini"
+VimDesktop_Global.ConfigPath := A_ScriptDir "\..\config\vimd.ini"
 VimDesktop_Global.Editor := FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ?
     "D:\Program Files\Microsoft VS Code\Code.exe" : "NotePad.exe"
+VimDesktop_Global.AhkPath := FileExist("C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe") ?
+    "C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe" :
+    A_ScriptDir "\..\apps\AutoHotkey.exe"
 VimDesktop_Global.default_enable_show_info := ""
 VimDesktop_Global.WshShell := ""
 VimDesktop_Global.__vimLastAction := ""
@@ -33,18 +36,18 @@ INIObject := EasyINI(VimDesktop_Global.ConfigPath)
 VimDesktop_Global.default_enable_show_info := INIObject.config.default_enable_show_info
 VimDesktop_LoadPluginConfigs() ; 加载插件配置
 ConfigService.Init(INIObject, PluginConfigs)
-LangString := FileRead(A_ScriptDir "\lang\" INIObject.config.lang ".json", "UTF-8")
+LangString := FileRead(A_ScriptDir "\..\lang\" INIObject.config.lang ".json", "UTF-8")
 Lang := JSON.parse(LangString)
 ConfigService.ValidateAndReport(INIObject.config.enable_debug = 1)
 
 try
-    TraySetIcon(".\Custom\vimd.ico")
+    TraySetIcon(A_ScriptDir "\..\config\vimd.ico")
 
 ; 智能加载插件配置
 VimDesktop_LoadPluginConfigs() {
     global PluginConfigs
 
-    pluginsDir := A_ScriptDir "\plugins"
+    pluginsDir := A_ScriptDir "\..\plugins"
 
     ; 如果plugins目录不存在，直接返回
     if (!DirExist(pluginsDir)) {
@@ -159,7 +162,7 @@ VimDesktop_AutoStartExtensions() {
 
                     ; 如果设置为自动启动
                     if (autoStart = "1") {
-                        fullScriptPath := A_ScriptDir scriptPath
+                        fullScriptPath := A_ScriptDir "\.." scriptPath
 
                         ; 检查文件是否存在
                         if (FileExist(fullScriptPath)) {
@@ -171,7 +174,7 @@ VimDesktop_AutoStartExtensions() {
                                     VimDesktop_ExtensionPIDs[key] := processId
                                 } else {
                                     ; 使用AutoHotkey运行ahk文件
-                                    ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
+                                    ahkPath := VimDesktop_Global.AhkPath
                                     pid := Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath), , , &processId)
                                     VimDesktop_ExtensionPIDs[key] := processId
                                 }
@@ -222,12 +225,12 @@ VimDesktop_TrayHandler(Item, *) {
             VimDesktop_OpenConfigValidationReport()
         case Lang["TrayMenu"]["EditCustom"]:
             try
-                run Format("{1} .\Custom\Custom.ahk", VimDesktop_Global.Editor)
+            run Format('"{1}" "{2}"', VimDesktop_Global.Editor, A_ScriptDir "\..\config\Custom.ahk")
     }
 }
 
 VimDesktop_OpenConfigValidationReport() {
-    reportPath := A_ScriptDir "\Custom\config_validation.log"
+    reportPath := A_ScriptDir "\..\config\config_validation.log"
 
     ; 每次点击都实时刷新报告，避免读取旧内容
     ConfigService.RefreshIfChanged(false)
@@ -259,7 +262,7 @@ VimDesktop_ConfigHotReloadTick() {
     try {
         enableDebug := false
         try enableDebug := (INIObject.config.enable_debug = 1)
-        reportPath := A_ScriptDir "\Custom\config_validation.log"
+        reportPath := A_ScriptDir "\..\config\config_validation.log"
 
         result := ConfigService.RefreshIfChanged(true, enableDebug, reportPath)
         if (IsObject(result) && result.Has("changed") && result["changed"])
@@ -300,7 +303,7 @@ VimDesktop_ExtensionHandler(ItemName, *) {
             scriptPath := configParts[1]
 
             ; 构建完整路径
-            fullScriptPath := A_ScriptDir scriptPath
+            fullScriptPath := A_ScriptDir "\.." scriptPath
 
             ; 检查文件是否存在
             if (FileExist(fullScriptPath)) {
@@ -310,7 +313,7 @@ VimDesktop_ExtensionHandler(ItemName, *) {
                     Run(Format('"{1}"', fullScriptPath))
                 } else {
                     ; 使用AutoHotkey运行ahk文件
-                    ahkPath := A_ScriptDir "\Apps\AutoHotkey.exe"
+                    ahkPath := VimDesktop_Global.AhkPath
                     Run(Format('"{1}" "{2}"', ahkPath, fullScriptPath))
                 }
             } else {
@@ -403,26 +406,26 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
 #Include .\core\Main.ahk
 #Include .\core\class_vim.ahk
 #Include .\core\VimDConfig.ahk
-#Include .\Lib\Class_JSON.Ahk
-#Include .\lib\class_EasyIni.ahk
-#Include .\lib\ConfigService.ahk
-#Include .\lib\DynamicFileMenu.ahk
-#Include .\lib\MD_Gen.ahk
-#Include .\lib\SingleDoubleLongPress.ahk
-#Include .\lib\ToolTipOptions.ahk
-#Include .\lib\BTT.ahk
-#Include .\lib\IME.ahk
-#Include .\lib\UIA.ahk
-#Include .\lib\UIA_Browser.ahk
-#Include .\lib\AutoIMESwitcher.ahk
-#Include .\lib\ToolTipManager.ahk
-#Include .\lib\Run.ahk
-#Include .\lib\Script.ahk
-#Include .\lib\Logger.ahk
-#Include .\lib\vimd_API.ahk
-#Include .\lib\WindowsTheme.ahk
-#Include .\lib\MemoryOptimizer.ahk
-#Include .\lib\RegisterPluginKeys.ahk
-#Include .\plugins\plugins.ahk
+#Include ..\libs\Class_JSON.Ahk
+#Include ..\libs\class_EasyIni.ahk
+#Include ..\libs\ConfigService.ahk
+#Include ..\libs\DynamicFileMenu.ahk
+#Include ..\libs\MD_Gen.ahk
+#Include ..\libs\SingleDoubleLongPress.ahk
+#Include ..\libs\ToolTipOptions.ahk
+#Include ..\libs\BTT.ahk
+#Include ..\libs\IME.ahk
+#Include ..\libs\UIA.ahk
+#Include ..\libs\UIA_Browser.ahk
+#Include ..\libs\AutoIMESwitcher.ahk
+#Include ..\libs\ToolTipManager.ahk
+#Include ..\libs\Run.ahk
+#Include ..\libs\Script.ahk
+#Include ..\libs\Logger.ahk
+#Include ..\libs\vimd_API.ahk
+#Include ..\libs\WindowsTheme.ahk
+#Include ..\libs\MemoryOptimizer.ahk
+#Include ..\libs\RegisterPluginKeys.ahk
+#Include ..\plugins\plugins.ahk
 ; 用户自定义配置
-#Include *i .\custom\custom.ahk
+#Include *i ..\config\Custom.ahk

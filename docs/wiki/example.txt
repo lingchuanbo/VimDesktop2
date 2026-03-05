@@ -135,4 +135,4 @@ v =
 
 
 ; class_vim必须放在最后
-#include %A_ScriptDir%\..\core\class_vim.ahk
+#include %A_ScriptDir%\..\src\core\class_vim.ahk

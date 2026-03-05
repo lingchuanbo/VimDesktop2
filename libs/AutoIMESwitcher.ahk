@@ -5,7 +5,7 @@ AutoIMESwitcher - 自动输入法切换库
 版本：1.0
 
 使用方法：
-1. #Include Lib/AutoIMESwitcher.ahk
+1. #Include libs/AutoIMESwitcher.ahk
 2. 调用 AutoIMESwitcher.Setup(processName, options) 来设置自动切换
 3. 在 PluginName_Before() 函数中调用 AutoIMESwitcher.HandleBeforeAction(processName)
 

@@ -15,7 +15,7 @@
 ### 1. 引入库文件
 
 ```ahk
-#Include Lib/IME.ahk
+#Include libs/IME.ahk
 
 ; 设置必要的前置条件
 DetectHiddenWindows 1
@@ -114,7 +114,7 @@ IME.modeRules := ["0*1*1", "1*0*0"]  ; 示例规则
 ### 示例 1: 基本状态检测和切换
 
 ```ahk
-#Include Lib/IME.ahk
+#Include libs/IME.ahk
 DetectHiddenWindows 1
 
 ; 热键：F1 显示当前状态
@@ -136,7 +136,7 @@ F4::IME_Toggle()
 ### 示例 2: 应用程序特定的输入法切换
 
 ```ahk
-#Include Lib/IME.ahk
+#Include libs/IME.ahk
 DetectHiddenWindows 1
 
 ; 当激活记事本时自动切换到中文
@@ -153,7 +153,7 @@ DetectHiddenWindows 1
 ### 示例 3: 详细状态监控
 
 ```ahk
-#Include Lib/IME.ahk
+#Include libs/IME.ahk
 DetectHiddenWindows 1
 
 ; 每秒检查一次输入法状态
