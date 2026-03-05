@@ -43,7 +43,7 @@ VimD_Log(level, code, message, err := "")
     logger := ""
     if (!IsObject(fallbackLogger)) {
         try {
-            fallbackLogger := Logger(A_ScriptDir "\..\debug.log")
+            fallbackLogger := Logger(PathResolver.RootPath("debug.log"))
         } catch {
             fallbackLogger := ""
         }

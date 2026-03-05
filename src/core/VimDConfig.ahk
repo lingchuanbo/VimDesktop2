@@ -173,31 +173,75 @@ _VimDConfig_UpdatePluginHeader(plugin, winObj){
 }
 
 _VimDConfig_LoadPluginInfo(plugin){
-	pluginFile:=A_ScriptDir "\..\plugins\" plugin "\" plugin ".ahk"
-	if (FileExist(pluginFile)){ ;文件必须存在，跳过内置插件
-		; AHK V2以UTF-8编码，iniRead仅支持ANSI或UTF-16，所以使用整文读取及正则匹配。
-		pluginTxt:=FileRead(pluginFile, "UTF-8")
-		if (RegExMatch(pluginTxt,"i)Version\s*=(.*)", &m))
-			VimDConfig_Manager["Version"].Text:=Trim(m[1])
-		else
-			VimDConfig_Manager["Version"].Text:=""
+	metaPath := PathResolver.PluginPath(plugin, "plugin.meta.ini")
+	metaName := ""
+	metaAuthor := ""
+	metaVersion := ""
+	metaComment := ""
+	metaEntry := ""
 
-		if (RegExMatch(pluginTxt,"i)Author\s*=(.*)", &m))
-			VimDConfig_Manager["Author"].Text:=Trim(m[1])
-		else
-			VimDConfig_Manager["Author"].Text:=""
-
-		if (RegExMatch(pluginTxt,"i)Comment\s*=(.*)", &m))
-			VimDConfig_Manager["Comment"].Text:=Trim(m[1])
-		else
-			VimDConfig_Manager["Comment"].Text:=""
-
-		pluginTxt:=""
-	} else {
-		VimDConfig_Manager["Version"].Text:=""
-		VimDConfig_Manager["Author"].Text:=""
-		VimDConfig_Manager["Comment"].Text:=""
+	if (FileExist(metaPath)) {
+		try {
+			metaName := IniRead(metaPath, "plugin", "name", "")
+			metaAuthor := IniRead(metaPath, "plugin", "author", "")
+			metaVersion := IniRead(metaPath, "plugin", "version", "")
+			metaComment := IniRead(metaPath, "plugin", "comment", "")
+			metaEntry := IniRead(metaPath, "plugin", "entry", "")
+			if (metaEntry = "")
+				metaEntry := IniRead(metaPath, "plugin", "main", "")
+		} catch {
+			; 忽略元信息读取失败
+		}
 	}
+
+	; 如果有元信息名称，显示为 Name (pluginId)
+	if (metaName != "" && metaName != plugin)
+		VimDConfig_Manager["PluginName"].Text := metaName " (" plugin ")"
+	else
+		VimDConfig_Manager["PluginName"].Text := plugin
+
+	if (metaVersion != "")
+		VimDConfig_Manager["Version"].Text := Trim(metaVersion)
+	else
+		VimDConfig_Manager["Version"].Text := ""
+
+	if (metaAuthor != "")
+		VimDConfig_Manager["Author"].Text := Trim(metaAuthor)
+	else
+		VimDConfig_Manager["Author"].Text := ""
+
+	commentText := ""
+	if (metaComment != "")
+		commentText := Trim(metaComment)
+	if (metaEntry != "") {
+		if (commentText != "")
+			commentText .= " | entry=" metaEntry
+		else
+			commentText := "entry=" metaEntry
+	}
+
+	; 元信息不足时，回退读取插件文件头
+	if (commentText = "" || VimDConfig_Manager["Version"].Text = "" || VimDConfig_Manager["Author"].Text = "") {
+		pluginFile:=PathResolver.PluginPath(plugin, plugin ".ahk")
+		if (!FileExist(pluginFile) && metaEntry != "")
+			pluginFile := PathResolver.PluginPath(plugin, metaEntry)
+		if (FileExist(pluginFile)){ ;文件必须存在，跳过内置插件
+			; AHK V2以UTF-8编码，iniRead仅支持ANSI或UTF-16，所以使用整文读取及正则匹配。
+			pluginTxt:=FileRead(pluginFile, "UTF-8")
+			if (VimDConfig_Manager["Version"].Text = "" && RegExMatch(pluginTxt,"i)Version\s*=(.*)", &m))
+				VimDConfig_Manager["Version"].Text:=Trim(m[1])
+
+			if (VimDConfig_Manager["Author"].Text = "" && RegExMatch(pluginTxt,"i)Author\s*=(.*)", &m))
+				VimDConfig_Manager["Author"].Text:=Trim(m[1])
+
+			if (commentText = "" && RegExMatch(pluginTxt,"i)Comment\s*=(.*)", &m))
+				commentText := Trim(m[1])
+
+			pluginTxt:=""
+		}
+	}
+
+	VimDConfig_Manager["Comment"].Text := commentText
 }
 
 _VimDConfig_PopulateModeList(plugin, winObj){
@@ -354,10 +398,10 @@ _VimDConfig_FindActionInFileList(filePattern, flags, label_Action){
 
 _VimDConfig_GetActionSearchTargets(){
 	return [
-		{ pattern: A_ScriptDir "\..\plugins\*.ahk", flags: "RF" },
-		{ pattern: A_ScriptDir "\..\src\core\*.ahk", flags: "F" },
-		{ pattern: A_ScriptDir "\..\libs\*.ahk", flags: "F" },
-		{ pattern: A_ScriptDir "\..\config\*.ahk", flags: "F" }
+		{ pattern: PathResolver.PluginsDir() "\*.ahk", flags: "RF" },
+		{ pattern: PathResolver.SrcDir() "\core\*.ahk", flags: "F" },
+		{ pattern: PathResolver.LibsDir() "\*.ahk", flags: "F" },
+		{ pattern: PathResolver.ConfigDir() "\*.ahk", flags: "F" }
 	]
 }
 
@@ -431,16 +475,16 @@ _VimDConfig_ResolveEditorPath(){
 }
 
 VimDConfig_EditConfig(){
-    Run A_ScriptDir "\..\config\vimd.ini"
+    Run PathResolver.ConfigPath("vimd.ini")
 }
 
 VimDConfig_EditCustom(){
     try 
     {
         If (fileExist(VimDesktop_Global.Editor))
-            Run VimDesktop_Global.Editor " " A_ScriptDir "\..\config\Custom.ahk"
+            Run VimDesktop_Global.Editor " " PathResolver.ConfigPath("Custom.ahk")
         else
-            Run "notepad.exe"  " " A_ScriptDir "\..\config\Custom.ahk"
+            Run "notepad.exe"  " " PathResolver.ConfigPath("Custom.ahk")
     }
 }
 
@@ -649,7 +693,7 @@ SearchFileForKey(Keys, Action, Param, Desc, EditKeyMapping){
         label_mode := Format('Mode:\s*"{1}"', mode)
 
         ;查找插件热键映射
-        pluginFile:=A_ScriptDir "\..\plugins\" plugin "\" plugin ".ahk"
+        pluginFile:=PathResolver.PluginPath(plugin, plugin ".ahk")
         _VimDConfig_FindLineByRegex(pluginFile, [label_key, label_mode])
     }
 }

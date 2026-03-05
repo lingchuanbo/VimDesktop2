@@ -80,7 +80,7 @@ _InitMemoryOptimizer() {
 
 _EnsureConfigFile() {
     if (!FileExist(VimDesktop_Global.ConfigPath)) {
-        FileCopy A_ScriptDir "\..\config\vimd.ini.help.txt", VimDesktop_Global.ConfigPath
+        FileCopy PathResolver.ConfigPath("vimd.ini.help.txt"), VimDesktop_Global.ConfigPath
     }
 }
 
@@ -88,7 +88,7 @@ _InitLogAndDebug(configCache) {
     global vim
     ; 延迟初始化日志和调试
     if (configCache["enable_log"] == 1) {
-        global logObject := Logger(A_ScriptDir "\..\debug.log")
+        global logObject := Logger(PathResolver.RootPath("debug.log"))
     }
 
     if (configCache["enable_debug"] == 1) {
@@ -129,12 +129,14 @@ CheckPlugin(LoadAll := 0) {
     ; 缓存插件目录扫描结果
     static pluginDirs := []
     static lastScanTime := 0
+    static metaTimes := Map()
+    static metaInitialized := false
 
     ; 只在必要时重新扫描插件目录（每30秒最多一次）
     currentTime := A_TickCount
     if (currentTime - lastScanTime > MAIN_PLUGIN_SCAN_INTERVAL_MS || pluginDirs.Length == 0) {
         pluginDirs := []
-        loop files, A_ScriptDir "\..\plugins\*", "D" {
+        loop files, PathResolver.PluginsDir() "\*", "D" {
             pluginDirs.Push(A_LoopFileName)
         }
         lastScanTime := currentTime
@@ -142,6 +144,7 @@ CheckPlugin(LoadAll := 0) {
 
     ; 检测是否有新增插件
     HasNewPlugin := false
+    metaChanged := false
     newPlugins := []
 
     for _, pluginName in pluginDirs {
@@ -152,12 +155,46 @@ CheckPlugin(LoadAll := 0) {
             newPlugins.Push(pluginName)
             HasNewPlugin := true
         }
+
+        ; 检测插件入口元信息变更
+        metaPath := PathResolver.PluginPath(pluginName, "plugin.meta.ini")
+        if (FileExist(metaPath)) {
+            try {
+                metaTime := FileGetTime(metaPath, "M")
+                if (!metaInitialized) {
+                    metaTimes[pluginName] := metaTime
+                } else if (!metaTimes.Has(pluginName) || metaTimes[pluginName] != metaTime) {
+                    metaTimes[pluginName] := metaTime
+                    metaChanged := true
+                }
+            } catch {
+                ; 忽略元信息时间读取错误
+            }
+        } else if (metaInitialized && metaTimes.Has(pluginName)) {
+            metaTimes.Delete(pluginName)
+            metaChanged := true
+        }
+    }
+
+    if (!metaInitialized) {
+        metaInitialized := true
+        metaChanged := false
     }
 
     ; 批量处理新插件
     if (HasNewPlugin) {
         _ProcessNewPlugins(newPlugins)
         INIObject.save()
+        Reload()
+        return
+    }
+
+    if (metaChanged) {
+        if (FileExist(PathResolver.RootPath("vimd.exe"))) {
+            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', PathResolver.RootDir())
+        } else {
+            Run PathResolver.PluginPath("check.ahk")
+        }
         Reload()
         return
     }
@@ -175,10 +212,10 @@ _ProcessNewPlugins(newPlugins) {
     for _, pluginName in newPlugins {
         MsgBox Format(Lang["General"]["Plugin_New"], pluginName), Lang["General"]["Info"], "4160"
 
-        if (FileExist(A_ScriptDir "\..\vimd.exe")) {
-            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', A_ScriptDir "\..")
+        if (FileExist(PathResolver.RootPath("vimd.exe"))) {
+            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', PathResolver.RootDir())
         } else {
-            Run A_ScriptDir "\..\plugins\check.ahk"
+            Run PathResolver.PluginPath("check.ahk")
         }
 
         ; 添加插件配置
@@ -238,12 +275,23 @@ _LoadPlugins(LoadAll) {
     }
 
     ; 加载有效插件
+    loadedCount := 0
+    totalCount := 0
     for plugin, flag in validPlugins {
+        totalCount++
         if (LoadAll || flag) {
             vim.LoadPlugin(plugin)
             winObj := vim.GetWin(plugin)
             winObj.status := flag
             _ApplyExternalPluginOverrides(plugin)
+            loadedCount++
+        }
+    }
+
+    try {
+        if (INIObject.config.enable_log == 1) {
+            VimD_Log("INFO", "MAIN_PLUGIN_LOAD_SUMMARY",
+                "插件加载完成: enabled=" loadedCount " total=" totalCount)
         }
     }
 }
@@ -634,7 +682,7 @@ _VIMD_GetCmdType(param) {
 }
 
 _Main_GetPluginFilePath(pluginName) {
-    return A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ahk"
+    return PathResolver.PluginPath(pluginName, pluginName ".ahk")
 }
 
 _EnsureIniSections(sectionNames) {
@@ -666,6 +714,299 @@ _ParseBoolValue(value, defaultValue := 0) {
     if (normalized = "0" || normalized = "false" || normalized = "no" || normalized = "off")
         return 0
     return defaultValue
+}
+
+VimDesktop_ApplyMainConfigChanges(changedSections, sectionKeyDiffs, removedSections := "") {
+    try {
+        if (!IsObject(changedSections) || changedSections.Length = 0) {
+            VimDesktop_ApplyMainConfigCore()
+            return
+        }
+
+        if (HasValue(changedSections, "config"))
+            VimDesktop_ApplyMainConfigCore()
+
+        if (HasValue(changedSections, "global"))
+            VimDesktop_RefreshGlobalMappings()
+
+        if (HasValue(changedSections, "exclude"))
+            VimDesktop_RefreshExcludeWindows()
+
+        if (HasValue(changedSections, "plugins") || HasValue(changedSections, "plugins_DefaultMode"))
+            VimDesktop_ApplyPluginStatusChanges(sectionKeyDiffs)
+
+        if (HasValue(changedSections, "extensions"))
+            VimDesktop_RefreshExtensions()
+
+        for _, secName in changedSections {
+            if (VimDesktop_IsPluginSectionName(secName))
+                VimDesktop_RefreshPluginFromMainConfig(secName)
+        }
+
+        if (IsObject(removedSections)) {
+            for _, secName in removedSections {
+                if (VimDesktop_IsPluginSectionName(secName))
+                    VimDesktop_ResetPluginMappings(secName, true)
+            }
+        }
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_CONFIG_APPLY", "应用主配置变更失败", e)
+    }
+}
+
+VimDesktop_ApplyMainConfigCore() {
+    global VimDesktop_Global
+    global vim
+    configCache := _LoadMainConfig()
+    VimDesktop_Global.default_enable_show_info := configCache["default_enable_show_info"]
+    VimDesktop_Global.Editor := configCache["editor"]
+    _ApplyThemeSettings(configCache["theme_mode"])
+    _ApplyLogSetting(configCache["enable_log"])
+    try vim.Debug(configCache["enable_debug"] == 1)
+}
+
+_ApplyLogSetting(enableLog) {
+    try {
+        global logObject
+        if (enableLog == 1) {
+            if (!IsSet(logObject) || !IsObject(logObject))
+                logObject := Logger(PathResolver.RootPath("debug.log"))
+        } else {
+            if (IsSet(logObject))
+                logObject := ""
+        }
+    } catch {
+        ; 忽略日志切换失败
+    }
+}
+
+VimDesktop_ApplyPluginIniChanges(pluginNames) {
+    global vim
+    if (!IsObject(pluginNames))
+        return
+
+    for _, pluginName in pluginNames {
+        if (pluginName = "")
+            continue
+        winObj := vim.GetWin(pluginName)
+        if (!IsObject(winObj))
+            continue
+        config := _ReadPluginConfig({}, pluginName)
+        _ApplyPluginConfigOverrides(pluginName, config)
+        _SetPluginStatus(pluginName, config, winObj)
+    }
+}
+
+VimDesktop_RefreshGlobalMappings() {
+    VimDesktop_ResetPluginMappings("global")
+    _ProcessGlobalHotKeys()
+}
+
+VimDesktop_RefreshExcludeWindows() {
+    global vim
+    if (IsObject(vim))
+        vim.ExcludeWinList := Map()
+    _ProcessExcludeWindows()
+}
+
+VimDesktop_ApplyPluginStatusChanges(sectionKeyDiffs) {
+    global vim
+    global INIObject
+    if (!IsObject(sectionKeyDiffs))
+        return
+
+    pluginNames := []
+    if (sectionKeyDiffs.Has("plugins")) {
+        diff := sectionKeyDiffs["plugins"]
+        VimDesktop_PushUniqueList(pluginNames, diff["added"])
+        VimDesktop_PushUniqueList(pluginNames, diff["removed"])
+        VimDesktop_PushUniqueList(pluginNames, diff["changed"])
+    }
+    if (sectionKeyDiffs.Has("plugins_DefaultMode")) {
+        diff := sectionKeyDiffs["plugins_DefaultMode"]
+        VimDesktop_PushUniqueList(pluginNames, diff["added"])
+        VimDesktop_PushUniqueList(pluginNames, diff["removed"])
+        VimDesktop_PushUniqueList(pluginNames, diff["changed"])
+    }
+
+    for _, pluginName in pluginNames {
+        if (pluginName = "")
+            continue
+
+        enabled := 0
+        if (INIObject.HasOwnProp("plugins") && INIObject.plugins.HasOwnProp(pluginName))
+            enabled := _ParseBoolValue(INIObject.plugins.%pluginName%, 0)
+
+        defaultMode := ""
+        if (INIObject.HasOwnProp("plugins_DefaultMode") && INIObject.plugins_DefaultMode.HasOwnProp(pluginName))
+            defaultMode := INIObject.plugins_DefaultMode.%pluginName%
+
+        if (enabled && !IsObject(vim.GetWin(pluginName))) {
+            pluginFile := _Main_GetPluginFilePath(pluginName)
+            if (FileExist(pluginFile))
+                vim.LoadPlugin(pluginName)
+        }
+
+        winObj := vim.GetWin(pluginName)
+        if (!IsObject(winObj))
+            continue
+
+        config := Map("enabled", enabled, "default_Mode", defaultMode)
+        if (config["default_Mode"] = "")
+            config["default_Mode"] := winObj.defaultMode != "" ? winObj.defaultMode : "normal"
+        _SetPluginStatus(pluginName, config, winObj)
+    }
+}
+
+VimDesktop_RefreshPluginFromMainConfig(pluginName) {
+    global INIObject
+    global vim
+    if (!IsObject(INIObject))
+        return
+    if (!INIObject.HasOwnProp(pluginName))
+        return
+
+    keyObj := INIObject.%pluginName%
+    if (!IsObject(keyObj)) {
+        _Main_LogInvalidPluginConfig(pluginName, keyObj, "config_not_object")
+        return
+    }
+
+    _InitMainConstants()
+    global MAIN_PLUGIN_SETTING_REGEX
+
+    VimDesktop_ResetPluginMappings(pluginName)
+    VimDesktop_ClearWinMappings(pluginName)
+
+    config := _ReadPluginConfig(keyObj, pluginName)
+    hasMappings := _HasPluginMappings(keyObj, MAIN_PLUGIN_SETTING_REGEX)
+
+    if ((hasMappings || config["enabled"]) && !IsObject(vim.GetWin(pluginName))) {
+        pluginFile := _Main_GetPluginFilePath(pluginName)
+        if (FileExist(pluginFile))
+            vim.LoadPlugin(pluginName)
+    }
+
+    winObj := vim.GetWin(pluginName)
+
+    if (!hasMappings) {
+        if (IsObject(winObj)) {
+            _ApplyPluginConfigOverrides(pluginName, config)
+            _SetPluginStatus(pluginName, config, winObj)
+        }
+        return
+    }
+
+    if (!config["enabled"]) {
+        if (IsObject(winObj))
+            _SetPluginStatus(pluginName, config, winObj)
+        return
+    }
+
+    winObj := _SetupPluginWindow(pluginName, config)
+    _ProcessPluginMappings(pluginName, keyObj, config, MAIN_PLUGIN_SETTING_REGEX)
+    _SetPluginStatus(pluginName, config, winObj)
+}
+
+VimDesktop_ResetPluginMappings(pluginName, disable := false) {
+    global vim
+    if (!IsObject(vim))
+        return
+
+    winObj := vim.GetWin(pluginName)
+    if (!IsObject(winObj))
+        return
+
+    try vim.Control(false, pluginName, true)
+
+    winObj.KeyList := Map()
+    winObj.SuperKeyList := Map()
+    winObj.KeyTemp := ""
+    winObj.Count := 0
+
+    if (IsObject(winObj.modeList)) {
+        for _, modeObj in winObj.modeList {
+            if IsObject(modeObj) {
+                modeObj.keyMapList := Map()
+                modeObj.keyMoreList := Map()
+                modeObj.noWaitList := Map()
+            }
+        }
+        winObj.modeList := Map()
+    }
+
+    if (vim.ActionList.Has(pluginName))
+        vim.ActionList.Delete(pluginName)
+
+    if IsObject(vim.ActionFromPlugin) {
+        for key, value in vim.ActionFromPlugin {
+            if (value = pluginName)
+                vim.ActionFromPlugin.Delete(key)
+        }
+    }
+
+    if (disable)
+        winObj.status := 0
+}
+
+VimDesktop_ClearWinMappings(pluginName, winObj := "") {
+    global vim
+    if (!IsObject(vim))
+        return
+
+    if (!IsObject(winObj))
+        winObj := vim.GetWin(pluginName)
+    if (!IsObject(winObj))
+        return
+
+    classVal := winObj.class
+    if (classVal != "") {
+        if (InStr(classVal, "|")) {
+            classes := StrSplit(classVal, "|")
+            for _, singleClass in classes {
+                key := "class`t" Trim(singleClass)
+                if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
+                    vim.WinInfo.Delete(key)
+            }
+        } else {
+            key := "class`t" classVal
+            if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
+                vim.WinInfo.Delete(key)
+        }
+    }
+
+    if (winObj.filepath != "") {
+        key := "filepath`t" winObj.filepath
+        if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
+            vim.WinInfo.Delete(key)
+    }
+
+    if (winObj.title != "") {
+        key := "title`t" winObj.title
+        if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
+            vim.WinInfo.Delete(key)
+    }
+}
+
+VimDesktop_IsPluginSectionName(sectionName) {
+    _InitMainConstants()
+    global MAIN_PLUGIN_SKIP_REGEX
+    if (sectionName = "")
+        return false
+    if (sectionName = "plugins_DefaultMode" || sectionName = "extensions")
+        return false
+    if (RegExMatch(sectionName, MAIN_PLUGIN_SKIP_REGEX))
+        return false
+    return true
+}
+
+VimDesktop_PushUniqueList(target, items) {
+    if (!IsObject(target) || !IsObject(items))
+        return
+    for _, value in items {
+        if (!HasValue(target, value))
+            target.Push(value)
+    }
 }
 
 _InitMainConstants() {

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 /*
     ConfigService
@@ -13,6 +13,7 @@ class ConfigService {
     static PluginConfigPaths := Map()
     static Schemas := ""
     static FileMtimes := Map()
+    static MainSectionSnapshots := Map()
     static PluginPathScanIntervalMs := 30000
     static _LastPluginPathScanTick := 0
 
@@ -21,12 +22,14 @@ class ConfigService {
         this.PluginConfigs := pluginConfigs
         this.PluginConfigPaths := Map()
         this._BuildPluginConfigPathIndex()
+        this.LoadPluginConfigs()
         this.GetSchemas()
         this._InitFileMtimes()
+        this._InitMainSectionSnapshots()
     }
 
     static _BuildPluginConfigPathIndex() {
-        pluginsDir := A_ScriptDir "\..\plugins"
+        pluginsDir := PathResolver.PluginsDir()
         if !DirExist(pluginsDir)
             return
 
@@ -49,6 +52,25 @@ class ConfigService {
         }
     }
 
+    static LoadPluginConfigs() {
+        if !IsObject(this.PluginConfigs)
+            this.PluginConfigs := {}
+
+        this._BuildPluginConfigPathIndex()
+
+        for pluginName, configPath in this.PluginConfigPaths {
+            if (configPath = "")
+                continue
+            if (this.PluginConfigs.HasOwnProp(pluginName))
+                continue
+            try {
+                this.PluginConfigs.%pluginName% := EasyIni(configPath)
+            } catch Error as e {
+                VimD_Log("WARN", "CONFIG_PLUGIN_LOAD_FAIL", "插件配置加载失败: " pluginName " -> " configPath, e)
+            }
+        }
+    }
+
     static _InitFileMtimes() {
         this.FileMtimes := Map()
 
@@ -65,10 +87,122 @@ class ConfigService {
         }
     }
 
+    static _InitMainSectionSnapshots() {
+        this.MainSectionSnapshots := this._BuildMainSectionSnapshots()
+    }
+
+    static _BuildMainSectionSnapshots() {
+        snapshots := Map()
+        if !IsObject(this.MainConfig)
+            return snapshots
+
+        for secName, secObj in this.MainConfig.OwnProps() {
+            if this._IsReservedConfigProperty(secName)
+                continue
+            if !IsObject(secObj)
+                continue
+            snapshots[secName] := this._SnapshotSection(secObj)
+        }
+        return snapshots
+    }
+
+    static _SnapshotSection(sectionObj) {
+        snapshot := Map()
+        if !IsObject(sectionObj)
+            return snapshot
+        for key, value in sectionObj.OwnProps() {
+            if this._IsReservedSectionKey(key)
+                continue
+            snapshot[key] := value
+        }
+        return snapshot
+    }
+
+    static _IsReservedSectionKey(name) {
+        return (name = "EasyIni_KeyComment"
+            || name = "EasyIni_SectionComment"
+            || name = "__Class")
+    }
+
+    static _DiffMainSections() {
+        oldSnapshots := IsObject(this.MainSectionSnapshots) ? this.MainSectionSnapshots : Map()
+        newSnapshots := this._BuildMainSectionSnapshots()
+
+        changedSections := []
+        addedSections := []
+        removedSections := []
+        sectionKeyDiffs := Map()
+
+        for secName, newSnap in newSnapshots {
+            if !oldSnapshots.Has(secName) {
+                addedSections.Push(secName)
+                this._PushUnique(changedSections, secName)
+                continue
+            }
+
+            diff := this._DiffSectionSnapshot(oldSnapshots[secName], newSnap)
+            if (diff["added"].Length > 0 || diff["removed"].Length > 0 || diff["changed"].Length > 0) {
+                this._PushUnique(changedSections, secName)
+                sectionKeyDiffs[secName] := diff
+            }
+        }
+
+        for secName, oldSnap in oldSnapshots {
+            if !newSnapshots.Has(secName) {
+                removedSections.Push(secName)
+                this._PushUnique(changedSections, secName)
+            }
+        }
+
+        this.MainSectionSnapshots := newSnapshots
+        return Map(
+            "changed_sections", changedSections,
+            "added_sections", addedSections,
+            "removed_sections", removedSections,
+            "section_key_diffs", sectionKeyDiffs
+        )
+    }
+
+    static _DiffSectionSnapshot(oldSnap, newSnap) {
+        added := []
+        removed := []
+        changed := []
+
+        if !IsObject(oldSnap)
+            oldSnap := Map()
+        if !IsObject(newSnap)
+            newSnap := Map()
+
+        for key, value in newSnap {
+            if !oldSnap.Has(key) {
+                added.Push(key)
+            } else if (oldSnap[key] != value) {
+                changed.Push(key)
+            }
+        }
+
+        for key, value in oldSnap {
+            if !newSnap.Has(key)
+                removed.Push(key)
+        }
+
+        return Map("added", added, "removed", removed, "changed", changed)
+    }
+
+    static _PushUnique(arr, value) {
+        if !IsObject(arr)
+            return
+        for _, item in arr {
+            if (item = value)
+                return
+        }
+        arr.Push(value)
+    }
+
     static _GetMainConfigPath() {
         if (IsObject(this.MainConfig) && this.MainConfig.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
             return this.MainConfig.EasyIni_ReservedFor_m_sFile
-        return A_ScriptDir "\..\config\vimd.ini"
+        return PathResolver.ConfigPath("vimd.ini")
     }
 
     static _GetFileMtime(filePath) {
@@ -122,12 +256,19 @@ class ConfigService {
             result["changed"] := true
             result["main"] := mainChanged
             result["plugins"] := changedPlugins
+            if (mainChanged) {
+                mainDiff := this._DiffMainSections()
+                result["main_sections"] := mainDiff["changed_sections"]
+                result["main_sections_added"] := mainDiff["added_sections"]
+                result["main_sections_removed"] := mainDiff["removed_sections"]
+                result["main_section_keys"] := mainDiff["section_key_diffs"]
+            }
 
             if (enableValidation)
                 this.ValidateAndReport(enableDebug, true, logPath)
 
             VimD_Log("INFO", "CONFIG_HOT_RELOAD", "配置已刷新: main=" (mainChanged ? 1 : 0)
-                " plugins=" changedPlugins.Length)
+            " plugins=" changedPlugins.Length)
         }
 
         return result
@@ -283,7 +424,7 @@ class ConfigService {
         if (targetPath = "")
             targetPath := this.GetPluginConfigPath(pluginName)
         if (targetPath = "")
-            targetPath := A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ini"
+            targetPath := PathResolver.PluginPath(pluginName, pluginName ".ini")
 
         try {
             this._EnsureParentDir(targetPath)
@@ -295,14 +436,16 @@ class ConfigService {
         }
     }
 
-    static GetPluginBoolValue(pluginName, keyName, defaultValue := false, sectionName := "", fallbackToMain := true) {
+    static GetPluginBoolValue(pluginName, keyName, defaultValue := false, sectionName := "", fallbackToMain := true
+    ) {
         rawValue := this.GetPluginValue(pluginName, keyName, "", sectionName, fallbackToMain)
         if (rawValue = "")
             return defaultValue
         return this._ParseBool(rawValue, defaultValue)
     }
 
-    static GetPluginIntValue(pluginName, keyName, defaultValue := 0, sectionName := "", minValue := "", maxValue := "",
+    static GetPluginIntValue(pluginName, keyName, defaultValue := 0, sectionName := "", minValue := "", maxValue :=
+        "",
         fallbackToMain := true) {
         rawValue := Trim(this.GetPluginValue(pluginName, keyName, "", sectionName, fallbackToMain) "")
         if (rawValue = "")
@@ -321,7 +464,8 @@ class ConfigService {
     static GetPluginTimeout(pluginName, defaultValue := 300, sectionName := "", minValue := 50, maxValue := 5000) {
         targetSection := (sectionName != "") ? sectionName : pluginName
         try {
-            return this.GetPluginIntValue(pluginName, "set_time_out", defaultValue, targetSection, minValue, maxValue)
+            return this.GetPluginIntValue(pluginName, "set_time_out", defaultValue, targetSection, minValue,
+                maxValue)
         } catch {
             return defaultValue
         }
@@ -342,15 +486,19 @@ class ConfigService {
 
         try {
             cfg.enabled := this.GetPluginBoolValue(pluginName, "ime_enabled", cfg.enabled, targetSection)
-            cfg.enableDebug := this.GetPluginBoolValue(pluginName, "ime_enable_debug", cfg.enableDebug, targetSection)
-            cfg.checkInterval := this.GetPluginIntValue(pluginName, "ime_check_interval", cfg.checkInterval, targetSection,
+            cfg.enableDebug := this.GetPluginBoolValue(pluginName, "ime_enable_debug", cfg.enableDebug,
+                targetSection)
+            cfg.checkInterval := this.GetPluginIntValue(pluginName, "ime_check_interval", cfg.checkInterval,
+                targetSection,
                 50, 3000)
             cfg.enableMouseClick := this.GetPluginBoolValue(pluginName, "ime_enable_mouse_click", cfg.enableMouseClick,
                 targetSection)
-            cfg.maxRetries := this.GetPluginIntValue(pluginName, "ime_max_retries", cfg.maxRetries, targetSection, 1, 10)
+            cfg.maxRetries := this.GetPluginIntValue(pluginName, "ime_max_retries", cfg.maxRetries, targetSection,
+                1, 10)
             cfg.autoSwitchTimeout := this.GetPluginIntValue(pluginName, "ime_auto_switch_timeout", cfg.autoSwitchTimeout,
                 targetSection, 500, 30000)
-            cfg.specialHandling := this.GetPluginValue(pluginName, "ime_special_handling", cfg.specialHandling, targetSection)
+            cfg.specialHandling := this.GetPluginValue(pluginName, "ime_special_handling", cfg.specialHandling,
+                targetSection)
         } catch {
         }
 
@@ -362,28 +510,30 @@ class ConfigService {
         if !IsObject(this.MainConfig)
             return issues
 
+        mainConfigPath := this._GetMainConfigPath()
+
         requiredSections := ["config", "global", "plugins", "plugins_DefaultMode"]
         for sectionName in requiredSections {
             if !this.MainConfig.HasOwnProp(sectionName)
-                issues.Push("缺少主配置节 [" sectionName "]")
+                this._AddIssue(issues, mainConfigPath, sectionName, "", "缺少主配置节")
         }
 
         if this.MainConfig.HasOwnProp("config") {
             themeMode := ""
             try themeMode := this.MainConfig.config.theme_mode
             if (themeMode != "" && !RegExMatch(themeMode, "i)^(light|dark|system)$"))
-                issues.Push("theme_mode 无效: " themeMode)
+                this._AddIssue(issues, mainConfigPath, "config", "theme_mode", "theme_mode 无效", themeMode)
 
-            this._ValidateBoolKey(issues, "config", "enable_log")
-            this._ValidateBoolKey(issues, "config", "enable_debug")
-            this._ValidateBoolKey(issues, "config", "default_enable_show_info")
+            this._ValidateBoolKey(issues, "config", "enable_log", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "enable_debug", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "default_enable_show_info", mainConfigPath)
 
             langValue := ""
             try langValue := Trim(this.MainConfig.config.lang "")
             if (langValue != "") {
-                langPath := A_ScriptDir "\..\lang\" langValue ".json"
+                langPath := PathResolver.LangPath(langValue ".json")
                 if !FileExist(langPath)
-                    issues.Push("语言文件不存在: " langPath)
+                    this._AddIssue(issues, mainConfigPath, "config", "lang", "语言文件不存在", langPath)
             }
         }
 
@@ -396,13 +546,13 @@ class ConfigService {
 
                 parts := StrSplit(value, "|")
                 if (parts.Length < 1 || parts[1] = "") {
-                    issues.Push("扩展配置格式异常: " name)
+                    this._AddIssue(issues, mainConfigPath, "extensions", name, "扩展配置格式异常", value)
                     continue
                 }
 
                 fullPath := this._ResolvePath(parts[1])
                 if !FileExist(fullPath)
-                    issues.Push("扩展文件不存在: " name " -> " fullPath)
+                    this._AddIssue(issues, mainConfigPath, "extensions", name, "扩展文件不存在", fullPath)
             }
         }
 
@@ -418,7 +568,7 @@ class ConfigService {
                     continue
 
                 issue := this._ValidateTypedValue(pluginName, sectionName, keyName, rawValue, valueType, rule)
-                if (issue != "")
+                if (IsObject(issue))
                     issues.Push(issue)
             }
         }
@@ -432,9 +582,9 @@ class ConfigService {
             this.WriteValidationReport(issues, logPath)
 
         if (enableDebug && issues.Length > 0) {
-            msg := "配置校验发现 " issues.Length " 个问题:`n`n"
+            msg := "配置校验发现 " issues.Length " 个问题`n`n"
             for idx, issue in issues {
-                msg .= idx ". " issue "`n"
+                msg .= idx ". " this._FormatIssue(issue) "`n"
                 if (idx >= 15) {
                     msg .= "...`n"
                     break
@@ -446,12 +596,12 @@ class ConfigService {
     }
 
     static WriteValidationReport(issues, logPath := "") {
-        targetPath := (logPath != "") ? logPath : (A_ScriptDir "\..\config\config_validation.log")
+        targetPath := (logPath != "") ? logPath : PathResolver.ConfigPath("config_validation.log")
 
         try {
             this._EnsureParentDir(targetPath)
 
-            mainConfigPath := A_ScriptDir "\..\config\vimd.ini"
+            mainConfigPath := PathResolver.ConfigPath("vimd.ini")
             if (IsObject(this.MainConfig) && this.MainConfig.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
                 mainConfigPath := this.MainConfig.EasyIni_ReservedFor_m_sFile
 
@@ -466,7 +616,7 @@ class ConfigService {
                 content .= "未发现配置问题。`r`n"
             } else {
                 for idx, issue in issues
-                    content .= idx ". " issue "`r`n"
+                    content .= idx ". " this._FormatIssue(issue) "`r`n"
             }
 
             if FileExist(targetPath)
@@ -526,9 +676,9 @@ class ConfigService {
         if (SubStr(pathValue, 1, 2) = "\\\\")
             return pathValue
         if (SubStr(pathValue, 1, 1) = "\")
-            return A_ScriptDir "\.." pathValue
+            return PathResolver.RootPath(pathValue)
 
-        return A_ScriptDir "\..\" pathValue
+        return PathResolver.RootPath(pathValue)
     }
 
     static _EnsureParentDir(filePath) {
@@ -537,7 +687,83 @@ class ConfigService {
             DirCreate(dirPath)
     }
 
-    static _ValidateBoolKey(issues, sectionName, keyName) {
+    static _MakeIssue(filePath, sectionName, keyName, message, value := "", hint := "") {
+        issue := Map("file", filePath, "section", sectionName, "key", keyName, "message", message)
+        if (value != "")
+            issue["value"] := value
+        if (hint != "")
+            issue["hint"] := hint
+        return issue
+    }
+
+    static _AddIssue(issues, filePath, sectionName, keyName, message, value := "", hint := "") {
+        if !IsObject(issues)
+            return
+        issues.Push(this._MakeIssue(filePath, sectionName, keyName, message, value, hint))
+    }
+
+    static _FormatIssue(issue) {
+        if !IsObject(issue)
+            return issue
+        filePath := issue.Has("file") ? issue["file"] : ""
+        sectionName := issue.Has("section") ? issue["section"] : ""
+        keyName := issue.Has("key") ? issue["key"] : ""
+        message := issue.Has("message") ? issue["message"] : ""
+        value := issue.Has("value") ? issue["value"] : ""
+        hint := issue.Has("hint") ? issue["hint"] : ""
+
+        text := ""
+        if (filePath != "")
+            text .= filePath
+        if (sectionName != "" || keyName != "") {
+            if (text != "")
+                text .= " | "
+            if (sectionName != "")
+                text .= "[" sectionName "]"
+            if (keyName != "")
+                text .= (sectionName != "" ? "." : "") keyName
+        }
+        if (message != "")
+            text .= (text != "" ? " - " : "") message
+        if (value != "")
+            text .= " (value: " value ")"
+        if (hint != "")
+            text .= " (hint: " hint ")"
+        return text
+    }
+
+    static _ResolvePluginValueSource(pluginName, sectionName, keyName) {
+        mainPath := this._GetMainConfigPath()
+
+        pluginIni := ""
+        if (IsObject(this.PluginConfigs) && this.PluginConfigs.HasOwnProp(pluginName))
+            pluginIni := this.PluginConfigs.%pluginName%
+
+        if IsObject(pluginIni) {
+            sec := this._FindSection(pluginIni, sectionName)
+            if (IsObject(sec) && sec.HasOwnProp(keyName) && sec.%keyName% != "") {
+                filePath := pluginIni.HasOwnProp("EasyIni_ReservedFor_m_sFile") ? pluginIni.EasyIni_ReservedFor_m_sFile
+                    : this.GetPluginConfigPath(pluginName)
+                return Map("file", filePath, "section", sectionName, "key", keyName)
+            }
+        }
+
+        if IsObject(this.MainConfig) {
+            secMain := this._FindSection(this.MainConfig, sectionName)
+            if (IsObject(secMain) && secMain.HasOwnProp(keyName) && secMain.%keyName% != "")
+                return Map("file", mainPath, "section", sectionName, "key", keyName)
+
+            if (sectionName != pluginName) {
+                secMain2 := this._FindSection(this.MainConfig, pluginName)
+                if (IsObject(secMain2) && secMain2.HasOwnProp(keyName) && secMain2.%keyName% != "")
+                    return Map("file", mainPath, "section", pluginName, "key", keyName)
+            }
+        }
+
+        return Map("file", mainPath, "section", sectionName, "key", keyName)
+    }
+
+    static _ValidateBoolKey(issues, sectionName, keyName, filePath := "") {
         if !IsObject(this.MainConfig)
             return
         if !this.MainConfig.HasOwnProp(sectionName)
@@ -552,7 +778,8 @@ class ConfigService {
             return
 
         if !this._IsBoolString(rawValue)
-            issues.Push("配置类型错误: " sectionName "." keyName " 需要 bool, 当前值: " rawValue)
+            this._AddIssue(issues, filePath != "" ? filePath : this._GetMainConfigPath(), sectionName, keyName,
+            "配置类型错误: 需要 bool", rawValue)
     }
 
     static _GetOrCreatePluginIni(pluginName) {
@@ -564,7 +791,7 @@ class ConfigService {
 
         configPath := this.GetPluginConfigPath(pluginName)
         if (configPath = "")
-            configPath := A_ScriptDir "\..\plugins\" pluginName "\" pluginName ".ini"
+            configPath := PathResolver.PluginPath(pluginName, pluginName ".ini")
 
         try {
             if FileExist(configPath) {
@@ -583,35 +810,39 @@ class ConfigService {
     }
 
     static _ValidateTypedValue(pluginName, sectionName, keyName, rawValue, valueType, rule) {
-        ruleRef := pluginName "." sectionName "." keyName
+        location := this._ResolvePluginValueSource(pluginName, sectionName, keyName)
+        filePath := location["file"]
+        secName := location["section"]
+        key := location["key"]
 
         switch valueType {
             case "bool":
                 if !this._IsBoolString(rawValue)
-                    return "配置类型错误: " ruleRef " 需要 bool, 当前值: " rawValue
+                    return this._MakeIssue(filePath, secName, key, "配置类型错误: 需要 bool", rawValue)
 
             case "int":
                 if !RegExMatch(rawValue, "^-?\d+$")
-                    return "配置类型错误: " ruleRef " 需要 int, 当前值: " rawValue
+                    return this._MakeIssue(filePath, secName, key, "配置类型错误: 需要 int", rawValue)
 
                 intValue := Integer(rawValue)
                 if (rule.Has("min") && intValue < rule["min"])
-                    return "配置越界: " ruleRef " 不能小于 " rule["min"] ", 当前值: " intValue
+                    return this._MakeIssue(filePath, secName, key, "配置越界: 不能小于 " rule["min"], intValue)
                 if (rule.Has("max") && intValue > rule["max"])
-                    return "配置越界: " ruleRef " 不能大于 " rule["max"] ", 当前值: " intValue
+                    return this._MakeIssue(filePath, secName, key, "配置越界: 不能大于 " rule["max"], intValue)
 
             case "enum":
                 enumValues := rule.Has("enum") ? rule["enum"] : ""
                 if !this._IsEnumValue(rawValue, enumValues)
-                    return "配置枚举错误: " ruleRef " 非法值 " rawValue " (允许: " enumValues ")"
+                    return this._MakeIssue(filePath, secName, key, "配置枚举错误: 非法值", rawValue,
+                        "允许: " enumValues)
 
             case "path_exists":
                 if !FileExist(rawValue)
-                    return "路径不存在: " ruleRef " -> " rawValue
+                    return this._MakeIssue(filePath, secName, key, "路径不存在", rawValue)
 
             case "dir_exists":
                 if !DirExist(rawValue)
-                    return "目录不存在: " ruleRef " -> " rawValue
+                    return this._MakeIssue(filePath, secName, key, "目录不存在", rawValue)
         }
 
         return ""
@@ -661,16 +892,21 @@ class ConfigService {
 
         afterEffectsRules := []
         afterEffectsRules.Push(Map("section", "Config", "key", "EnableLogging", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "Config", "key", "LogLevel", "type", "enum", "enum", "DEBUG|INFO|WARN|ERROR"))
+        afterEffectsRules.Push(Map("section", "Config", "key", "LogLevel", "type", "enum", "enum",
+            "DEBUG|INFO|WARN|ERROR"))
         afterEffectsRules.Push(Map("section", "Config", "key", "LogFileSize", "type", "int", "min", 1, "max", 200))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "set_time_out", "type", "int", "min", 50, "max", 5000))
+        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "set_time_out", "type", "int", "min", 50,
+            "max", 5000))
         afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enabled", "type", "bool"))
         afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enable_debug", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_check_interval", "type", "int", "min", 50, "max",
+        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_check_interval", "type", "int", "min", 50,
+            "max",
             3000))
         afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enable_mouse_click", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_max_retries", "type", "int", "min", 1, "max", 10))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_auto_switch_timeout", "type", "int", "min", 500,
+        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_max_retries", "type", "int", "min", 1,
+            "max", 10))
+        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_auto_switch_timeout", "type", "int",
+            "min", 500,
             "max", 30000))
         schemas["AfterEffects"] := afterEffectsRules
 
@@ -686,7 +922,8 @@ class ConfigService {
         max3DRules.Push(Map("section", "Max3D", "key", "ime_check_interval", "type", "int", "min", 50, "max", 3000))
         max3DRules.Push(Map("section", "Max3D", "key", "ime_enable_mouse_click", "type", "bool"))
         max3DRules.Push(Map("section", "Max3D", "key", "ime_max_retries", "type", "int", "min", 1, "max", 10))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_auto_switch_timeout", "type", "int", "min", 500, "max", 30000))
+        max3DRules.Push(Map("section", "Max3D", "key", "ime_auto_switch_timeout", "type", "int", "min", 500, "max",
+            30000))
         schemas["Max3D"] := max3DRules
 
         this.Schemas := schemas

@@ -113,7 +113,7 @@ w=<cm_list>[=normal]
 
 ### 编写ahk插件
 
-如果您对ahk比较熟悉，请参考Plugins文件夹中的现有插件来编写插件，丰富VimDesktop的功能。
+如果您对ahk比较熟悉，请参考 `plugins` 文件夹中的现有插件来编写插件，丰富VimDesktop的功能。
 
 ## 为VimDesktop做贡献
 

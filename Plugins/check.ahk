@@ -10,19 +10,24 @@ FileDelete ExtensionsAHK
 FileAppend "", ExtensionsAHK, "UTF-8"
 
 ; 查询是否有新插件加入
-Loop Files, A_ScriptDir "\*.*", "D"
-    plugins .=  Format('#include *i ..\plugins\{1}\{1}.ahk`n', A_LoopFileName)
+Loop Files, A_ScriptDir "\*.*", "D" {
+    pluginName := A_LoopFileName
+    entry := _GetPluginEntry(pluginName)
+    if (entry = "")
+        entry := pluginName ".ahk"
+    plugins .= _BuildIncludeLine(pluginName, entry)
+}
 FileAppend plugins, ExtensionsAHK, "UTF-8"
 
 ; 保存修改时间
 SaveTime := "/*`r`n[ExtensionsTime]`r`n"
-Loop Files, A_ScriptDir "\*.*", "D"
-{
-    plugin :=  A_ScriptDir "\" A_LoopFileName "\" A_LoopFileName ".ahk"
+Loop Files, A_ScriptDir "\*.*", "D" {
+    pluginName := A_LoopFileName
+    pluginFile := _GetPluginFilePath(pluginName)
     ; 检查文件是否存在再获取修改时间
-    if FileExist(plugin) {
-        ExtensionsTime:=FileGetTime(plugin, "M")
-        SaveTime .= A_LoopFileName "=" ExtensionsTime "`r`n"
+    if FileExist(pluginFile) {
+        ExtensionsTime := FileGetTime(pluginFile, "M")
+        SaveTime .= pluginName "=" ExtensionsTime "`r`n"
     }
 }
 
@@ -49,6 +54,37 @@ Send_WM_COPYDATA(StringToSend){ ; 此函数发送指定的字符串到指定的�
     DetectHiddenWindows Prev_DetectHiddenWindows
     SetTitleMatchMode Prev_TitleMatchMode
     return A_LastError
+}
+
+_GetPluginEntry(pluginName) {
+    metaPath := A_ScriptDir "\" pluginName "\plugin.meta.ini"
+    if !FileExist(metaPath)
+        return ""
+    try {
+        entry := IniRead(metaPath, "plugin", "entry", "")
+        if (entry = "")
+            entry := IniRead(metaPath, "plugin", "main", "")
+        entry := Trim(entry, " `t")
+        if (SubStr(entry, 1, 1) = "\" || SubStr(entry, 1, 1) = "/")
+            entry := SubStr(entry, 2)
+        return entry
+    } catch {
+        return ""
+    }
+}
+
+_GetPluginFilePath(pluginName) {
+    entry := _GetPluginEntry(pluginName)
+    if (entry = "")
+        entry := pluginName ".ahk"
+    return A_ScriptDir "\" pluginName "\" entry
+}
+
+_BuildIncludeLine(pluginName, entry) {
+    if (RegExMatch(entry, "i)^[a-z]:\\") || SubStr(entry, 1, 2) = "\\") {
+        return '#include *i "' entry '"`n'
+    }
+    return Format('#include *i ..\plugins\{1}\{2}`n', pluginName, entry)
 }
 
 ToMatch(str){

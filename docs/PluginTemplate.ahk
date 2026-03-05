@@ -1,6 +1,14 @@
 ﻿; 插件名和目录名一致，插件要放到 plugins/PluginName/PluginName.ahk 位置。
 ; 放入插件后，重新运行 vimd 会自动启用插件。
 ; 标签名请添加 PluginName_ 前缀，避免和其他插件冲突。
+;
+; 可选：插件元信息文件 plugins/PluginName/plugin.meta.ini
+; [plugin]
+; name=PluginName
+; entry=PluginName.ahk
+; author=
+; version=
+; comment=
 
 ;该函数名需要和插件名一致
 ;PluginName(){

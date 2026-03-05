@@ -1,11 +1,11 @@
 ﻿VimDesktop 配置校验报告
-时间: 2026-03-05 12:06:12
+时间: 2026-03-05 17:15:47
 主配置: D:\BoBO\VimDesktop2\src\..\config\vimd.ini
 插件配置文件数: 4
 问题数: 5
 ----------------------------------------
-1. 扩展文件不存在: 脚本管理 -> D:\BoBO\VimDesktop2\src\..\apps\AHK2Manage\AHK2Manager.ahk
-2. 路径不存在: Everything.Everything.everything_path -> D:\WorkFlow\tools\TotalCMD\Tools\Everything\Everything.exe
-3. 路径不存在: TTOTAL_CMD.TTOTAL_CMD.tc_path -> D:\WorkFlow\tools\TotalCMD\TOTALCMD.EXE
-4. 路径不存在: TTOTAL_CMD.TTOTAL_CMD.tc_ini_path -> D:\WorkFlow\tools\TotalCMD\WinCMD.ini
-5. 目录不存在: TTOTAL_CMD.TTOTAL_CMD.tc_dir_path -> D:\WorkFlow\tools\TotalCMD
+1. D:\BoBO\VimDesktop2\src\..\config\vimd.ini | [extensions].脚本管理 - 扩展文件不存在 (value: D:\BoBO\VimDesktop2\src\..\apps\AHK2Manage\AHK2Manager.ahk)
+2. D:\BoBO\VimDesktop2\plugins\Everything\Everything.ini | [Everything].everything_path - 路径不存在 (value: D:\WorkFlow\tools\TotalCMD\Tools\Everything\Everything.exe)
+3. D:\BoBO\VimDesktop2\plugins\TTOTAL_CMD\TTOTAL_CMD.ini | [TTOTAL_CMD].tc_path - 路径不存在 (value: D:\WorkFlow\tools\TotalCMD\TOTALCMD.EXE)
+4. D:\BoBO\VimDesktop2\plugins\TTOTAL_CMD\TTOTAL_CMD.ini | [TTOTAL_CMD].tc_ini_path - 路径不存在 (value: D:\WorkFlow\tools\TotalCMD\WinCMD.ini)
+5. D:\BoBO\VimDesktop2\plugins\TTOTAL_CMD\TTOTAL_CMD.ini | [TTOTAL_CMD].tc_dir_path - 目录不存在 (value: D:\WorkFlow\tools\TotalCMD)
