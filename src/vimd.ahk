@@ -21,11 +21,8 @@ global VimDesktop_ExtensionAutoStartPaths := Map() ; 存储自动启动扩展的
 global VimDesktop_ConfigHotReloadIntervalMs := 5000
 
 VimDesktop_Global.ConfigPath := PathResolver.ConfigPath("vimd.ini")
-VimDesktop_Global.Editor := FileExist("D:\Program Files\Microsoft VS Code\Code.exe") ?
-    "D:\Program Files\Microsoft VS Code\Code.exe" : "NotePad.exe"
-VimDesktop_Global.AhkPath := FileExist("C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe") ?
-    "C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe" :
-    PathResolver.AppsPath("AutoHotkey.exe")
+VimDesktop_Global.Editor := "NotePad.exe" ; 运行时由 vimd.ini 的 editor 配置覆盖
+VimDesktop_Global.AhkPath := PathResolver.AppsPath("AutoHotkey.exe")
 VimDesktop_Global.default_enable_show_info := ""
 VimDesktop_Global.WshShell := ""
 VimDesktop_Global.__vimLastAction := ""
@@ -67,7 +64,7 @@ VimDesktop_StartConfigHotReload()
 #Include ..\libs\BTT.ahk
 #Include ..\libs\IME.ahk
 #Include ..\libs\UIA.ahk
-#Include ..\libs\UIA_Browser.ahk
+; #Include ..\libs\UIA_Browser.ahk  ; 已移除：全项目无调用
 #Include ..\libs\AutoIMESwitcher.ahk
 #Include ..\libs\ToolTipManager.ahk
 #Include ..\libs\Run.ahk

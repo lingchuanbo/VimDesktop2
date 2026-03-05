@@ -1,5 +1,12 @@
 #Requires AutoHotkey v2.0
 
+; 检查是否为 EasyINI 内部保留属性（统一过滤，避免散落各处的重复判断）
+_IsEasyIniReserved(key) {
+    static reserved :=
+        "^(__Class|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments)$"
+    return RegExMatch(key, reserved)
+}
+
 /* ModeChange【模式切换】
     函数:  ModeChange
     作用:  模式切换并显示提示

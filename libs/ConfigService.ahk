@@ -635,6 +635,7 @@ class ConfigService {
         if (sectionName != "" && configObj.HasOwnProp(sectionName))
             return configObj.%sectionName%
 
+        ; 大小写不敏感匹配
         if (sectionName != "") {
             targetName := StrLower(sectionName)
             for secName, secObj in configObj.OwnProps() {
@@ -644,19 +645,6 @@ class ConfigService {
                     return secObj
             }
         }
-
-        secCount := 0
-        singleSection := ""
-        for secName, secObj in configObj.OwnProps() {
-            if this._IsReservedConfigProperty(secName)
-                continue
-            secCount += 1
-            singleSection := secObj
-            if (secCount > 1)
-                break
-        }
-        if (secCount = 1)
-            return singleSection
 
         return ""
     }

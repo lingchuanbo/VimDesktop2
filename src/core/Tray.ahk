@@ -13,7 +13,7 @@
     try {
         if (INIObject.HasOwnProp("extensions")) {
             for key, value in INIObject.extensions.OwnProps() {
-                if (key = "__Class" || key = "EasyIni_KeyComment" || key = "EasyIni_SectionComment")
+                if (_IsEasyIniReserved(key))
                     continue
 
                 configParts := StrSplit(value, "|")
@@ -107,33 +107,27 @@ VimDesktop_ThemeHandler(ItemName, ItemPos, MyMenu) {
     global VimDesktop_TrayMenu
 
     ; 取消所有选中状态
-    MyMenu.Uncheck("明亮模式 ☼")
-    MyMenu.Uncheck("暗黑模式 ☾")
-    MyMenu.Uncheck("跟随系统 🖥️")
+    MyMenu.Uncheck(Lang["TrayMenu"]["Theme_Light"])
+    MyMenu.Uncheck(Lang["TrayMenu"]["Theme_Dark"])
+    MyMenu.Uncheck(Lang["TrayMenu"]["Theme_System"])
 
     ; 选中当前项
     MyMenu.Check(ItemName)
 
     ; 根据选择设置主题
     switch ItemName {
-        case "明亮模式 ☼":
-            ; 设置为明亮模式
+        case Lang["TrayMenu"]["Theme_Light"]:
             WindowsTheme.SetAppMode(false)
-            ; 更新配置文件
             INIObject.config.theme_mode := "light"
             INIObject.save()
 
-        case "暗黑模式 ☾":
-            ; 设置为暗黑模式
+        case Lang["TrayMenu"]["Theme_Dark"]:
             WindowsTheme.SetAppMode(true)
-            ; 更新配置文件
             INIObject.config.theme_mode := "dark"
             INIObject.save()
 
-        case "跟随系统 🖥️":
-            ; 设置为跟随系统
+        case Lang["TrayMenu"]["Theme_System"]:
             WindowsTheme.SetAppMode("Default")
-            ; 更新配置文件
             INIObject.config.theme_mode := "system"
             INIObject.save()
     }

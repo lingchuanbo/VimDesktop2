@@ -9,8 +9,10 @@
 MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
 MAIN_MEMORY_OPT_INTERVAL_MS := 300000
 MAIN_CMD_CACHE_MAX := 100
-MAIN_PLUGIN_SKIP_REGEX := "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
-MAIN_PLUGIN_SETTING_REGEX := "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
+MAIN_PLUGIN_SKIP_REGEX :=
+    "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
+MAIN_PLUGIN_SETTING_REGEX :=
+    "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
 
 VimDesktop_Run() {
     _InitMainConstants()
@@ -249,7 +251,7 @@ _LoadPlugins(LoadAll) {
     invalidPlugins := []
 
     for plugin, flag in INIObject.plugins.OwnProps() {
-        if (plugin == "EasyIni_KeyComment")
+        if (_IsEasyIniReserved(plugin))
             continue
 
         pluginFile := _Main_GetPluginFilePath(plugin)
@@ -299,7 +301,7 @@ _LoadPlugins(LoadAll) {
 ; 设置默认模式
 _SetDefaultModes() {
     for plugin, mode in INIObject.plugins_DefaultMode.OwnProps() {
-        if (plugin == "EasyIni_KeyComment")
+        if (_IsEasyIniReserved(plugin))
             continue
 
         try {
@@ -341,7 +343,7 @@ _ReadGlobalConfig() {
     ; 批量读取全局配置
     globalConfig := Map()
     for key, value in INIObject.global.OwnProps() {
-        if (key != "EasyIni_KeyComment")
+        if (!_IsEasyIniReserved(key))
             globalConfig[key] := value
     }
     return globalConfig
@@ -373,7 +375,7 @@ _SetGlobalWindowState(enabled, defaultMode) {
 ; 处理排除窗体
 _ProcessExcludeWindows() {
     for win, flag in INIObject.exclude.OwnProps() {
-        if (win != "EasyIni_KeyComment") {
+        if (!_IsEasyIniReserved(win)) {
             vim.SetWin(win, win)
             vim.ExcludeWin(win, true)
         }
@@ -424,8 +426,8 @@ _ProcessPluginHotKeys(LoadAll) {
 _HasPluginMappings(Key, settingRegex) {
     for keyName, action in Key.OwnProps() {
         if (RegExMatch(keyName, settingRegex)
-            || keyName == "default_Mode"
-            || keyName == "EasyIni_SectionComment")
+        || keyName == "default_Mode"
+        || keyName == "EasyIni_SectionComment")
             continue
         return true
     }
@@ -1023,9 +1025,11 @@ _InitMainConstants() {
     if (!IsSet(MAIN_CMD_CACHE_MAX) || MAIN_CMD_CACHE_MAX = "")
         MAIN_CMD_CACHE_MAX := 100
     if (!IsSet(MAIN_PLUGIN_SKIP_REGEX) || MAIN_PLUGIN_SKIP_REGEX = "")
-        MAIN_PLUGIN_SKIP_REGEX := "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
+        MAIN_PLUGIN_SKIP_REGEX :=
+            "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
     if (!IsSet(MAIN_PLUGIN_SETTING_REGEX) || MAIN_PLUGIN_SETTING_REGEX = "")
-        MAIN_PLUGIN_SETTING_REGEX := "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
+        MAIN_PLUGIN_SETTING_REGEX :=
+            "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
 }
 
 ; 处理目录命令

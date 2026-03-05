@@ -1,9 +1,9 @@
 {
-    "General":{
-        "Global":"Global",
-        "Enable":"Enable",
-        "Disable":"Disable",
-        "SetDefault":"Set Default",
+    "General": {
+        "Global": "Global",
+        "Enable": "Enable",
+        "Disable": "Disable",
+        "SetDefault": "Set Default",
         "Default": "Default",
         "Info": "Info",
         "Error": "Error",
@@ -23,8 +23,11 @@
         "EditCustom": "&C) Edit Custom",
         "Extensions": "&T) Extensions",
         "Reload": "&R) Reload",
-        "Exit": "&X) Eixt",
-        "Default": "&E) HotKey Manager"
+        "Exit": "&X) Exit",
+        "Default": "&E) HotKey Manager",
+        "Theme_Light": "Light Mode ☼",
+        "Theme_Dark": "Dark Mode ☾",
+        "Theme_System": "Follow System 🖥️"
     },
     "Manager": {
         "ListView": {

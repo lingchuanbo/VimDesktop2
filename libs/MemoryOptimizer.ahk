@@ -139,20 +139,8 @@ class MemoryOptimizer {
     强制垃圾回收
     */
     static ForceGarbageCollection() {
-        try {
-            ; AutoHotkey v2没有直接的垃圾回收API
-            ; 但我们可以通过清空一些全局变量来帮助释放内存
-
-            ; 清空一些可能的缓存变量
-            global VimDesktop_Global
-            if (IsSet(VimDesktop_Global)) {
-                ; 清理一些可能累积的状态
-                VimDesktop_Global.showToolTipStatus := 0
-            }
-
-        } catch as e {
-            VimD_LogOnce("WARN", "MEM_GC_FAIL", "垃圾回收清理失败", e)
-        }
+        ; AHK v2 没有垃圾回收 API
+        ; 实际内存清理由 CleanupWorkingSet() 通过 Windows API 完成
     }
 
     /*

@@ -24,7 +24,10 @@
         "Extensions": "&T) 扩展功能",
         "Reload": "&R) 重启 Win+Y",
         "Exit": "&X) 退出",
-        "Default": "&E) 热键管理器"
+        "Default": "&E) 热键管理器",
+        "Theme_Light": "明亮模式 ☼",
+        "Theme_Dark": "暗黑模式 ☾",
+        "Theme_System": "跟随系统 🖥️"
     },
     "Manager": {
         "ListView": {

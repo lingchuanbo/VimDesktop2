@@ -521,26 +521,24 @@ class __vim {
         this.mode(Mode, winName)
         if ( not this.GetAction(winName, Mode, keyName)) {
             _tAction := RegExReplace(Action, "<\d>$", "") ;MPCHC_SendPos 或 带次数的 MPCHC_SendPos<2>
-            ; 检查函数是否存在，但不使用 Type(%_tAction%) 这种可能导致错误的方式
-            ; 而是使用更安全的方式检查函数是否存在
-            ; 检查函数是否存在
-            functionExists := false
-
-            ; 所有函数都假设存在，避免检查函数是否存在导致的错误
+            ; 安全检查函数是否存在（仅在调试模式下报告不存在的函数）
             functionExists := true
-
-            if (functionExists) {
-                OriKey := keyName
-                keyName := this.Convert2VIM_Title(keyName)
-                ; MsgBox keyName "`n" OriKey
-                ; if INIObject.config.enable_debug
-                ;     this._Debug.add(Format("热键：{1}`n窗体：{2}`n模式：{3}`n动作：{4}`n参数：{5}`n分组：{6}`n备注：{7}`n热键VIM：{8}`n-------------------------------`n",keyName, winName, Mode, Action, KyFunc_StringParam(Param), Group, Comment,OriKey))
-                this.SetAction(keyName, winName, Mode, Action, Param, Group, Comment, OriKey)
-            } else {
-                MsgBox Format(Lang["General"]["Key_MapError"], keyname, Action), Lang["General"]["Error"], "4112"
-                this.ErrorCode := "MAP_ACTION_ERROR"
-                return
+            try {
+                _funcRef := %_tAction%
+                if !(Type(_funcRef) = "Func" || Type(_funcRef) = "Closure")
+                    functionExists := false
+            } catch {
+                functionExists := false
             }
+
+            ; 函数不存在时仅记录警告，不阻止映射注册
+            ; （函数可能在运行时动态定义，或由其他模块延迟加载）
+            if (!functionExists && INIObject.config.enable_debug)
+                this._Debug.Add("警告: 函数 " _tAction " 未找到，按键 " keyName " 仍注册")
+
+            OriKey := keyName
+            keyName := this.Convert2VIM_Title(keyName)
+            this.SetAction(keyName, winName, Mode, Action, Param, Group, Comment, OriKey)
         }
 
         winObj := This.GetWin(winName)
@@ -704,9 +702,9 @@ class __vim {
         win2.class := class
         win2.filepath := filepath
         win2.title := title
-        win2.KeyList := win1.KeyList
-        win2.SuperKeyList := win1.SuperKeyList
-        win2.modeList := win1.modeList
+        win2.KeyList := win1.KeyList.Clone()
+        win2.SuperKeyList := win1.SuperKeyList.Clone()
+        win2.modeList := win1.modeList.Clone()
         win2.mode := win1.mode
         win2.LastKey := win1.LastKey
         win2.KeyTemp := win1.KeyTemp

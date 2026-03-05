@@ -89,7 +89,7 @@ VimDesktop_GetExtensionsConfig() {
         return configMap
 
     for key, value in INIObject.extensions.OwnProps() {
-        if (key = "__Class" || key = "EasyIni_KeyComment" || key = "EasyIni_SectionComment")
+        if (_IsEasyIniReserved(key))
             continue
         if (value = "")
             continue
