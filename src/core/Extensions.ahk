@@ -43,7 +43,10 @@ VimDesktop_RefreshExtensions() {
     global VimDesktop_ExtensionAutoStartPaths
     try {
         configMap := VimDesktop_GetExtensionsConfig()
+        stopped := []
+        started := []
 
+        namesToDelete := []
         for name, pid in VimDesktop_ExtensionPIDs {
             keep := configMap.Has(name) && configMap[name]["autoStart"] = "1"
             if (keep && VimDesktop_ExtensionAutoStartPaths.Has(name)) {
@@ -52,11 +55,18 @@ VimDesktop_RefreshExtensions() {
             }
 
             if (!keep) {
-                VimDesktop_StopExtensionProcess(pid)
-                VimDesktop_ExtensionPIDs.Delete(name)
-                if (VimDesktop_ExtensionAutoStartPaths.Has(name))
-                    VimDesktop_ExtensionAutoStartPaths.Delete(name)
+                expectedPath := VimDesktop_ExtensionAutoStartPaths.Has(name) ? VimDesktop_ExtensionAutoStartPaths[name] : ""
+                if (VimDesktop_StopExtensionProcess(pid, expectedPath))
+                    stopped.Push(name)
+                namesToDelete.Push(name)
             }
+        }
+
+        for _, name in namesToDelete {
+            if (VimDesktop_ExtensionPIDs.Has(name))
+                VimDesktop_ExtensionPIDs.Delete(name)
+            if (VimDesktop_ExtensionAutoStartPaths.Has(name))
+                VimDesktop_ExtensionAutoStartPaths.Delete(name)
         }
 
         for name, info in configMap {
@@ -73,10 +83,20 @@ VimDesktop_RefreshExtensions() {
             if (pid) {
                 VimDesktop_ExtensionPIDs[name] := pid
                 VimDesktop_ExtensionAutoStartPaths[name] := info["fullPath"]
+                started.Push(name)
             }
         }
 
         VimDesktop_TrayMenuCreate()
+        try {
+            if (INIObject.config.enable_log == 1) {
+                if (started.Length > 0)
+                    VimD_Log("INFO", "EXT_REFRESH_START", "扩展启动: " started.Length " -> " VimDesktop_JoinNames(started))
+                if (stopped.Length > 0)
+                    VimD_Log("INFO", "EXT_REFRESH_STOP", "扩展停止: " stopped.Length " -> " VimDesktop_JoinNames(stopped))
+            }
+        } catch {
+        }
     } catch Error as e {
         if (INIObject.config.enable_debug)
             MsgBox("刷新扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
@@ -127,18 +147,41 @@ VimDesktop_StartExtension(name, info) {
     return 0
 }
 
-VimDesktop_StopExtensionProcess(pid) {
+VimDesktop_StopExtensionProcess(pid, expectedPath := "") {
     if (!pid)
-        return
+        return false
     try {
         if (ProcessExist(pid)) {
+            if (expectedPath != "") {
+                try {
+                    realPath := ProcessGetPath(pid)
+                    if (realPath != "" && StrLower(realPath) != StrLower(expectedPath))
+                        return false
+                } catch {
+                }
+            }
+
             ProcessClose(pid)
             Sleep(100)
             if (ProcessExist(pid))
                 Run("taskkill /F /PID " pid, , "Hide")
         }
+        return true
     } catch {
+        return false
     }
+}
+
+VimDesktop_JoinNames(items) {
+    if (!IsObject(items) || items.Length = 0)
+        return ""
+    text := ""
+    for _, name in items {
+        if (text != "")
+            text .= ", "
+        text .= name
+    }
+    return text
 }
 
 ; 显示自动启动信息

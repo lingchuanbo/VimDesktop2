@@ -1,4 +1,4 @@
-; Main.ahk - 内存优化版本
+﻿; Main.ahk - 内存优化版本
 ; 优化策略：
 ; 1. 延迟初始化 - 只在需要时创建对象
 ; 2. 缓存优化 - 避免重复的文件读取和正则匹配
@@ -48,7 +48,7 @@ _LoadMainConfig() {
     ; 缓存配置访问，避免重复读取
     static configCache := Map()
 
-    ; 批量读取配置，减少INIObject访问次数
+    ; 批量读取配置，减少 INIObject 访问次数
     try {
         configCache["default_enable_show_info"] := INIObject.config.default_enable_show_info
         configCache["editor"] := INIObject.config.editor
@@ -71,7 +71,7 @@ _LoadMainConfig() {
 _InitMemoryOptimizer() {
     _InitMainConstants()
     global MAIN_MEMORY_OPT_INTERVAL_MS
-    ; 启用内存优化器 - 每5分钟清理一次内存
+    ; 启用内存优化器 - 每 5 分钟清理一次内存
     try {
         MemoryOptimizer.Enable(MAIN_MEMORY_OPT_INTERVAL_MS)
     } catch Error as e {
@@ -134,7 +134,7 @@ CheckPlugin(LoadAll := 0) {
     static metaTimes := Map()
     static metaInitialized := false
 
-    ; 只在必要时重新扫描插件目录（每30秒最多一次）
+    ; 只在必要时重新扫描插件目录（每 30 秒最多一次）
     currentTime := A_TickCount
     if (currentTime - lastScanTime > MAIN_PLUGIN_SCAN_INTERVAL_MS || pluginDirs.Length == 0) {
         pluginDirs := []
@@ -208,7 +208,7 @@ CheckPlugin(LoadAll := 0) {
 
 ; 批量处理新插件
 _ProcessNewPlugins(newPlugins) {
-    ; 确保sections存在
+    ; 确保 sections 存在
     _EnsureIniSections(["plugins", "plugins_DefaultMode"])
 
     for _, pluginName in newPlugins {
@@ -262,7 +262,7 @@ _LoadPlugins(LoadAll) {
         }
     }
 
-    ; 批量删除无效插件
+    ; 鎵归噺鍒犻櫎鏃犳晥鎻掍欢
     for _, plugin in invalidPlugins {
         try {
             INIObject.DeleteKey("plugins", plugin)
@@ -281,10 +281,11 @@ _LoadPlugins(LoadAll) {
     totalCount := 0
     for plugin, flag in validPlugins {
         totalCount++
-        if (LoadAll || flag) {
+        enabled := _GetEffectivePluginEnabled(plugin, _ParseBoolValue(flag, 0))
+        if (LoadAll || enabled) {
             vim.LoadPlugin(plugin)
             winObj := vim.GetWin(plugin)
-            winObj.status := flag
+            winObj.status := enabled
             _ApplyExternalPluginOverrides(plugin)
             loadedCount++
         }
@@ -457,8 +458,11 @@ _ReadPluginConfig(Key, pluginName := "") {
         present[prop] := true
     }
 
-    if (pluginName != "")
+    if (pluginName != "") {
         _MergePluginIniConfig(config, present, pluginName)
+        if (!present.Has("enabled"))
+            config["enabled"] := _GetEffectivePluginEnabled(pluginName, config["enabled"])
+    }
     config["_present"] := present
     return config
 }
@@ -517,7 +521,7 @@ _MergePluginIniConfig(config, present, pluginName) {
             }
         }
     } catch {
-        ; 读取插件ini失败时忽略，保持现有配置
+        ; 读取插件 ini 失败时忽略，保持现有配置
     }
 }
 
@@ -718,6 +722,20 @@ _ParseBoolValue(value, defaultValue := 0) {
     return defaultValue
 }
 
+_GetEffectivePluginEnabled(pluginName, defaultValue := 0) {
+    global INIObject
+    enabled := defaultValue
+    if (INIObject.HasOwnProp("plugins") && INIObject.plugins.HasOwnProp(pluginName)) {
+        enabled := _ParseBoolValue(INIObject.plugins.%pluginName%, enabled)
+        if (INIObject.HasOwnProp(pluginName)) {
+            keyObj := INIObject.%pluginName%
+            if (IsObject(keyObj) && keyObj.HasOwnProp("enabled"))
+                enabled := _ParseBoolValue(keyObj.enabled, enabled)
+        }
+    }
+    return enabled
+}
+
 VimDesktop_ApplyMainConfigChanges(changedSections, sectionKeyDiffs, removedSections := "") {
     try {
         if (!IsObject(changedSections) || changedSections.Length = 0) {
@@ -741,14 +759,24 @@ VimDesktop_ApplyMainConfigChanges(changedSections, sectionKeyDiffs, removedSecti
             VimDesktop_RefreshExtensions()
 
         for _, secName in changedSections {
-            if (VimDesktop_IsPluginSectionName(secName))
-                VimDesktop_RefreshPluginFromMainConfig(secName)
+            if (VimDesktop_IsPluginSectionName(secName)) {
+                try {
+                    VimDesktop_RefreshPluginFromMainConfig(secName)
+                } catch Error as e {
+                    VimD_Log("WARN", "MAIN_PLUGIN_REFRESH_FAIL", "插件配置热刷新失败: " secName, e)
+                }
+            }
         }
 
         if (IsObject(removedSections)) {
             for _, secName in removedSections {
-                if (VimDesktop_IsPluginSectionName(secName))
-                    VimDesktop_ResetPluginMappings(secName, true)
+                if (VimDesktop_IsPluginSectionName(secName)) {
+                    try {
+                        VimDesktop_ResetPluginMappings(secName, true)
+                    } catch Error as e {
+                        VimD_Log("WARN", "MAIN_PLUGIN_RESET_FAIL", "插件配置移除处理失败: " secName, e)
+                    }
+                }
             }
         }
     } catch Error as e {
@@ -835,9 +863,7 @@ VimDesktop_ApplyPluginStatusChanges(sectionKeyDiffs) {
         if (pluginName = "")
             continue
 
-        enabled := 0
-        if (INIObject.HasOwnProp("plugins") && INIObject.plugins.HasOwnProp(pluginName))
-            enabled := _ParseBoolValue(INIObject.plugins.%pluginName%, 0)
+        enabled := _GetEffectivePluginEnabled(pluginName, 0)
 
         defaultMode := ""
         if (INIObject.HasOwnProp("plugins_DefaultMode") && INIObject.plugins_DefaultMode.HasOwnProp(pluginName))
@@ -877,27 +903,36 @@ VimDesktop_RefreshPluginFromMainConfig(pluginName) {
     _InitMainConstants()
     global MAIN_PLUGIN_SETTING_REGEX
 
-    VimDesktop_ResetPluginMappings(pluginName)
-    VimDesktop_ClearWinMappings(pluginName)
-
     config := _ReadPluginConfig(keyObj, pluginName)
     hasMappings := _HasPluginMappings(keyObj, MAIN_PLUGIN_SETTING_REGEX)
 
-    if ((hasMappings || config["enabled"]) && !IsObject(vim.GetWin(pluginName))) {
+    if (!hasMappings) {
+        if (!IsObject(vim.GetWin(pluginName)) && config["enabled"]) {
+            pluginFile := _Main_GetPluginFilePath(pluginName)
+            if (FileExist(pluginFile))
+                vim.LoadPlugin(pluginName)
+        }
+
+        winObj := vim.GetWin(pluginName)
+        if (IsObject(winObj)) {
+            if (!config["enabled"])
+                try vim.Control(false, pluginName, true)
+            _ApplyPluginConfigOverrides(pluginName, config)
+            _SetPluginStatus(pluginName, config, winObj)
+        }
+        return
+    }
+
+    VimDesktop_ResetPluginMappings(pluginName)
+    VimDesktop_ClearWinMappings(pluginName)
+
+    if (!IsObject(vim.GetWin(pluginName)) && config["enabled"]) {
         pluginFile := _Main_GetPluginFilePath(pluginName)
         if (FileExist(pluginFile))
             vim.LoadPlugin(pluginName)
     }
 
     winObj := vim.GetWin(pluginName)
-
-    if (!hasMappings) {
-        if (IsObject(winObj)) {
-            _ApplyPluginConfigOverrides(pluginName, config)
-            _SetPluginStatus(pluginName, config, winObj)
-        }
-        return
-    }
 
     if (!config["enabled"]) {
         if (IsObject(winObj))

@@ -9,7 +9,7 @@
 #Include "Lib/UTF8Ini.ahk"
 #Include "Lib/ConfigSchema.ahk"
 ; 引入 UIA.ahk 库用于UI自动化检测
-#Include "../../Lib/UIA.ahk"
+#Include "Lib/UIA.ahk"
 
 /*
 QuickSwitch - 统一的快速切换工具

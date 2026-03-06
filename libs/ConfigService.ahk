@@ -527,6 +527,16 @@ class ConfigService {
             this._ValidateBoolKey(issues, "config", "enable_log", mainConfigPath)
             this._ValidateBoolKey(issues, "config", "enable_debug", mainConfigPath)
             this._ValidateBoolKey(issues, "config", "default_enable_show_info", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_auto_hide", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_hide_on_mouse_leave", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_hide_on_click_outside", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_hide_on_window_change", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_global_window_monitor", mainConfigPath)
+            this._ValidateBoolKey(issues, "config", "tooltip_clear_key_cache_on_hide", mainConfigPath)
+            this._ValidateEnumKey(issues, "config", "tooltip_library", "ToolTipOptions|BTT", mainConfigPath)
+            this._ValidateIntKey(issues, "config", "tooltip_hide_timeout", mainConfigPath, 0, 60000)
+            this._ValidateIntKey(issues, "config", "tooltip_font_size", mainConfigPath, 6, 72)
+            this._ValidateIntKey(issues, "config", "tooltipswitch_font_size", mainConfigPath, 6, 72)
 
             langValue := ""
             try langValue := Trim(this.MainConfig.config.lang "")
@@ -770,6 +780,56 @@ class ConfigService {
             "配置类型错误: 需要 bool", rawValue)
     }
 
+    static _ValidateIntKey(issues, sectionName, keyName, filePath := "", minValue := "", maxValue := "") {
+        if !IsObject(this.MainConfig)
+            return
+        if !this.MainConfig.HasOwnProp(sectionName)
+            return
+
+        sec := this.MainConfig.%sectionName%
+        if (!IsObject(sec) || !sec.HasOwnProp(keyName))
+            return
+
+        rawValue := Trim(sec.%keyName% "")
+        if (rawValue = "")
+            return
+
+        if !RegExMatch(rawValue, "^-?\d+$") {
+            this._AddIssue(issues, filePath != "" ? filePath : this._GetMainConfigPath(), sectionName, keyName,
+                "配置类型错误: 需要int", rawValue)
+            return
+        }
+
+        intValue := Integer(rawValue)
+        if (minValue != "" && intValue < minValue) {
+            this._AddIssue(issues, filePath != "" ? filePath : this._GetMainConfigPath(), sectionName, keyName,
+                "配置越界: 不能小于 " minValue, intValue)
+        } else if (maxValue != "" && intValue > maxValue) {
+            this._AddIssue(issues, filePath != "" ? filePath : this._GetMainConfigPath(), sectionName, keyName,
+                "配置越界: 不能大于 " maxValue, intValue)
+        }
+    }
+
+    static _ValidateEnumKey(issues, sectionName, keyName, enumSpec, filePath := "") {
+        if !IsObject(this.MainConfig)
+            return
+        if !this.MainConfig.HasOwnProp(sectionName)
+            return
+
+        sec := this.MainConfig.%sectionName%
+        if (!IsObject(sec) || !sec.HasOwnProp(keyName))
+            return
+
+        rawValue := Trim(sec.%keyName% "")
+        if (rawValue = "")
+            return
+
+        if !this._IsEnumValue(rawValue, enumSpec) {
+            this._AddIssue(issues, filePath != "" ? filePath : this._GetMainConfigPath(), sectionName, keyName,
+                "配置枚举错误: 非法值", rawValue, "允许: " enumSpec)
+        }
+    }
+
     static _GetOrCreatePluginIni(pluginName) {
         if !IsObject(this.PluginConfigs)
             this.PluginConfigs := {}
@@ -918,3 +978,8 @@ class ConfigService {
         return this.Schemas
     }
 }
+
+
+
+
+
