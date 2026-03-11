@@ -37,6 +37,29 @@ VimDesktop_AutoStartExtensions() {
     }
 }
 
+VimDesktop_ResolveExtensionPath(scriptPath) {
+    if (scriptPath = "")
+        return ""
+
+    rootPath := PathResolver.RootPath(scriptPath)
+    if (FileExist(rootPath) || DirExist(rootPath))
+        return rootPath
+
+    appPath := PathResolver.AppsPath(scriptPath)
+    if (FileExist(appPath) || DirExist(appPath))
+        return appPath
+
+    toolsPath := PathResolver.ToolsPath(scriptPath)
+    if (FileExist(toolsPath) || DirExist(toolsPath))
+        return toolsPath
+
+    vendorPath := PathResolver.VendorPath(scriptPath)
+    if (FileExist(vendorPath) || DirExist(vendorPath))
+        return vendorPath
+
+    return rootPath
+}
+
 ; 刷新扩展功能（热重载）
 VimDesktop_RefreshExtensions() {
     global VimDesktop_ExtensionPIDs
@@ -120,7 +143,7 @@ VimDesktop_GetExtensionsConfig() {
 
         scriptPath := parts[1]
         autoStart := (parts.Length > 1) ? parts[2] : "0"
-        fullPath := PathResolver.RootPath(scriptPath)
+        fullPath := VimDesktop_ResolveExtensionPath(scriptPath)
         configMap[key] := Map("scriptPath", scriptPath, "fullPath", fullPath, "autoStart", autoStart)
     }
     return configMap
@@ -209,7 +232,7 @@ VimDesktop_ExtensionHandler(ItemName, *) {
             scriptPath := configParts[1]
 
             ; 构建完整路径
-            fullScriptPath := PathResolver.RootPath(scriptPath)
+            fullScriptPath := VimDesktop_ResolveExtensionPath(scriptPath)
 
             ; 检查文件是否存在
             if (FileExist(fullScriptPath)) {

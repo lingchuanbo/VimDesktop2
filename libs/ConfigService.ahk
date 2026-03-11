@@ -29,174 +29,43 @@ class ConfigService {
     }
 
     static _BuildPluginConfigPathIndex() {
-        pluginsDir := PathResolver.PluginsDir()
-        if !DirExist(pluginsDir)
-            return
-
-        loop files, pluginsDir "\*", "D" {
-            pluginName := A_LoopFileName
-            pluginDir := A_LoopFileFullPath
-            possibleConfigFiles := [
-                pluginDir "\" pluginName ".ini",
-                pluginDir "\" StrLower(pluginName) ".ini",
-                pluginDir "\config.ini",
-                pluginDir "\plugin.ini"
-            ]
-
-            for configPath in possibleConfigFiles {
-                if FileExist(configPath) {
-                    this.PluginConfigPaths[pluginName] := configPath
-                    break
-                }
-            }
-        }
+        return ConfigServiceChangeTracker.BuildPluginConfigPathIndex(this)
     }
 
     static LoadPluginConfigs() {
-        if !IsObject(this.PluginConfigs)
-            this.PluginConfigs := {}
-
-        this._BuildPluginConfigPathIndex()
-
-        for pluginName, configPath in this.PluginConfigPaths {
-            if (configPath = "")
-                continue
-            if (this.PluginConfigs.HasOwnProp(pluginName))
-                continue
-            try {
-                this.PluginConfigs.%pluginName% := EasyIni(configPath)
-            } catch Error as e {
-                VimD_Log("WARN", "CONFIG_PLUGIN_LOAD_FAIL", "插件配置加载失败: " pluginName " -> " configPath, e)
-            }
-        }
+        return ConfigServiceChangeTracker.LoadPluginConfigs(this)
     }
 
     static _InitFileMtimes() {
-        this.FileMtimes := Map()
-
-        mainPath := this._GetMainConfigPath()
-        if (mainPath != "")
-            this.FileMtimes["main"] := this._GetFileMtime(mainPath)
-
-        if IsObject(this.PluginConfigPaths) {
-            for pluginName, configPath in this.PluginConfigPaths {
-                if (configPath = "")
-                    continue
-                this.FileMtimes["plugin:" pluginName] := this._GetFileMtime(configPath)
-            }
-        }
+        return ConfigServiceChangeTracker.InitFileMtimes(this)
     }
 
     static _InitMainSectionSnapshots() {
-        this.MainSectionSnapshots := this._BuildMainSectionSnapshots()
+        return ConfigServiceChangeTracker.InitMainSectionSnapshots(this)
     }
 
     static _BuildMainSectionSnapshots() {
-        snapshots := Map()
-        if !IsObject(this.MainConfig)
-            return snapshots
-
-        for secName, secObj in this.MainConfig.OwnProps() {
-            if this._IsReservedConfigProperty(secName)
-                continue
-            if !IsObject(secObj)
-                continue
-            snapshots[secName] := this._SnapshotSection(secObj)
-        }
-        return snapshots
+        return ConfigServiceChangeTracker.BuildMainSectionSnapshots(this)
     }
 
     static _SnapshotSection(sectionObj) {
-        snapshot := Map()
-        if !IsObject(sectionObj)
-            return snapshot
-        for key, value in sectionObj.OwnProps() {
-            if this._IsReservedSectionKey(key)
-                continue
-            snapshot[key] := value
-        }
-        return snapshot
+        return ConfigServiceChangeTracker.SnapshotSection(this, sectionObj)
     }
 
     static _IsReservedSectionKey(name) {
-        return (name = "EasyIni_KeyComment"
-            || name = "EasyIni_SectionComment"
-            || name = "__Class")
+        return ConfigServiceChangeTracker.IsReservedSectionKey(name)
     }
 
     static _DiffMainSections() {
-        oldSnapshots := IsObject(this.MainSectionSnapshots) ? this.MainSectionSnapshots : Map()
-        newSnapshots := this._BuildMainSectionSnapshots()
-
-        changedSections := []
-        addedSections := []
-        removedSections := []
-        sectionKeyDiffs := Map()
-
-        for secName, newSnap in newSnapshots {
-            if !oldSnapshots.Has(secName) {
-                addedSections.Push(secName)
-                this._PushUnique(changedSections, secName)
-                continue
-            }
-
-            diff := this._DiffSectionSnapshot(oldSnapshots[secName], newSnap)
-            if (diff["added"].Length > 0 || diff["removed"].Length > 0 || diff["changed"].Length > 0) {
-                this._PushUnique(changedSections, secName)
-                sectionKeyDiffs[secName] := diff
-            }
-        }
-
-        for secName, oldSnap in oldSnapshots {
-            if !newSnapshots.Has(secName) {
-                removedSections.Push(secName)
-                this._PushUnique(changedSections, secName)
-            }
-        }
-
-        this.MainSectionSnapshots := newSnapshots
-        return Map(
-            "changed_sections", changedSections,
-            "added_sections", addedSections,
-            "removed_sections", removedSections,
-            "section_key_diffs", sectionKeyDiffs
-        )
+        return ConfigServiceChangeTracker.DiffMainSections(this)
     }
 
     static _DiffSectionSnapshot(oldSnap, newSnap) {
-        added := []
-        removed := []
-        changed := []
-
-        if !IsObject(oldSnap)
-            oldSnap := Map()
-        if !IsObject(newSnap)
-            newSnap := Map()
-
-        for key, value in newSnap {
-            if !oldSnap.Has(key) {
-                added.Push(key)
-            } else if (oldSnap[key] != value) {
-                changed.Push(key)
-            }
-        }
-
-        for key, value in oldSnap {
-            if !newSnap.Has(key)
-                removed.Push(key)
-        }
-
-        return Map("added", added, "removed", removed, "changed", changed)
+        return ConfigServiceChangeTracker.DiffSectionSnapshot(oldSnap, newSnap)
     }
 
     static _PushUnique(arr, value) {
-        if !IsObject(arr)
-            return
-        for _, item in arr {
-            if (item = value)
-                return
-        }
-        arr.Push(value)
+        return ConfigServiceChangeTracker.PushUnique(arr, value)
     }
 
     static _GetMainConfigPath() {
@@ -206,156 +75,27 @@ class ConfigService {
     }
 
     static _GetFileMtime(filePath) {
-        if (filePath = "")
-            return ""
-        try {
-            return FileGetTime(filePath, "M")
-        } catch {
-            return ""
-        }
+        return ConfigServiceChangeTracker.GetFileMtime(filePath)
     }
 
     static _HasFileChanged(key, filePath) {
-        newTime := this._GetFileMtime(filePath)
-        oldTime := this.FileMtimes.Has(key) ? this.FileMtimes[key] : ""
-        if (newTime = "" && oldTime = "")
-            return false
-        if (newTime != oldTime) {
-            this.FileMtimes[key] := newTime
-            return true
-        }
-        return false
+        return ConfigServiceChangeTracker.HasFileChanged(this, key, filePath)
     }
 
     static _MaybeRefreshPluginConfigPathIndex() {
-        nowTick := A_TickCount
-        if (this._LastPluginPathScanTick != 0
-            && (nowTick - this._LastPluginPathScanTick) < this.PluginPathScanIntervalMs) {
-            return
-        }
-
-        this._LastPluginPathScanTick := nowTick
-        this._BuildPluginConfigPathIndex()
+        return ConfigServiceChangeTracker.MaybeRefreshPluginConfigPathIndex(this)
     }
 
     static RefreshIfChanged(enableValidation := true, enableDebug := false, logPath := "") {
-        result := Map("changed", false, "main", false, "plugins", [])
-
-        if !IsObject(this.MainConfig)
-            return result
-
-        if !IsObject(this.FileMtimes)
-            this.FileMtimes := Map()
-
-        this._MaybeRefreshPluginConfigPathIndex()
-
-        mainChanged := this._ReloadMainConfigIfChanged()
-        changedPlugins := this._ReloadPluginConfigsIfChanged()
-
-        if (mainChanged || changedPlugins.Length > 0) {
-            result["changed"] := true
-            result["main"] := mainChanged
-            result["plugins"] := changedPlugins
-            if (mainChanged) {
-                mainDiff := this._DiffMainSections()
-                result["main_sections"] := mainDiff["changed_sections"]
-                result["main_sections_added"] := mainDiff["added_sections"]
-                result["main_sections_removed"] := mainDiff["removed_sections"]
-                result["main_section_keys"] := mainDiff["section_key_diffs"]
-            }
-
-            if (enableValidation)
-                this.ValidateAndReport(enableDebug, true, logPath)
-
-            VimD_Log("INFO", "CONFIG_HOT_RELOAD", "配置已刷新: main=" (mainChanged ? 1 : 0)
-            " plugins=" changedPlugins.Length)
-        }
-
-        return result
+        return ConfigServiceChangeTracker.RefreshIfChanged(this, enableValidation, enableDebug, logPath)
     }
 
     static _ReloadMainConfigIfChanged() {
-        mainPath := this._GetMainConfigPath()
-        if (mainPath = "")
-            return false
-
-        if !this._HasFileChanged("main", mainPath)
-            return false
-
-        if !FileExist(mainPath) {
-            VimD_LogOnce("WARN", "CONFIG_MAIN_MISSING", "主配置文件不存在: " mainPath)
-            return false
-        }
-
-        try {
-            this.MainConfig.Reload()
-            return true
-        } catch Error as e {
-            VimD_Log("WARN", "CONFIG_MAIN_RELOAD_FAIL", "主配置重载失败", e)
-            return false
-        }
+        return ConfigServiceChangeTracker.ReloadMainConfigIfChanged(this)
     }
 
     static _ReloadPluginConfigsIfChanged() {
-        changedPlugins := []
-
-        if !IsObject(this.PluginConfigs)
-            return changedPlugins
-
-        for pluginName, pluginIni in this.PluginConfigs.OwnProps() {
-            if !IsObject(pluginIni)
-                continue
-
-            configPath := ""
-            if (this.PluginConfigPaths.Has(pluginName))
-                configPath := this.PluginConfigPaths[pluginName]
-            else if (pluginIni.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
-                configPath := pluginIni.EasyIni_ReservedFor_m_sFile
-
-            if (configPath = "")
-                continue
-
-            key := "plugin:" pluginName
-            if !this._HasFileChanged(key, configPath)
-                continue
-
-            if !FileExist(configPath) {
-                VimD_LogOnce("WARN", "CONFIG_PLUGIN_MISSING", "插件配置文件不存在: " pluginName " -> " configPath)
-                continue
-            }
-
-            try {
-                pluginIni.Reload()
-                changedPlugins.Push(pluginName)
-            } catch Error as e {
-                VimD_Log("WARN", "CONFIG_PLUGIN_RELOAD_FAIL", "插件配置重载失败: " pluginName, e)
-            }
-        }
-
-        for pluginName, configPath in this.PluginConfigPaths {
-            if (this.PluginConfigs.HasOwnProp(pluginName))
-                continue
-            if (configPath = "")
-                continue
-
-            key := "plugin:" pluginName
-            if !this._HasFileChanged(key, configPath)
-                continue
-
-            if !FileExist(configPath) {
-                VimD_LogOnce("WARN", "CONFIG_PLUGIN_MISSING", "插件配置文件不存在: " pluginName " -> " configPath)
-                continue
-            }
-
-            try {
-                this.PluginConfigs.%pluginName% := EasyIni(configPath)
-                changedPlugins.Push(pluginName)
-            } catch Error as e {
-                VimD_Log("WARN", "CONFIG_PLUGIN_LOAD_FAIL", "插件配置加载失败: " pluginName " -> " configPath, e)
-            }
-        }
-
-        return changedPlugins
+        return ConfigServiceChangeTracker.ReloadPluginConfigsIfChanged(this)
     }
 
     static GetPluginConfigPath(pluginName) {
@@ -924,57 +664,7 @@ class ConfigService {
         if IsObject(this.Schemas)
             return this.Schemas
 
-        schemas := Map()
-
-        everythingRules := []
-        everythingRules.Push(Map("section", "Everything", "key", "everything_path", "type", "path_exists"))
-        everythingRules.Push(Map("section", "Everything", "key", "enable_double_click", "type", "bool"))
-        everythingRules.Push(Map("section", "Everything", "key", "show_debug_info", "type", "bool"))
-        schemas["Everything"] := everythingRules
-
-        tcRules := []
-        tcRules.Push(Map("section", "TTOTAL_CMD", "key", "tc_path", "type", "path_exists"))
-        tcRules.Push(Map("section", "TTOTAL_CMD", "key", "tc_ini_path", "type", "path_exists"))
-        tcRules.Push(Map("section", "TTOTAL_CMD", "key", "tc_dir_path", "type", "dir_exists"))
-        schemas["TTOTAL_CMD"] := tcRules
-
-        afterEffectsRules := []
-        afterEffectsRules.Push(Map("section", "Config", "key", "EnableLogging", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "Config", "key", "LogLevel", "type", "enum", "enum",
-            "DEBUG|INFO|WARN|ERROR"))
-        afterEffectsRules.Push(Map("section", "Config", "key", "LogFileSize", "type", "int", "min", 1, "max", 200))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "set_time_out", "type", "int", "min", 50,
-            "max", 5000))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enabled", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enable_debug", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_check_interval", "type", "int", "min", 50,
-            "max",
-            3000))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_enable_mouse_click", "type", "bool"))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_max_retries", "type", "int", "min", 1,
-            "max", 10))
-        afterEffectsRules.Push(Map("section", "AfterEffects", "key", "ime_auto_switch_timeout", "type", "int",
-            "min", 500,
-            "max", 30000))
-        schemas["AfterEffects"] := afterEffectsRules
-
-        blenderRules := []
-        blenderRules.Push(Map("section", "Blender", "key", "python_path", "type", "path_exists"))
-        blenderRules.Push(Map("section", "Blender", "key", "set_time_out", "type", "int", "min", 50, "max", 5000))
-        schemas["Blender"] := blenderRules
-
-        max3DRules := []
-        max3DRules.Push(Map("section", "Max3D", "key", "set_time_out", "type", "int", "min", 50, "max", 5000))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_enabled", "type", "bool"))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_enable_debug", "type", "bool"))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_check_interval", "type", "int", "min", 50, "max", 3000))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_enable_mouse_click", "type", "bool"))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_max_retries", "type", "int", "min", 1, "max", 10))
-        max3DRules.Push(Map("section", "Max3D", "key", "ime_auto_switch_timeout", "type", "int", "min", 500, "max",
-            30000))
-        schemas["Max3D"] := max3DRules
-
-        this.Schemas := schemas
+        this.Schemas := ConfigServiceSchemaRegistry.Build()
         return this.Schemas
     }
 }

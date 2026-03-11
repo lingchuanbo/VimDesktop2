@@ -128,7 +128,10 @@ TC_ToggleTC(AlwaysMax := 1) {
     } else {
         if (!FileExist(TC_Global.TcPath)) {
             MsgBox "请指定TC的路径及相关信息。", "错误", "4112"
-            run Format('"{1}" "{2}"', VimDesktop_Global.Editor, A_ScriptDir "\..\Plutins\TC\TC.ahk")
+            configPath := ConfigService.GetPluginConfigPath("TTOTAL_CMD")
+            if (configPath = "")
+                configPath := PathResolver.PluginPath("TTOTAL_CMD", "TTOTAL_CMD.ini")
+            run Format('"{1}" "{2}"', VimDesktop_Global.Editor, configPath)
         }
 
         Run TC_Global.TcPath
@@ -932,10 +935,11 @@ TC_AlwayOnTop() {
     AHK版本: 2.0.18
 */
 TC_Toggle_AutoPercent() { ;TC_VIM:启用/关闭：自动扩大本侧窗口
-    if (FileExist(A_ScriptDir "\..\vimd.exe")) {
-        Run Format('{1}\vimd.exe {1}\apps\TC自动扩大本侧窗口\TC自动扩大本侧窗口Kawvin.ahk', A_ScriptDir "\..")
+    autoPercentScript := PathResolver.AppsPath("TC自动扩大本侧窗口\TC自动扩大本侧窗口Kawvin.ahk")
+    if (FileExist(PathResolver.RootPath("vimd.exe"))) {
+        Run Format('"{1}" "{2}"', PathResolver.RootPath("vimd.exe"), autoPercentScript)
     } else {
-        Run A_ScriptDir "\..\apps\TC自动扩大本侧窗口\TC自动扩大本侧窗口Kawvin.ahk"
+        Run autoPercentScript
     }
 }
 

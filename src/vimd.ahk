@@ -11,23 +11,15 @@ DetectHiddenWindows "on"
 FileEncoding "UTF-8"
 SendMode "Input"
 
-global VimDesktop_Global := Object()
-global Vim := Object()
-global INIObject := Object()
-global PluginConfigs := Object()
-global Lang := Object()
-global VimDesktop_ExtensionPIDs := Map() ; 存储扩展功能的进程ID
-global VimDesktop_ExtensionAutoStartPaths := Map() ; 存储自动启动扩展的路径
-global VimDesktop_ConfigHotReloadIntervalMs := 5000
-
-VimDesktop_Global.ConfigPath := PathResolver.ConfigPath("vimd.ini")
-VimDesktop_Global.Editor := "NotePad.exe" ; 运行时由 vimd.ini 的 editor 配置覆盖
-VimDesktop_Global.AhkPath := PathResolver.AppsPath("AutoHotkey.exe")
-VimDesktop_Global.default_enable_show_info := ""
-VimDesktop_Global.WshShell := ""
-VimDesktop_Global.__vimLastAction := ""
-VimDesktop_Global.showToolTipStatus := 0
-VimDesktop_Global.Current_KeyMap := ""
+global App := AppContext.Create()
+global VimDesktop_Global := App.Runtime
+global Vim := App.Vim
+global INIObject := App.INIObject
+global PluginConfigs := App.PluginConfigs
+global Lang := App.Lang
+global VimDesktop_ExtensionPIDs := App.ExtensionPIDs ; 存储扩展功能的进程ID
+global VimDesktop_ExtensionAutoStartPaths := App.ExtensionAutoStartPaths ; 存储自动启动扩展的路径
+global VimDesktop_ConfigHotReloadIntervalMs := App.ConfigHotReloadIntervalMs
 
 INIObject := EasyINI(VimDesktop_Global.ConfigPath)
 ; 从配置文件读取 default_enable_show_info 设置
@@ -48,15 +40,21 @@ VimDesktop_Run()
 VimDesktop_StartConfigHotReload()
 
 #Include .\core\Main.ahk
+#Include .\core\Main.PluginBootstrap.ahk
+#Include .\core\Main.RuntimeConfig.ahk
 #Include .\core\class_vim.ahk
 #Include .\core\VimDConfig.ahk
 #Include .\core\Tray.ahk
 #Include .\core\Extensions.ahk
 #Include .\core\HotReload.ahk
 #Include ..\libs\PathResolver.ahk
+#Include ..\libs\AppContext.ahk
+#Include ..\libs\PluginCatalog.ahk
 #Include ..\libs\Class_JSON.Ahk
 #Include ..\libs\class_EasyIni.ahk
 #Include ..\libs\ConfigService.ahk
+#Include ..\libs\ConfigService.ChangeTracker.ahk
+#Include ..\libs\ConfigService.SchemaRegistry.ahk
 #Include ..\libs\DynamicFileMenu.ahk
 #Include ..\libs\MD_Gen.ahk
 #Include ..\libs\SingleDoubleLongPress.ahk
@@ -67,7 +65,7 @@ VimDesktop_StartConfigHotReload()
 ; #Include ..\libs\UIA_Browser.ahk  ; 已移除：全项目无调用
 #Include ..\libs\AutoIMESwitcher.ahk
 #Include ..\libs\ToolTipManager.ahk
-#Include ..\libs\Run.ahk
+#Include ..\libs\run.ahk
 #Include ..\libs\Script.ahk
 #Include ..\libs\Logger.ahk
 #Include ..\libs\vimd_API.ahk

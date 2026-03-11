@@ -1,0 +1,1 @@
+#Include ..\AfterEffects.ahk

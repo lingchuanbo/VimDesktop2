@@ -212,16 +212,12 @@ class __Plugin {
         if (!FileExist(metaPath))
             return
         try {
-            name := IniRead(metaPath, "plugin", "name", this.PluginName)
-            author := IniRead(metaPath, "plugin", "author", "")
-            ver := IniRead(metaPath, "plugin", "version", "")
-            comment := IniRead(metaPath, "plugin", "comment", "")
-            entry := IniRead(metaPath, "plugin", "entry", "")
-            if (entry = "")
-                entry := IniRead(metaPath, "plugin", "main", "")
-            entry := Trim(entry, " `t")
-            if (SubStr(entry, 1, 1) = "\" || SubStr(entry, 1, 1) = "/")
-                entry := SubStr(entry, 2)
+            meta := PluginCatalog.ReadMeta(this.PluginName)
+            name := meta["name"]
+            author := meta["author"]
+            ver := meta["version"]
+            comment := meta["comment"]
+            entry := meta["entry"]
 
             this.Name := name
             if (author != "")

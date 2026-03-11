@@ -25,6 +25,14 @@ class PathResolver {
         return this._Join(this.RootDir(), "apps")
     }
 
+    static ToolsDir() {
+        return this._Join(this.RootDir(), "tools")
+    }
+
+    static VendorDir() {
+        return this._Join(this.RootDir(), "vendor")
+    }
+
     static LangDir() {
         return this._Join(this.RootDir(), "lang")
     }
@@ -59,7 +67,20 @@ class PathResolver {
     }
 
     static AppsPath(fileName := "") {
-        return this._Join(this.AppsDir(), fileName)
+        legacyPath := this._Join(this.AppsDir(), fileName)
+        toolsPath := this._Join(this.ToolsDir(), fileName)
+
+        if (fileName != "" && FileExist(toolsPath))
+            return toolsPath
+        return legacyPath
+    }
+
+    static ToolsPath(fileName := "") {
+        return this._Join(this.ToolsDir(), fileName)
+    }
+
+    static VendorPath(fileName := "") {
+        return this._Join(this.VendorDir(), fileName)
     }
 
     static LangPath(fileName := "") {

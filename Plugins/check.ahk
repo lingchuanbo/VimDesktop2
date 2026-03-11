@@ -1,7 +1,8 @@
 ﻿#requires AutoHotkey v2.0
 
 #NoTrayIcon
-
+#Include ..\libs\PathResolver.ahk
+#Include ..\libs\PluginCatalog.ahk
 FileEncoding "UTF-8"
 ExtensionsAHK := A_ScriptDir "\plugins.ahk"
 
@@ -10,8 +11,7 @@ FileDelete ExtensionsAHK
 FileAppend "", ExtensionsAHK, "UTF-8"
 
 ; 查询是否有新插件加入
-loop files, A_ScriptDir "\*.*", "D" {
-    pluginName := A_LoopFileName
+for _, pluginName in PluginCatalog.ListPluginNames() {
     entry := _GetPluginEntry(pluginName)
     if (entry = "")
         entry := pluginName ".ahk"
@@ -21,8 +21,7 @@ FileAppend plugins, ExtensionsAHK, "UTF-8"
 
 ; 保存修改时间
 SaveTime := "/*`r`n[ExtensionsTime]`r`n"
-loop files, A_ScriptDir "\*.*", "D" {
-    pluginName := A_LoopFileName
+for _, pluginName in PluginCatalog.ListPluginNames() {
     pluginFile := _GetPluginFilePath(pluginName)
     ; 检查文件是否存在再获取修改时间
     if FileExist(pluginFile) {
@@ -57,30 +56,15 @@ Send_WM_COPYDATA(StringToSend) { ; 此函数发送指定的字符串到指定的
 }
 
 _GetPluginEntry(pluginName) {
-    metaPath := A_ScriptDir "\" pluginName "\plugin.meta.ini"
-    if !FileExist(metaPath)
-        return ""
-    try {
-        entry := IniRead(metaPath, "plugin", "entry", "")
-        if (entry = "")
-            entry := IniRead(metaPath, "plugin", "main", "")
-        entry := Trim(entry, " `t")
-        if (SubStr(entry, 1, 1) = "\" || SubStr(entry, 1, 1) = "/")
-            entry := SubStr(entry, 2)
-        return entry
-    } catch {
-        return ""
-    }
+    return PluginCatalog.GetPluginEntry(pluginName)
 }
 
 _GetPluginFilePath(pluginName) {
-    entry := _GetPluginEntry(pluginName)
-    if (entry = "")
-        entry := pluginName ".ahk"
-    return A_ScriptDir "\" pluginName "\" entry
+    return PluginCatalog.GetPluginMainFile(pluginName)
 }
 
 _BuildIncludeLine(pluginName, entry) {
+    entry := StrReplace(entry, "/", "\")
     if (RegExMatch(entry, "i)^[a-z]:\\") || SubStr(entry, 1, 2) = "\\") {
         return '#include *i "' entry '"`n'
     }

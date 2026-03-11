@@ -182,13 +182,12 @@ _VimDConfig_LoadPluginInfo(plugin){
 
 	if (FileExist(metaPath)) {
 		try {
-			metaName := IniRead(metaPath, "plugin", "name", "")
-			metaAuthor := IniRead(metaPath, "plugin", "author", "")
-			metaVersion := IniRead(metaPath, "plugin", "version", "")
-			metaComment := IniRead(metaPath, "plugin", "comment", "")
-			metaEntry := IniRead(metaPath, "plugin", "entry", "")
-			if (metaEntry = "")
-				metaEntry := IniRead(metaPath, "plugin", "main", "")
+			meta := PluginCatalog.ReadMeta(plugin)
+			metaName := meta["name"]
+			metaAuthor := meta["author"]
+			metaVersion := meta["version"]
+			metaComment := meta["comment"]
+			metaEntry := meta["entry"]
 		} catch {
 			; 忽略元信息读取失败
 		}
@@ -222,7 +221,7 @@ _VimDConfig_LoadPluginInfo(plugin){
 
 	; 元信息不足时，回退读取插件文件头
 	if (commentText = "" || VimDConfig_Manager["Version"].Text = "" || VimDConfig_Manager["Author"].Text = "") {
-		pluginFile:=PathResolver.PluginPath(plugin, plugin ".ahk")
+		pluginFile:=PluginCatalog.GetPluginMainFile(plugin)
 		if (!FileExist(pluginFile) && metaEntry != "")
 			pluginFile := PathResolver.PluginPath(plugin, metaEntry)
 		if (FileExist(pluginFile)){ ;文件必须存在，跳过内置插件
@@ -693,7 +692,7 @@ SearchFileForKey(Keys, Action, Param, Desc, EditKeyMapping){
         label_mode := Format('Mode:\s*"{1}"', mode)
 
         ;查找插件热键映射
-        pluginFile:=PathResolver.PluginPath(plugin, plugin ".ahk")
+        pluginFile:=PluginCatalog.GetPluginMainFile(plugin)
         _VimDConfig_FindLineByRegex(pluginFile, [label_key, label_mode])
     }
 }

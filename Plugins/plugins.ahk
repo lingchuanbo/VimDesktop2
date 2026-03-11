@@ -1,13 +1,13 @@
-﻿#include *i ..\plugins\AfterEffects\AfterEffects.ahk
-#include *i ..\plugins\Blender\Blender.ahk
-#include *i ..\plugins\Everything\Everything.ahk
-#include *i ..\plugins\Max3D\Max3D.ahk
-#include *i ..\plugins\TTOTAL_CMD\TTOTAL_CMD.ahk
+﻿#include *i ..\plugins\AfterEffects\runtime\AfterEffects.entry.ahk
+#include *i ..\plugins\Blender\runtime\Blender.entry.ahk
+#include *i ..\plugins\Everything\runtime\Everything.entry.ahk
+#include *i ..\plugins\Max3D\runtime\Max3D.entry.ahk
+#include *i ..\plugins\TTOTAL_CMD\runtime\TTOTAL_CMD.entry.ahk
 /*
 [ExtensionsTime]
-AfterEffects=20250830091214
-Blender=20250830100234
-Everything=20250814105137
-Max3D=20250829183946
-TTOTAL_CMD=20250820141108
+AfterEffects=20260311201739
+Blender=20260311201739
+Everything=20260311201739
+Max3D=20260311201739
+TTOTAL_CMD=20260311201739
 */

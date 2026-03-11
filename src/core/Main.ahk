@@ -126,194 +126,22 @@ _StartGlobalWindowMonitor() {
 }
 
 CheckPlugin(LoadAll := 0) {
-    _InitMainConstants()
-    global MAIN_PLUGIN_SCAN_INTERVAL_MS
-    ; 缓存插件目录扫描结果
-    static pluginDirs := []
-    static lastScanTime := 0
-    static metaTimes := Map()
-    static metaInitialized := false
-
-    ; 只在必要时重新扫描插件目录（每 30 秒最多一次）
-    currentTime := A_TickCount
-    if (currentTime - lastScanTime > MAIN_PLUGIN_SCAN_INTERVAL_MS || pluginDirs.Length == 0) {
-        pluginDirs := []
-        loop files, PathResolver.PluginsDir() "\*", "D" {
-            pluginDirs.Push(A_LoopFileName)
-        }
-        lastScanTime := currentTime
-    }
-
-    ; 检测是否有新增插件
-    HasNewPlugin := false
-    metaChanged := false
-    newPlugins := []
-
-    for _, pluginName in pluginDirs {
-        Plugin := INIObject.plugins.HasOwnProp(pluginName) ? INIObject.plugins.%pluginName% : ""
-
-        PluginFile := _Main_GetPluginFilePath(pluginName)
-        if (Plugin == "" && FileExist(PluginFile)) {
-            newPlugins.Push(pluginName)
-            HasNewPlugin := true
-        }
-
-        ; 检测插件入口元信息变更
-        metaPath := PathResolver.PluginPath(pluginName, "plugin.meta.ini")
-        if (FileExist(metaPath)) {
-            try {
-                metaTime := FileGetTime(metaPath, "M")
-                if (!metaInitialized) {
-                    metaTimes[pluginName] := metaTime
-                } else if (!metaTimes.Has(pluginName) || metaTimes[pluginName] != metaTime) {
-                    metaTimes[pluginName] := metaTime
-                    metaChanged := true
-                }
-            } catch {
-                ; 忽略元信息时间读取错误
-            }
-        } else if (metaInitialized && metaTimes.Has(pluginName)) {
-            metaTimes.Delete(pluginName)
-            metaChanged := true
-        }
-    }
-
-    if (!metaInitialized) {
-        metaInitialized := true
-        metaChanged := false
-    }
-
-    ; 批量处理新插件
-    if (HasNewPlugin) {
-        _ProcessNewPlugins(newPlugins)
-        INIObject.save()
-        Reload()
-        return
-    }
-
-    if (metaChanged) {
-        if (FileExist(PathResolver.RootPath("vimd.exe"))) {
-            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', PathResolver.RootDir())
-        } else {
-            Run PathResolver.PluginPath("check.ahk")
-        }
-        Reload()
-        return
-    }
-
-    ; 优化的插件加载
-    _LoadPlugins(LoadAll)
-    _SetDefaultModes()
+    return MainPluginBootstrap.CheckPlugin(LoadAll)
 }
 
 ; 批量处理新插件
 _ProcessNewPlugins(newPlugins) {
-    ; 确保 sections 存在
-    _EnsureIniSections(["plugins", "plugins_DefaultMode"])
-
-    for _, pluginName in newPlugins {
-        MsgBox Format(Lang["General"]["Plugin_New"], pluginName), Lang["General"]["Info"], "4160"
-
-        if (FileExist(PathResolver.RootPath("vimd.exe"))) {
-            Run Format('{1}\vimd.exe {1}\plugins\check.ahk', PathResolver.RootDir())
-        } else {
-            Run PathResolver.PluginPath("check.ahk")
-        }
-
-        ; 添加插件配置
-        Rst := INIObject.AddKey("plugins", pluginName, 1)
-        if (!Rst)
-            INIObject.plugins.%pluginName% := 1
-
-        ; 读取默认模式
-        PluginFile := _Main_GetPluginFilePath(pluginName)
-        _defaultMode := ""
-        try {
-            fileContent := FileRead(PluginFile, "UTF-8")
-            if (RegExMatch(fileContent, 'im)Mode:\s*\"(.*?)\"', &m))
-                _defaultMode := m[1]
-        } catch Error as e {
-            VimD_Log("WARN", "MAIN_PLUGIN_DEFAULTMODE_READ", "读取插件默认模式失败: " pluginName, e)
-        }
-
-        Rst := INIObject.AddKey("plugins_DefaultMode", pluginName, _defaultMode)
-        if (!Rst)
-            INIObject.plugins_DefaultMode.%pluginName% := _defaultMode
-
-        Sleep 1000
-    }
+    return MainPluginBootstrap.ProcessNewPlugins(newPlugins)
 }
 
 ; 优化的插件加载
 _LoadPlugins(LoadAll) {
-    ; 批量检查插件文件存在性
-    validPlugins := Map()
-    invalidPlugins := []
-
-    for plugin, flag in INIObject.plugins.OwnProps() {
-        if (_IsEasyIniReserved(plugin))
-            continue
-
-        pluginFile := _Main_GetPluginFilePath(plugin)
-        if (FileExist(pluginFile)) {
-            validPlugins[plugin] := flag
-        } else {
-            invalidPlugins.Push(plugin)
-        }
-    }
-
-    ; 鎵归噺鍒犻櫎鏃犳晥鎻掍欢
-    for _, plugin in invalidPlugins {
-        try {
-            INIObject.DeleteKey("plugins", plugin)
-            INIObject.DeleteKey("plugins_DefaultMode", plugin)
-        } catch Error as e {
-            VimD_Log("WARN", "MAIN_PLUGIN_INVALID_CLEAN", "清理无效插件配置失败: " plugin, e)
-        }
-    }
-
-    if (invalidPlugins.Length > 0) {
-        INIObject.save()
-    }
-
-    ; 加载有效插件
-    loadedCount := 0
-    totalCount := 0
-    for plugin, flag in validPlugins {
-        totalCount++
-        enabled := _GetEffectivePluginEnabled(plugin, _ParseBoolValue(flag, 0))
-        if (LoadAll || enabled) {
-            vim.LoadPlugin(plugin)
-            winObj := vim.GetWin(plugin)
-            winObj.status := enabled
-            _ApplyExternalPluginOverrides(plugin)
-            loadedCount++
-        }
-    }
-
-    try {
-        if (INIObject.config.enable_log == 1) {
-            VimD_Log("INFO", "MAIN_PLUGIN_LOAD_SUMMARY",
-                "插件加载完成: enabled=" loadedCount " total=" totalCount)
-        }
-    }
+    return MainPluginBootstrap.LoadPlugins(LoadAll)
 }
 
 ; 设置默认模式
 _SetDefaultModes() {
-    for plugin, mode in INIObject.plugins_DefaultMode.OwnProps() {
-        if (_IsEasyIniReserved(plugin))
-            continue
-
-        try {
-            winObj := vim.GetWin(plugin)
-            winObj.defaultMode := mode
-            vim.mode(mode, plugin)
-            winObj.Inside := 0
-        } catch Error as e {
-            VimD_Log("WARN", "MAIN_DEFAULT_MODE_SET", "设置插件默认模式失败: " plugin, e)
-        }
-    }
+    return MainPluginBootstrap.SetDefaultModes()
 }
 
 CheckHotKey(LoadAll := 0) {
@@ -688,7 +516,7 @@ _VIMD_GetCmdType(param) {
 }
 
 _Main_GetPluginFilePath(pluginName) {
-    return PathResolver.PluginPath(pluginName, pluginName ".ahk")
+    return PluginCatalog.GetPluginMainFile(pluginName)
 }
 
 _EnsureIniSections(sectionNames) {
@@ -737,62 +565,11 @@ _GetEffectivePluginEnabled(pluginName, defaultValue := 0) {
 }
 
 VimDesktop_ApplyMainConfigChanges(changedSections, sectionKeyDiffs, removedSections := "") {
-    try {
-        if (!IsObject(changedSections) || changedSections.Length = 0) {
-            VimDesktop_ApplyMainConfigCore()
-            return
-        }
-
-        if (HasValue(changedSections, "config"))
-            VimDesktop_ApplyMainConfigCore()
-
-        if (HasValue(changedSections, "global"))
-            VimDesktop_RefreshGlobalMappings()
-
-        if (HasValue(changedSections, "exclude"))
-            VimDesktop_RefreshExcludeWindows()
-
-        if (HasValue(changedSections, "plugins") || HasValue(changedSections, "plugins_DefaultMode"))
-            VimDesktop_ApplyPluginStatusChanges(sectionKeyDiffs)
-
-        if (HasValue(changedSections, "extensions"))
-            VimDesktop_RefreshExtensions()
-
-        for _, secName in changedSections {
-            if (VimDesktop_IsPluginSectionName(secName)) {
-                try {
-                    VimDesktop_RefreshPluginFromMainConfig(secName)
-                } catch Error as e {
-                    VimD_Log("WARN", "MAIN_PLUGIN_REFRESH_FAIL", "插件配置热刷新失败: " secName, e)
-                }
-            }
-        }
-
-        if (IsObject(removedSections)) {
-            for _, secName in removedSections {
-                if (VimDesktop_IsPluginSectionName(secName)) {
-                    try {
-                        VimDesktop_ResetPluginMappings(secName, true)
-                    } catch Error as e {
-                        VimD_Log("WARN", "MAIN_PLUGIN_RESET_FAIL", "插件配置移除处理失败: " secName, e)
-                    }
-                }
-            }
-        }
-    } catch Error as e {
-        VimD_Log("WARN", "MAIN_CONFIG_APPLY", "应用主配置变更失败", e)
-    }
+    return MainRuntimeConfig.ApplyMainConfigChanges(changedSections, sectionKeyDiffs, removedSections)
 }
 
 VimDesktop_ApplyMainConfigCore() {
-    global VimDesktop_Global
-    global vim
-    configCache := _LoadMainConfig()
-    VimDesktop_Global.default_enable_show_info := configCache["default_enable_show_info"]
-    VimDesktop_Global.Editor := configCache["editor"]
-    _ApplyThemeSettings(configCache["theme_mode"])
-    _ApplyLogSetting(configCache["enable_log"])
-    try vim.Debug(configCache["enable_debug"] == 1)
+    return MainRuntimeConfig.ApplyMainConfigCore()
 }
 
 _ApplyLogSetting(enableLog) {
@@ -811,242 +588,39 @@ _ApplyLogSetting(enableLog) {
 }
 
 VimDesktop_ApplyPluginIniChanges(pluginNames) {
-    global vim
-    if (!IsObject(pluginNames))
-        return
-
-    for _, pluginName in pluginNames {
-        if (pluginName = "")
-            continue
-        winObj := vim.GetWin(pluginName)
-        if (!IsObject(winObj))
-            continue
-        config := _ReadPluginConfig({}, pluginName)
-        _ApplyPluginConfigOverrides(pluginName, config)
-        _SetPluginStatus(pluginName, config, winObj)
-    }
+    return MainRuntimeConfig.ApplyPluginIniChanges(pluginNames)
 }
 
 VimDesktop_RefreshGlobalMappings() {
-    VimDesktop_ResetPluginMappings("global")
-    _ProcessGlobalHotKeys()
+    return MainRuntimeConfig.RefreshGlobalMappings()
 }
 
 VimDesktop_RefreshExcludeWindows() {
-    global vim
-    if (IsObject(vim))
-        vim.ExcludeWinList := Map()
-    _ProcessExcludeWindows()
+    return MainRuntimeConfig.RefreshExcludeWindows()
 }
 
 VimDesktop_ApplyPluginStatusChanges(sectionKeyDiffs) {
-    global vim
-    global INIObject
-    if (!IsObject(sectionKeyDiffs))
-        return
-
-    pluginNames := []
-    if (sectionKeyDiffs.Has("plugins")) {
-        diff := sectionKeyDiffs["plugins"]
-        VimDesktop_PushUniqueList(pluginNames, diff["added"])
-        VimDesktop_PushUniqueList(pluginNames, diff["removed"])
-        VimDesktop_PushUniqueList(pluginNames, diff["changed"])
-    }
-    if (sectionKeyDiffs.Has("plugins_DefaultMode")) {
-        diff := sectionKeyDiffs["plugins_DefaultMode"]
-        VimDesktop_PushUniqueList(pluginNames, diff["added"])
-        VimDesktop_PushUniqueList(pluginNames, diff["removed"])
-        VimDesktop_PushUniqueList(pluginNames, diff["changed"])
-    }
-
-    for _, pluginName in pluginNames {
-        if (pluginName = "")
-            continue
-
-        enabled := _GetEffectivePluginEnabled(pluginName, 0)
-
-        defaultMode := ""
-        if (INIObject.HasOwnProp("plugins_DefaultMode") && INIObject.plugins_DefaultMode.HasOwnProp(pluginName))
-            defaultMode := INIObject.plugins_DefaultMode.%pluginName%
-
-        if (enabled && !IsObject(vim.GetWin(pluginName))) {
-            pluginFile := _Main_GetPluginFilePath(pluginName)
-            if (FileExist(pluginFile))
-                vim.LoadPlugin(pluginName)
-        }
-
-        winObj := vim.GetWin(pluginName)
-        if (!IsObject(winObj))
-            continue
-
-        config := Map("enabled", enabled, "default_Mode", defaultMode)
-        if (config["default_Mode"] = "")
-            config["default_Mode"] := winObj.defaultMode != "" ? winObj.defaultMode : "normal"
-        _SetPluginStatus(pluginName, config, winObj)
-    }
+    return MainRuntimeConfig.ApplyPluginStatusChanges(sectionKeyDiffs)
 }
 
 VimDesktop_RefreshPluginFromMainConfig(pluginName) {
-    global INIObject
-    global vim
-    if (!IsObject(INIObject))
-        return
-    if (!INIObject.HasOwnProp(pluginName))
-        return
-
-    keyObj := INIObject.%pluginName%
-    if (!IsObject(keyObj)) {
-        _Main_LogInvalidPluginConfig(pluginName, keyObj, "config_not_object")
-        return
-    }
-
-    _InitMainConstants()
-    global MAIN_PLUGIN_SETTING_REGEX
-
-    config := _ReadPluginConfig(keyObj, pluginName)
-    hasMappings := _HasPluginMappings(keyObj, MAIN_PLUGIN_SETTING_REGEX)
-
-    if (!hasMappings) {
-        if (!IsObject(vim.GetWin(pluginName)) && config["enabled"]) {
-            pluginFile := _Main_GetPluginFilePath(pluginName)
-            if (FileExist(pluginFile))
-                vim.LoadPlugin(pluginName)
-        }
-
-        winObj := vim.GetWin(pluginName)
-        if (IsObject(winObj)) {
-            if (!config["enabled"])
-                try vim.Control(false, pluginName, true)
-            _ApplyPluginConfigOverrides(pluginName, config)
-            _SetPluginStatus(pluginName, config, winObj)
-        }
-        return
-    }
-
-    VimDesktop_ResetPluginMappings(pluginName)
-    VimDesktop_ClearWinMappings(pluginName)
-
-    if (!IsObject(vim.GetWin(pluginName)) && config["enabled"]) {
-        pluginFile := _Main_GetPluginFilePath(pluginName)
-        if (FileExist(pluginFile))
-            vim.LoadPlugin(pluginName)
-    }
-
-    winObj := vim.GetWin(pluginName)
-
-    if (!config["enabled"]) {
-        if (IsObject(winObj))
-            _SetPluginStatus(pluginName, config, winObj)
-        return
-    }
-
-    winObj := _SetupPluginWindow(pluginName, config)
-    _ProcessPluginMappings(pluginName, keyObj, config, MAIN_PLUGIN_SETTING_REGEX)
-    _SetPluginStatus(pluginName, config, winObj)
+    return MainRuntimeConfig.RefreshPluginFromMainConfig(pluginName)
 }
 
 VimDesktop_ResetPluginMappings(pluginName, disable := false) {
-    global vim
-    if (!IsObject(vim))
-        return
-
-    winObj := vim.GetWin(pluginName)
-    if (!IsObject(winObj))
-        return
-
-    try vim.Control(false, pluginName, true)
-
-    winObj.KeyList := Map()
-    winObj.SuperKeyList := Map()
-    winObj.KeyTemp := ""
-    winObj.Count := 0
-
-    if (IsObject(winObj.modeList)) {
-        for _, modeObj in winObj.modeList {
-            if IsObject(modeObj) {
-                modeObj.keyMapList := Map()
-                modeObj.keyMoreList := Map()
-                modeObj.noWaitList := Map()
-            }
-        }
-        winObj.modeList := Map()
-    }
-
-    if (vim.ActionList.Has(pluginName))
-        vim.ActionList.Delete(pluginName)
-
-    if IsObject(vim.ActionFromPlugin) {
-        keysToDelete := []
-        for key, value in vim.ActionFromPlugin {
-            if (value = pluginName)
-                keysToDelete.Push(key)
-        }
-        for _, key in keysToDelete
-            vim.ActionFromPlugin.Delete(key)
-    }
-
-    if (disable)
-        winObj.status := 0
+    return MainRuntimeConfig.ResetPluginMappings(pluginName, disable)
 }
 
 VimDesktop_ClearWinMappings(pluginName, winObj := "") {
-    global vim
-    if (!IsObject(vim))
-        return
-
-    if (!IsObject(winObj))
-        winObj := vim.GetWin(pluginName)
-    if (!IsObject(winObj))
-        return
-
-    classVal := winObj.class
-    if (classVal != "") {
-        if (InStr(classVal, "|")) {
-            classes := StrSplit(classVal, "|")
-            for _, singleClass in classes {
-                key := "class`t" Trim(singleClass)
-                if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
-                    vim.WinInfo.Delete(key)
-            }
-        } else {
-            key := "class`t" classVal
-            if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
-                vim.WinInfo.Delete(key)
-        }
-    }
-
-    if (winObj.filepath != "") {
-        key := "filepath`t" winObj.filepath
-        if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
-            vim.WinInfo.Delete(key)
-    }
-
-    if (winObj.title != "") {
-        key := "title`t" winObj.title
-        if (vim.WinInfo.Has(key) && vim.WinInfo[key] = pluginName)
-            vim.WinInfo.Delete(key)
-    }
+    return MainRuntimeConfig.ClearWinMappings(pluginName, winObj)
 }
 
 VimDesktop_IsPluginSectionName(sectionName) {
-    _InitMainConstants()
-    global MAIN_PLUGIN_SKIP_REGEX
-    if (sectionName = "")
-        return false
-    if (sectionName = "plugins_DefaultMode" || sectionName = "extensions")
-        return false
-    if (RegExMatch(sectionName, MAIN_PLUGIN_SKIP_REGEX))
-        return false
-    return true
+    return MainRuntimeConfig.IsPluginSectionName(sectionName)
 }
 
 VimDesktop_PushUniqueList(target, items) {
-    if (!IsObject(target) || !IsObject(items))
-        return
-    for _, value in items {
-        if (!HasValue(target, value))
-            target.Push(value)
-    }
+    return MainRuntimeConfig.PushUniqueList(target, items)
 }
 
 _InitMainConstants() {
