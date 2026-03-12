@@ -1,1 +1,0 @@
-actionMan.executeAction 0 "197"  -- Tools: Isolate Selection

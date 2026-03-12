@@ -1,1 +1,0 @@
-actionMan.executeAction 0 "40021"  -- Selection: Select Al

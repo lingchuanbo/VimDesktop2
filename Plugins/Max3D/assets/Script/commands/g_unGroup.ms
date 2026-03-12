@@ -1,2 +1,0 @@
-sel = getcurrentselection() 
-Ungroup sel

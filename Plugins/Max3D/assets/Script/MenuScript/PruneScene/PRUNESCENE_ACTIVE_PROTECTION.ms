@@ -1,1 +1,0 @@
-try(fileIn (getDir(#temp) + "\\PruneScene\\PRUNESCENE_ACTIVE_PROTECTION_MONITOR.ms"))catch(print ("Error while load Prune Scene Active Protection!"))  

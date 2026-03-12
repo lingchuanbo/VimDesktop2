@@ -1,1 +1,0 @@
-SceneExplorerManager.ClearAllExplorers() 
