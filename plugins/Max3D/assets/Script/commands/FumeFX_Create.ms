@@ -1,0 +1,9 @@
+myFX = fumefx() 
+myFX.name = "vfx_FumeFX"
+myFX.pos = [0,0,0]
+myFX.GridSpacing = 6
+myFX.width = 100
+myFX.length = 100
+myFX.Height = 140
+myFX.gridType = 1
+myFX.EditUI=ON

@@ -1,0 +1,2 @@
+sel = getcurrentselection() 
+Ungroup sel

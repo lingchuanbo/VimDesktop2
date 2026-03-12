@@ -1,0 +1,236 @@
+# QuickSwitch - 智能快速切换工具
+
+## 🚀 快速开始
+
+### 立即使用
+1. 下载 `QuickSwitch.exe` 或 `QuickSwitch.ahk`
+2. 双击运行程序
+3. 使用 `Ctrl+Q` 快捷键激活智能菜单
+
+### 系统要求
+- Windows 10/11
+- AutoHotkey v2.0+（如使用 .ahk 脚本）
+
+## ✨ 核心功能
+
+### 🔄 智能双模式切换
+- **程序窗口模式**：在普通窗口中显示最近使用的程序列表
+- **文件对话框模式**：在文件对话框中显示文件管理器路径切换
+
+### 🚀 快速启动应用
+- 支持配置快速启动应用程序
+- 智能显示应用运行状态（已运行/启动）
+- 支持分级显示，多余应用放入"更多"子菜单
+
+### 🎯 特色功能
+- **全局快捷键**：支持 Ctrl+Alt+W 快速激活微信
+- **主题支持**：自动适配系统深色/浅色主题
+- **UTF-8 编码**：完美支持中文显示
+- **性能优化**：内存管理优化，避免资源泄露
+
+## 🎮 快捷键使用
+
+### 默认快捷键
+- `Ctrl + Q` - 显示智能切换菜单
+- `Ctrl + Tab` - 快速切换最近两个程序
+
+### 自定义快捷键
+在配置文件中修改 `MainHotkey` / `QuickSwitchHotkey` / `GetWindowsFolderActivePathKey`，支持格式：
+- `^q` = Ctrl+Q
+- `!q` = Alt+Q  
+- `#q` = Win+Q
+- `^!w` = Ctrl+Alt+W
+
+## ⚙️ 配置文件说明
+
+### 主要配置段
+
+#### [Settings] - 基本设置
+```ini
+[Settings]
+MainHotkey=^q                           ; 主快捷键 (Ctrl+Q)
+QuickSwitchHotkey=^Tab                  ; 快速切换最近两个窗口
+GetWindowsFolderActivePathKey=!w        ; 直接载入文件管理器路径
+EnableGetWindowsFolderActivePath=0      ; 0=关闭, 1=开启
+MenuCooldownMs=150                      ; 菜单触发节流窗口(毫秒)
+LogRetentionDays=7                      ; 日志保留天数(自动清理logs目录旧日志)
+RunMode=0                               ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
+```
+
+#### [QuickLaunchApps] - 快速启动应用
+```ini
+[QuickLaunchApps]
+MaxDisplayCount=3            ; 主菜单显示的最大应用数量
+App1=微信|WeChat.exe         ; 应用名称|进程名
+App2=Tim|Tim.exe
+App3=图片|Pixcall.exe
+```
+
+#### [Display] - 显示设置
+```ini
+[Display]
+MenuColor=C0C59C             ; 菜单颜色 (十六进制颜色)
+IconSize=16                  ; 图标大小 (像素)
+ShowWindowTitle=1            ; 显示窗口标题
+ShowProcessName=1            ; 显示进程名
+```
+
+#### [Theme] - 主题设置
+```ini
+[Theme]
+DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
+```
+
+## ⚙️ 配置指南
+
+### 主要配置段
+
+#### [Settings] - 基本设置
+```ini
+[Settings]
+MainHotkey=^q                           ; 主快捷键 (Ctrl+Q)
+QuickSwitchHotkey=^Tab                  ; 快速切换最近两个窗口
+GetWindowsFolderActivePathKey=!w        ; 直接载入文件管理器路径
+EnableGetWindowsFolderActivePath=0      ; 0=关闭, 1=开启
+MenuCooldownMs=150                      ; 菜单触发节流窗口(毫秒)
+LogRetentionDays=7                      ; 日志保留天数(自动清理logs目录旧日志)
+RunMode=0                               ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
+```
+
+#### [QuickLaunchApps] - 快速启动应用
+```ini
+[QuickLaunchApps]
+MaxDisplayCount=3            ; 主菜单显示的最大应用数量
+App1=微信|WeChat.exe         ; 应用名称|进程名
+App2=Tim|Tim.exe
+App3=图片|Pixcall.exe
+```
+
+#### [Display] - 显示设置
+```ini
+[Display]
+MenuColor=C0C59C             ; 菜单颜色 (十六进制颜色)
+IconSize=16                  ; 图标大小 (像素)
+ShowWindowTitle=1            ; 显示窗口标题
+ShowProcessName=1            ; 显示进程名
+```
+
+#### [Theme] - 主题设置
+```ini
+[Theme]
+DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
+```
+
+## 🔧 功能详解
+
+### 智能模式切换
+程序会根据当前活动窗口自动判断显示哪种菜单：
+
+#### 程序窗口模式
+当焦点在普通应用程序窗口时：
+- 显示最近使用的程序列表
+- 支持快速切换和关闭程序
+- 显示程序运行状态
+
+#### 文件对话框模式
+当焦点在文件对话框时：
+- 显示已打开的文件管理器路径
+- 支持快速切换到文件管理器
+- 显示自定义收藏路径
+
+### 快速启动应用
+#### 配置格式
+```ini
+AppN=显示名称|进程名.exe
+```
+
+#### 显示规则
+- 主菜单显示前 `MaxDisplayCount` 个应用
+- 超出部分放入"更多"子菜单
+- 运行中的应用显示"已运行"状态
+- 未运行的应用显示"启动"状态
+
+### 微信快速激活
+支持三重激活机制：
+1. 点击托盘微信图标
+2. 使用 `Ctrl+Alt+W` 快捷键
+3. 直接激活微信窗口
+
+## ❓ 常见问题
+
+### 快捷键不生效
+- 检查是否有其他程序占用相同快捷键
+- 尝试以管理员权限运行
+- 修改配置文件中的快捷键设置
+
+### 中文显示乱码
+- 确保配置文件使用 UTF-8 编码
+- 程序已内置 UTF-8 支持
+- 检查应用名称是否包含特殊字符
+
+### 应用不显示
+- 检查进程名是否正确
+- 确认应用是否正在运行
+- 查看配置文件格式是否正确
+
+### 配置文件修复
+如果配置文件损坏：
+1. 删除 `QuickSwitch.ini` 文件
+2. 重新运行程序
+3. 程序会自动生成默认配置
+
+## 📁 文件结构
+
+```
+QuickSwitch/
+├── QuickSwitch.ahk          ; 主程序脚本
+├── QuickSwitch.exe          ; 编译后的可执行文件
+├── QuickSwitch.ini          ; 配置文件
+├── README.md                ; 说明文档
+├── icon/                    ; 图标资源
+│   ├── fast-forward-1.ico   ; 主图标
+│   └── fast-forward-2.ico   ; 备用图标
+└── lib/                     ; 依赖库
+    ├── TrayIcon.ahk         ; 托盘图标管理
+    └── WindowsTheme.ahk     ; 主题检测
+```
+
+## 🔄 更新日志
+
+### v1.2 (最新)
+- ✅ 添加快速启动应用分级显示功能
+- ✅ 修复中文显示乱码问题  
+- ✅ 优化微信快速激活机制
+- ✅ 改进配置文件的 UTF-8 支持
+
+### v1.1
+- ✅ 添加主题支持
+- ✅ 优化内存管理
+- ✅ 改进文件对话框检测
+
+### v1.0
+- ✅ 初始版本发布
+- ✅ 基础智能切换功能
+- ✅ 配置文件支持
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request 来改进这个项目。
+
+### 开发环境设置
+1. 安装 AutoHotkey v2.0+
+2. 克隆项目代码
+3. 修改 `QuickSwitch.ahk` 脚本
+4. 测试功能并提交修改
+
+## 📄 许可证
+
+本项目采用 MIT 许可证，详见 LICENSE 文件。
+
+## 🙏 致谢
+
+感谢所有贡献者和用户的支持与反馈！
+
+---
+
+**温馨提示**：首次使用时建议先查看配置文件，根据个人需求调整设置。

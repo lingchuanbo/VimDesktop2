@@ -1,0 +1,9 @@
+原理
+Blender 插件 → 常驻监听 5566
+AHK → 调 Python 客户端，把文件路径传过去
+Python 客户端 → 发 socket 消息给 Blender
+Blender → 运行脚本并返回 "OK"
+
+external_runner_socket.py 拷贝到  Blender 4.5\4.5\scripts\addons_core 并启用
+如果没跑通请看下
+Windows: 窗口 → 切换系统控制台

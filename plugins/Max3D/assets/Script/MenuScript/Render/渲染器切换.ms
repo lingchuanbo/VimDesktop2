@@ -1,0 +1,1 @@
+renderers.current = Default_Scanline_Renderer() 
