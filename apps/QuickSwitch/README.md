@@ -81,46 +81,6 @@ ShowProcessName=1            ; 显示进程名
 DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
 ```
 
-## ⚙️ 配置指南
-
-### 主要配置段
-
-#### [Settings] - 基本设置
-```ini
-[Settings]
-MainHotkey=^q                           ; 主快捷键 (Ctrl+Q)
-QuickSwitchHotkey=^Tab                  ; 快速切换最近两个窗口
-GetWindowsFolderActivePathKey=!w        ; 直接载入文件管理器路径
-EnableGetWindowsFolderActivePath=0      ; 0=关闭, 1=开启
-MenuCooldownMs=150                      ; 菜单触发节流窗口(毫秒)
-LogRetentionDays=7                      ; 日志保留天数(自动清理logs目录旧日志)
-RunMode=0                               ; 运行模式: 0=智能模式, 1=仅路径切换, 2=仅程序切换
-```
-
-#### [QuickLaunchApps] - 快速启动应用
-```ini
-[QuickLaunchApps]
-MaxDisplayCount=3            ; 主菜单显示的最大应用数量
-App1=微信|WeChat.exe         ; 应用名称|进程名
-App2=Tim|Tim.exe
-App3=图片|Pixcall.exe
-```
-
-#### [Display] - 显示设置
-```ini
-[Display]
-MenuColor=C0C59C             ; 菜单颜色 (十六进制颜色)
-IconSize=16                  ; 图标大小 (像素)
-ShowWindowTitle=1            ; 显示窗口标题
-ShowProcessName=1            ; 显示进程名
-```
-
-#### [Theme] - 主题设置
-```ini
-[Theme]
-DarkMode=0                   ; 深色模式: 0=禁用, 1=启用
-```
-
 ## 🔧 功能详解
 
 ### 智能模式切换
@@ -184,20 +144,29 @@ AppN=显示名称|进程名.exe
 ```
 QuickSwitch/
 ├── QuickSwitch.ahk          ; 主程序脚本
-├── QuickSwitch.exe          ; 编译后的可执行文件
-├── QuickSwitch.ini          ; 配置文件
+├── QuickSwitch.ini          ; 配置文件（首次运行自动生成）
+├── ConfigTool.ahk           ; 配置 GUI 工具
 ├── README.md                ; 说明文档
 ├── icon/                    ; 图标资源
 │   ├── fast-forward-1.ico   ; 主图标
 │   └── fast-forward-2.ico   ; 备用图标
 └── lib/                     ; 依赖库
-    ├── TrayIcon.ahk         ; 托盘图标管理
-    └── WindowsTheme.ahk     ; 主题检测
+    ├── WindowsTheme.ahk     ; 深色/浅色主题支持
+    ├── TrayIcon.ahk         ; 系统托盘图标操作
+    ├── UTF8Ini.ahk          ; UTF-8 INI 读写
+    ├── ConfigSchema.ahk     ; 配置默认值定义
+    ├── ConfigFunctions.ahk  ; 配置工具功能函数
+    └── UIA.ahk              ; UI Automation 库
 ```
 
 ## 🔄 更新日志
 
-### v1.2 (最新)
+### v1.3 (最新)
+- ✅ 清理未使用的模块代码，精简程序体积
+- ✅ 移除注释残留和死代码
+- ✅ 更新文档结构
+
+### v1.2
 - ✅ 添加快速启动应用分级显示功能
 - ✅ 修复中文显示乱码问题  
 - ✅ 优化微信快速激活机制

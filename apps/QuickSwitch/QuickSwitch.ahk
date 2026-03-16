@@ -18,7 +18,7 @@ By: BoBO
 1. 程序窗口切换：显示最近打开的程序，支持置顶显示和快速切换
 2. 文件对话框路径切换：在文件对话框中快速切换到文件管理器路径
 3. 同一快捷键触发不同菜单：在普通窗口显示程序切换菜单，在文件对话框显示路径切换菜单
-4. 性能优Apps/QuickSwitch/QuickSwitch.ini化：避免内存泄露，合理管理资源
+4. 性能优化：避免内存泄露，合理管理资源
 */
 ; ============================================================================
 ; 初始化
@@ -88,7 +88,7 @@ InitializeCurrentWindows()
 ; 启动窗口监控
 StartWindowMonitoring()
 
-; 主循环 GetWindowsFolderActivePath 应用程序控件
+; 主循环
 MainLoop()
 
 ; 使用 UIA 检测文件对话框中的空白区域
@@ -158,59 +158,16 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
 #HotIf WinActive("ahk_class #32770")
 {
 
-
-; !w:: GetWindowsFolderActivePath()
-
-; 添加双击直接执行 GetWindowsFolderActivePath 函数
-~LButton:: {
-    ; 检查是否启用了双击功能
-;     global LTickCount, RTickCount, DblClickTime
-;     static LastClickTime := 0
-;     static LastClickPos := ""
-;     MouseGetPos(&x, &y, &WinID, &Control)
-;     WinClass := WinGetClass("ahk_id " . WinID)
-;     ; 获取当前时间和位置
-;     CurrentTime := A_TickCount
-;     CurrentPos := x . "," . y
-;     ; 更严格的双击检测：时间间隔、位置相近、且是连续的LButton事件
-;     IsDoubleClick := (A_PriorHotKey = "~LButton" &&
-;         A_TimeSincePriorHotkey < DblClickTime &&
-;         A_TimeSincePriorHotkey > 50 &&  ; 避免过快的重复触发
-;         CurrentPos = LastClickPos)      ; 位置必须相同
-;     ; 更新记录
-;     LastClickTime := CurrentTime
-;     LastClickPos := CurrentPos
-;     LTickCount := CurrentTime
-;     ; 只有真正的双击才处理
-;     if (IsDoubleClick && LTickCount > RTickCount) {
-;         ShouldLaunch := false
-;         ; 只在目标窗口类型中检测GetWindowsFolderActivePath()
-;         currentWinID := WinExist("A")
-;         if (IsFileDialog(currentWinID)) {
-;             ; 使用 UIA 检测文件对话框中的空白区域
-;             WinClass := WinGetClass("ahk_id " . WinID)
-;             try {
-;                 ; 使用 UIA 检测是否点击了空白区域
-;                 if (DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass)) {
-;                     ShouldLaunch := true
-;                     GetWindowsFolderActivePath()
-;                 }
-;             } catch as e {
-;                 ; UIA 检测失败时的备用处理
-;                 ; 可以选择不执行任何操作，或者使用其他检测方法
-;             }
-;         }
-;     }
-;     LTickCount := A_TickCount
-    MouseGetPos(&x, &y) ; 获取鼠标位置信息</mark>
-    color := PixelGetColor(x, y) ; 获取鼠标位置处的颜色信息
-    ; 如果鼠双击同时双击位置处的颜色为白色,则触发后续操作
-    if (A_PriorHotKey = "~LButton" && A_TimeSincePriorHotkey < 400) &&(color = "0xFFFFFF")
-    {
-        GetWindowsFolderActivePath() ; 调用处理函数
+    ; 添加双击直接执行 GetWindowsFolderActivePath 函数
+    ~LButton:: {
+        MouseGetPos(&x, &y) ; 获取鼠标位置信息
+        color := PixelGetColor(x, y) ; 获取鼠标位置处的颜色信息
+        ; 如果鼠双击同时双击位置处的颜色为白色,则触发后续操作
+        if (A_PriorHotKey = "~LButton" && A_TimeSincePriorHotkey < 400) && (color = "0xFFFFFF") {
+            GetWindowsFolderActivePath() ; 调用处理函数
+        }
+        return
     }
-    return
- }
 }
 ; ============================================================================
 ; 配置管理
@@ -683,7 +640,6 @@ ActivateWeChatHotkey(*) {
     ; 微信快捷键处理函数
     ActivateWeChat("")  ; 传递空字符串表示没有配置快捷键
 }
-;LButton::GetWindowsFolderActivePath()
 
 ; ============================================================================
 ; 日志记录功能
@@ -692,11 +648,11 @@ ActivateWeChatHotkey(*) {
 ; 记录日志函数
 LogMessage(message, level := "INFO") {
     global g_LogEnabled
-    
+
     if (!g_LogEnabled) {
         return
     }
-    
+
     try {
         AppendDailyLog("QuickSwitch", level, message)
     } catch {
@@ -772,7 +728,7 @@ CleanupExpiredLogFiles() {
     }
 
     cutoffTime := DateAdd(A_Now, -retentionDays, "Days")
-    Loop Files, logDir . "\\QuickSwitch*.log" {
+    loop files, logDir . "\\QuickSwitch*.log" {
         try {
             if (A_LoopFileTimeModified < cutoffTime) {
                 FileDelete(A_LoopFileFullPath)
@@ -784,19 +740,19 @@ CleanupExpiredLogFiles() {
 ; 记录路径获取相关的调试信息
 LogPathExtraction(winID, method, path, success := true) {
     global g_LogEnabled
-    
+
     if (!g_LogEnabled) {
         return
     }
-    
+
     try {
         winTitle := WinGetTitle("ahk_id " . winID)
         winClass := WinGetClass("ahk_id " . winID)
         status := success ? "成功" : "失败"
-        
+
         message := "窗口路径提取 - 窗口ID: " . winID . ", 标题: " . winTitle . ", 类名: " . winClass
         message .= ", 方法: " . method . ", 路径: " . path . ", 状态: " . status
-        
+
         LogMessage(message, "DEBUG")
     } catch {
         ; 日志写入失败时静默处理
@@ -1545,8 +1501,6 @@ ShowWindowSwitchMenu(*) {
     }
 }
 
-
-
 AddQuickLaunchApps(contextMenu) {
     added := false
     cache := g_QuickLaunchCache
@@ -1588,17 +1542,17 @@ AddQuickLaunchApps(contextMenu) {
 AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "", hotkey := "") {
     ; 检查应用程序是否在运行
     appRunning := ProcessExist(processName)
-    
+
     ; 设置不同的显示文本
     if (appRunning) {
         displayText := "📱 " . displayName . " (已运行)"
     } else {
         displayText := "📱 " . displayName . "*"
     }
-    
+
     ; 添加菜单项
     contextMenu.Add(displayText, QuickLaunchAppHandler.Bind(processName, exePath, hotkey))
-    
+
     ; 尝试设置应用程序图标
     try {
         ; 如果提供了路径，使用提供的路径
@@ -1617,17 +1571,17 @@ AddQuickLaunchApp(contextMenu, displayName, processName, exePath := "", hotkey :
     } catch {
         ; 如果设置图标失败，忽略错误
     }
-    
+
     return true
 }
 
 QuickLaunchAppHandler(processName, exePath, hotkey, *) {
     ; 快速启动应用程序按钮点击处理函数
-    
+
     ; 检查应用程序是否在运行
     if (ProcessExist(processName)) {
         ; 应用程序已运行，尝试激活窗口
-        
+
         ; 特殊处理微信（Weixin.exe）
         if (processName = "Weixin.exe") {
             ActivateWeChat(hotkey)
@@ -1667,13 +1621,13 @@ QuickLaunchAppHandler(processName, exePath, hotkey, *) {
 ActivateWeChat(hotkey := "") {
     ; 特殊处理微信激活
     weixinProcessName := "Weixin.exe"
-    
+
     ; 如果配置了快捷键，优先使用快捷键激活
     if (hotkey != "") {
         try {
             Send(hotkey)
             Sleep(200)
-            
+
             ; 检查微信窗口是否被激活
             if (IsWeChatActive()) {
                 return  ; 成功激活，直接返回
@@ -1682,13 +1636,13 @@ ActivateWeChat(hotkey := "") {
             ; 快捷键失败，继续尝试其他方法
         }
     }
-    
+
     ; 方法1：首先尝试使用TrayIcon_Button点击托盘图标
     try {
         TrayIcon_Button(weixinProcessName, "L", false, 1)
         ; 等待一下看看是否成功激活
         Sleep(200)
-        
+
         ; 检查微信窗口是否被激活
         if (IsWeChatActive()) {
             return  ; 成功激活，直接返回
@@ -1696,13 +1650,13 @@ ActivateWeChat(hotkey := "") {
     } catch {
         ; TrayIcon_Button失败，继续尝试其他方法
     }
-    
+
     ; 方法2：尝试使用快捷键Ctrl+Alt+W（如果没有配置快捷键）
     if (hotkey = "") {
         try {
             Send("^!w")  ; Ctrl+Alt+W
             Sleep(200)
-            
+
             ; 检查微信窗口是否被激活
             if (IsWeChatActive()) {
                 return  ; 成功激活
@@ -1711,7 +1665,7 @@ ActivateWeChat(hotkey := "") {
             ; 快捷键失败，继续尝试其他方法
         }
     }
-    
+
     ; 方法3：尝试直接激活微信窗口
     try {
         ; 查找微信主窗口
@@ -1719,12 +1673,12 @@ ActivateWeChat(hotkey := "") {
         if (weixinWinID) {
             WinActivate("ahk_id " . weixinWinID)
             WinShow("ahk_id " . weixinWinID)
-            
+
             ; 如果窗口最小化，恢复窗口
             if (WinGetMinMax("ahk_id " . weixinWinID) = -1) {
                 WinRestore("ahk_id " . weixinWinID)
             }
-            
+
             Sleep(200)
             if (IsWeChatActive()) {
                 return  ; 成功激活
@@ -1733,7 +1687,7 @@ ActivateWeChat(hotkey := "") {
     } catch as e {
         ; 窗口激活失败
     }
-    
+
     ; 所有方法都失败，显示错误信息
     MsgBox("激活微信失败，请确保微信已安装并运行", "错误", "T2")
 }
@@ -1741,12 +1695,12 @@ ActivateWeChat(hotkey := "") {
 IsWeChatActive() {
     ; 检查微信窗口是否处于激活状态
     weixinProcessName := "Weixin.exe"
-    
+
     ; 获取当前激活窗口的进程名
     try {
         activeWinID := WinExist("A")  ; 获取当前激活窗口
         activeProcessName := WinGetProcessName("ahk_id " . activeWinID)
-        
+
         ; 如果当前激活窗口是微信，返回true
         if (activeProcessName = weixinProcessName) {
             return true
@@ -1754,7 +1708,7 @@ IsWeChatActive() {
     } catch {
         ; 获取窗口信息失败
     }
-    
+
     return false
 }
 
@@ -1785,8 +1739,7 @@ FindAppExecutable(processName) {
 
     ; 首先尝试通过进程列表查找
     try {
-        for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" . processKey . "'")
-        {
+        for process in ComObjGet("winmgmts:").ExecQuery("Select * from Win32_Process where Name='" . processKey . "'") {
             exePath := process.ExecutablePath
             if (exePath != "" && FileExist(exePath)) {
                 g_AppExecutableCache[processKey] := exePath
@@ -1799,10 +1752,10 @@ FindAppExecutable(processName) {
     } catch {
         ; 如果WMI查询失败，使用其他方法
     }
-    
+
     ; 常见应用程序的默认路径查找
     appPaths := GetCommonAppPaths(processName)
-    
+
     for path in appPaths {
         if (FileExist(path)) {
             g_AppExecutableCache[processKey] := path
@@ -1812,10 +1765,10 @@ FindAppExecutable(processName) {
             return path
         }
     }
-    
+
     ; 尝试通过注册表查找
     registryPaths := GetRegistryAppPaths(processName)
-    
+
     for regPath in registryPaths {
         try {
             appPath := RegRead(regPath[1], regPath[2])
@@ -1832,7 +1785,7 @@ FindAppExecutable(processName) {
             ; 注册表查找失败
         }
     }
-    
+
     appMissCache[processKey] := A_TickCount
     return ""
 }
@@ -1841,7 +1794,7 @@ GetCommonAppPaths(processName) {
     ; 返回常见应用程序的默认安装路径
     paths := []
     processKey := StrLower(Trim(processName))
-    
+
     ; 微信相关路径
     if (processKey = "wechat.exe" || processKey = "weixin.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\WeChat\\WeChat.exe")
@@ -1849,35 +1802,35 @@ GetCommonAppPaths(processName) {
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\WeChat\\WeChat.exe")
         paths.Push(EnvGet("APPDATA") "\\Tencent\\WeChat\\WeChat.exe")
     }
-    
+
     ; Tim相关路径
     if (processKey = "tim.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\Tim\\Bin\\Tim.exe")
         paths.Push(A_ProgramFiles " (x86)\\Tencent\\Tim\\Bin\\Tim.exe")
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\Tencent\\Tim\\Bin\\Tim.exe")
     }
-    
+
     ; QQ相关路径
     if (processKey = "qq.exe") {
         paths.Push(A_ProgramFiles "\\Tencent\\QQ\\Bin\\QQ.exe")
         paths.Push(A_ProgramFiles " (x86)\\Tencent\\QQ\\Bin\\QQ.exe")
     }
-    
+
     ; 钉钉相关路径
     if (processKey = "dingtalk.exe") {
         paths.Push(A_ProgramFiles "\\DingDing\\DingTalkLauncher.exe")
         paths.Push(A_ProgramFiles " (x86)\\DingDing\\DingTalkLauncher.exe")
         paths.Push(EnvGet("LOCALAPPDATA") "\\Programs\\DingTalk\\DingTalk.exe")
     }
-    
+
     ; 企业微信相关路径
     if (processKey = "wxwork.exe") {
         paths.Push(A_ProgramFiles "\\WXWork\\WXWork.exe")
         paths.Push(A_ProgramFiles " (x86)\\WXWork\\WXWork.exe")
     }
-    
+
     ; 添加更多常见应用程序路径...
-    
+
     return paths
 }
 
@@ -1885,37 +1838,37 @@ GetRegistryAppPaths(processName) {
     ; 返回注册表查找路径
     registryPaths := []
     processKey := StrLower(Trim(processName))
-    
+
     ; 微信注册表路径
     if (processKey = "wechat.exe" || processKey = "weixin.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WeChat", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WeChat", "InstallPath"])
     }
-    
+
     ; Tim注册表路径
     if (processKey = "tim.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\Tim", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\Tim", "InstallPath"])
     }
-    
+
     ; QQ注册表路径
     if (processKey = "qq.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\QQ", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\QQ", "InstallPath"])
     }
-    
+
     ; 钉钉注册表路径
     if (processKey = "dingtalk.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\DingTalk", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\DingTalk", "InstallPath"])
     }
-    
+
     ; 企业微信注册表路径
     if (processKey = "wxwork.exe") {
         registryPaths.Push(["HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Tencent\\WXWork", "InstallPath"])
         registryPaths.Push(["HKEY_CURRENT_USER\\SOFTWARE\\Tencent\\WXWork", "InstallPath"])
     }
-    
+
     return registryPaths
 }
 
@@ -1997,7 +1950,7 @@ AddWindowSettingsMenu(contextMenu, allWindows := "") {
     ; settingsMenu.Add("切换主题", ToggleTheme)
     ; settingsMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePath)
     ; settingsMenu.Add()
-    
+
     ; 添加窗口操作子菜单（关闭程序、添加置顶、取消置顶）
     ; 创建关闭程序子菜单
     closeMenu := Menu()
@@ -2020,21 +1973,22 @@ AddWindowSettingsMenu(contextMenu, allWindows := "") {
 
             displayText := CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
 
-                ; 添加到关闭菜单
-                closeMenu.Add(displayText, CloseAppHandler.Bind(windowInfo.ProcessName, windowInfo.ID))
-                try {
-                    closeMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
-                }
-                closeMenuAdded := true
+            ; 添加到关闭菜单
+            closeMenu.Add(displayText, CloseAppHandler.Bind(windowInfo.ProcessName, windowInfo.ID))
+            try {
+                closeMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
+            }
+            closeMenuAdded := true
 
             ; 如果不是置顶程序，添加到置顶菜单
-                if (!IsPinnedApp(windowInfo.ProcessName)) {
-                    pinnedMenu.Add(displayText, AddToPinnedHandler.Bind(windowInfo.ProcessName))
-                    try {
-                        pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
-                    }
-                    pinnedMenuAdded := true
+            if (!IsPinnedApp(windowInfo.ProcessName)) {
+                pinnedMenu.Add(displayText, AddToPinnedHandler.Bind(windowInfo.ProcessName))
+                try {
+                    pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize
+                    )
                 }
+                pinnedMenuAdded := true
+            }
 
         } catch {
             continue
@@ -2054,7 +2008,7 @@ AddWindowSettingsMenu(contextMenu, allWindows := "") {
             ; 只处理置顶的程序
             if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
                 displayText := CreateDisplayText(winTitle, processName)
-                
+
                 ; 添加到取消置顶菜单
                 unpinnedMenu.Add(displayText, RemoveFromPinnedHandler.Bind(processName))
                 try {
@@ -2079,7 +2033,7 @@ AddWindowSettingsMenu(contextMenu, allWindows := "") {
     if (unpinnedMenuAdded) {
         settingsMenu.Add("取消置顶", unpinnedMenu)
     }
-    
+
     ; settingsMenu.Add()
     ; settingsMenu.Add("编辑配置文件", EditConfigFile)
     ; settingsMenu.Add("重新加载配置", ReloadConfig)
@@ -2556,10 +2510,10 @@ GetExplorerPathByAPI(winID) {
     try {
         ; 获取窗口的进程ID
         thisPID := WinGetPID("ahk_id " . winID)
-        
+
         ; 使用IShellWindows接口获取路径
         shell := ComObject("Shell.Application")
-        
+
         for window in shell.Windows {
             try {
                 if (window.hwnd = winID) {
@@ -2588,7 +2542,7 @@ GetExplorerPathByAPI(winID) {
     } catch {
         ; API方法失败
     }
-    
+
     return ""
 }
 
@@ -2596,7 +2550,7 @@ GetExplorerPathByTitle(winID) {
     ; 方法2：从窗口标题中提取路径（备用方法）
     try {
         title := WinGetTitle("ahk_id " . winID)
-        
+
         ; 常见资源管理器标题格式
         if (RegExMatch(title, "(.+)\\s*-\\s*文件资源管理器", &match)) {
             potentialPath := Trim(match[1])
@@ -2604,7 +2558,7 @@ GetExplorerPathByTitle(winID) {
                 return potentialPath
             }
         }
-        
+
         ; 英文系统格式
         if (RegExMatch(title, "(.+)\\s*-\\s*File Explorer", &match)) {
             potentialPath := Trim(match[1])
@@ -2612,7 +2566,7 @@ GetExplorerPathByTitle(winID) {
                 return potentialPath
             }
         }
-        
+
         ; 其他可能的格式
         if (InStr(title, ":\\") && !InStr(title, " - ")) {
             ; 如果标题直接包含路径且没有分隔符
@@ -2624,27 +2578,27 @@ GetExplorerPathByTitle(winID) {
     } catch {
         ; 标题解析失败
     }
-    
+
     return ""
 }
 
 GetExplorerPathEnhanced(winID) {
     ; 增强的路径获取函数，使用多种方法确保稳定性
-    
+
     ; 方法1：优先使用Windows API（最稳定）
     apiPath := GetExplorerPathByAPI(winID)
     if (apiPath != "" && IsValidFolder(apiPath)) {
         LogPathExtraction(winID, "Windows API", apiPath, true)
         return apiPath
     }
-    
+
     ; 方法2：备用方法 - 从窗口标题提取
     titlePath := GetExplorerPathByTitle(winID)
     if (titlePath != "" && IsValidFolder(titlePath)) {
         LogPathExtraction(winID, "窗口标题", titlePath, true)
         return titlePath
     }
-    
+
     ; 方法3：最后尝试原始COM方法（兼容性）
     try {
         for explorerWindow in ComObject("Shell.Application").Windows {
@@ -2663,7 +2617,7 @@ GetExplorerPathEnhanced(winID) {
     } catch {
         ; COM方法失败
     }
-    
+
     ; 所有方法都失败
     LogPathExtraction(winID, "所有方法", "", false)
     return ""
@@ -2831,11 +2785,11 @@ FeedDialogGeneral(winID, folderPath) {
     try {
         ; 确保路径格式正确
         folderWithSlash := RTrim(folderPath, "\") . "\"
-        
+
         ; 先尝试获取Edit1控件的焦点
         ControlFocus("Edit1", "ahk_id " . winID)
         Sleep(50)
-        
+
         ; 清空Edit1内容并设置新路径
         ControlSetText("", "Edit1", "ahk_id " . winID)
         Sleep(50)
@@ -2858,7 +2812,7 @@ FeedDialogGeneral(winID, folderPath) {
         ; 尝试多种焦点获取方式
         try ControlFocus("Edit1", "ahk_id " . winID)
         Sleep(100)
-        
+
         ; 使用Ctrl+A全选然后粘贴
         ControlSend("Edit1", "^a", "ahk_id " . winID)
         Sleep(50)
@@ -2890,7 +2844,7 @@ FeedDialogGeneral(winID, folderPath) {
         Sleep(200)
 
         A_Clipboard := oldClipboard
-        
+
         ; 最后尝试将焦点设置回Edit1
         try ControlFocus("Edit1", "ahk_id " . winID)
         return
@@ -3545,7 +3499,7 @@ ToggleGetWindowsFolderActivePath(*) {
 }
 
 ShowAbout(*) {
-    aboutText := "QuickSwitch v1.2`n"
+    aboutText := "QuickSwitch v1.3`n"
         . "快速切换【对话框&程序】工具`n"
         . "作者: BoBO`n`n"
         . "功能特性:`n"
