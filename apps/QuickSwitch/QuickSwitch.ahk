@@ -9,6 +9,9 @@
 #Include "Lib/UTF8Ini.ahk"
 #Include "Lib/ConfigSchema.ahk"
 #Include "Lib/RuntimeConfig.ahk"
+#Include "Lib/RuntimeLog.ahk"
+#Include "Lib/RuntimeMenu.ahk"
+#Include "Lib/RuntimeFileDialog.ahk"
 ; 引入 UIA.ahk 库用于UI自动化检测
 #Include "Lib/UIA.ahk"
 
@@ -335,124 +338,6 @@ ActivateWeChatHotkey(*) {
 }
 
 ; ============================================================================
-; 日志记录功能
-; ============================================================================
-
-; 记录日志函数
-LogMessage(message, level := "INFO") {
-    global g_LogEnabled
-
-    if (!g_LogEnabled) {
-        return
-    }
-
-    try {
-        AppendDailyLog("QuickSwitch", level, message)
-    } catch {
-        ; 日志写入失败时静默处理
-    }
-}
-
-LogPerfSummary(message, level := "INFO") {
-    global g_LogEnabled
-
-    if (!g_LogEnabled) {
-        return
-    }
-
-    try {
-        AppendDailyLog("QuickSwitchPerf", level, message)
-    } catch {
-        ; 性能日志写入失败时静默处理
-    }
-}
-
-AppendDailyLog(logPrefix, level, message) {
-    EnsureDailyLogCleanup()
-    logFile := GetDailyLogFilePath(logPrefix)
-    timestamp := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
-
-    for line in StrSplit(message, "`n") {
-        if (line = "") {
-            continue
-        }
-        logEntry := timestamp . " [" . level . "] " . line
-        FileAppend(logEntry . "`n", logFile, "UTF-8")
-    }
-}
-
-GetDailyLogFilePath(logPrefix) {
-    logDir := A_ScriptDir . "\\logs"
-    if !DirExist(logDir) {
-        DirCreate(logDir)
-    }
-
-    dateText := FormatTime(A_Now, "yyyy-MM-dd")
-    return logDir . "\\" . logPrefix . "_" . dateText . ".log"
-}
-
-EnsureDailyLogCleanup() {
-    global g_LogEnabled, g_LastLogCleanupDate
-
-    if (!g_LogEnabled) {
-        return
-    }
-
-    today := FormatTime(A_Now, "yyyy-MM-dd")
-    if (g_LastLogCleanupDate = today) {
-        return
-    }
-
-    CleanupExpiredLogFiles()
-    g_LastLogCleanupDate := today
-}
-
-CleanupExpiredLogFiles() {
-    global g_LogRetentionDays
-
-    logDir := A_ScriptDir . "\\logs"
-    if !DirExist(logDir) {
-        return
-    }
-
-    retentionDays := g_LogRetentionDays
-    if (retentionDays < 1) {
-        retentionDays := 1
-    }
-
-    cutoffTime := DateAdd(A_Now, -retentionDays, "Days")
-    loop files, logDir . "\\QuickSwitch*.log" {
-        try {
-            if (A_LoopFileTimeModified < cutoffTime) {
-                FileDelete(A_LoopFileFullPath)
-            }
-        }
-    }
-}
-
-; 记录路径获取相关的调试信息
-LogPathExtraction(winID, method, path, success := true) {
-    global g_LogEnabled
-
-    if (!g_LogEnabled) {
-        return
-    }
-
-    try {
-        winTitle := WinGetTitle("ahk_id " . winID)
-        winClass := WinGetClass("ahk_id " . winID)
-        status := success ? "成功" : "失败"
-
-        message := "窗口路径提取 - 窗口ID: " . winID . ", 标题: " . winTitle . ", 类名: " . winClass
-        message .= ", 方法: " . method . ", 路径: " . path . ", 状态: " . status
-
-        LogMessage(message, "DEBUG")
-    } catch {
-        ; 日志写入失败时静默处理
-    }
-}
-
-; ============================================================================
 ; 任务栏图标管理
 ; ============================================================================
 
@@ -580,279 +465,25 @@ ExitApplication(*) {
 
 DumpMenuPerfSummaryFromTray(*) {
     global g_MenuPerfMinSamples, g_MenuPerfTopN, g_LogEnabled
-    summary := BuildMenuPerfSummaryText(g_MenuPerfMinSamples, g_MenuPerfTopN)
+    summary := RuntimeLog.BuildMenuPerfSummaryText(g_MenuPerfMinSamples, g_MenuPerfTopN)
     if (summary = "") {
         MsgBox("暂无性能统计样本。请先触发几次菜单后再查看。", "性能统计", "T3")
         return
     }
 
     if (g_LogEnabled) {
-        LogPerfSummary(summary, "INFO")
+        RuntimeLog.LogPerfSummary(summary, "INFO")
     }
     MsgBox(summary, "菜单性能摘要", "T8")
 }
 
 ResetMenuPerfStatsFromTray(*) {
     global g_LogEnabled
-    ResetMenuPerfStats()
+    RuntimeLog.ResetMenuPerfStats()
     if (g_LogEnabled) {
-        LogMessage("菜单性能统计已手动清空", "INFO")
+        RuntimeLog.LogMessage("菜单性能统计已手动清空", "INFO")
     }
     MsgBox("菜单性能统计已清空。", "性能统计", "T2")
-}
-
-LogMenuBuildElapsed(menuName, startTick, itemCount := 0) {
-    global g_LogEnabled
-    elapsedMs := A_TickCount - startTick
-    if (!g_LogEnabled) {
-        return
-    }
-
-    UpdateMenuPerfStats(menuName, "__TOTAL__", elapsedMs, itemCount)
-    MaybeLogMenuPerfSummary()
-
-    level := elapsedMs >= 150 ? "WARN" : "DEBUG"
-    LogMessage("菜单构建耗时: " . menuName . ", elapsed=" . elapsedMs . "ms, items=" . itemCount, level)
-}
-
-LogMenuStageElapsed(menuName, stageName, &stageTick, totalStartTick, itemCount := -1) {
-    global g_LogEnabled
-    nowTick := A_TickCount
-
-    if (!g_LogEnabled) {
-        stageTick := nowTick
-        return
-    }
-
-    deltaMs := nowTick - stageTick
-    totalMs := nowTick - totalStartTick
-    UpdateMenuPerfStats(menuName, stageName, deltaMs, itemCount)
-
-    level := deltaMs >= 120 ? "WARN" : "DEBUG"
-
-    message := "菜单阶段耗时: " . menuName . ", stage=" . stageName . ", delta=" . deltaMs . "ms, total=" . totalMs . "ms"
-    if (itemCount >= 0) {
-        message .= ", items=" . itemCount
-    }
-
-    LogMessage(message, level)
-    stageTick := nowTick
-}
-
-ResetMenuPerfStats() {
-    global g_MenuPerfStats, g_MenuPerfLastSummaryTick
-    g_MenuPerfStats := Map()
-    g_MenuPerfLastSummaryTick := 0
-}
-
-UpdateMenuPerfStats(menuName, stageName, elapsedMs, itemCount := -1) {
-    global g_MenuPerfStats
-
-    statKey := menuName . "|" . stageName
-    if (!g_MenuPerfStats.Has(statKey)) {
-        g_MenuPerfStats[statKey] := {
-            menu: menuName,
-            stage: stageName,
-            count: 0,
-            total: 0,
-            max: 0,
-            last: 0,
-            itemTotal: 0,
-            itemSamples: 0
-        }
-    }
-
-    stat := g_MenuPerfStats[statKey]
-    stat.count += 1
-    stat.total += elapsedMs
-    stat.last := elapsedMs
-    if (elapsedMs > stat.max) {
-        stat.max := elapsedMs
-    }
-    if (itemCount >= 0) {
-        stat.itemTotal += itemCount
-        stat.itemSamples += 1
-    }
-}
-
-GetTopMenuPerfEntries(entries, topN) {
-    topEntries := []
-    if (topN <= 0) {
-        return topEntries
-    }
-
-    for entry in entries {
-        inserted := false
-        loop topEntries.Length {
-            if (entry.score > topEntries[A_Index].score) {
-                topEntries.InsertAt(A_Index, entry)
-                inserted := true
-                break
-            }
-        }
-
-        if (!inserted) {
-            topEntries.Push(entry)
-        }
-
-        while (topEntries.Length > topN) {
-            topEntries.Pop()
-        }
-    }
-
-    return topEntries
-}
-
-BuildMenuPerfSummaryText(minSamples := 3, topN := 5) {
-    global g_MenuPerfStats
-
-    if (minSamples < 1) {
-        minSamples := 1
-    }
-    if (topN < 1) {
-        topN := 1
-    }
-
-    entries := []
-    for statKey, stat in g_MenuPerfStats {
-        if (stat.count < minSamples) {
-            continue
-        }
-
-        avgMs := stat.total / stat.count
-        entries.Push({
-            menu: stat.menu,
-            stage: stat.stage,
-            count: stat.count,
-            avg: Round(avgMs, 1),
-            max: stat.max,
-            last: stat.last,
-            avgItems: stat.itemSamples > 0 ? Round(stat.itemTotal / stat.itemSamples, 1) : -1,
-            score: avgMs + (stat.max * 0.2)
-        })
-    }
-
-    if (entries.Length = 0) {
-        return ""
-    }
-
-    finalTopN := Min(entries.Length, topN)
-    topEntries := GetTopMenuPerfEntries(entries, finalTopN)
-    if (topEntries.Length = 0) {
-        return ""
-    }
-
-    summary := "菜单性能Top" . topEntries.Length . "慢段统计`n"
-    for entry in topEntries {
-        line := "- " . entry.menu . "/" . entry.stage
-            . " avg=" . entry.avg . "ms"
-            . " max=" . entry.max . "ms"
-            . " count=" . entry.count
-            . " last=" . entry.last . "ms"
-        if (entry.avgItems >= 0) {
-            line .= " avgItems=" . entry.avgItems
-        }
-        summary .= line . "`n"
-    }
-
-    return RTrim(summary, "`n")
-}
-
-MaybeLogMenuPerfSummary(force := false) {
-    global g_LogEnabled, g_MenuPerfStats, g_MenuPerfLastSummaryTick
-    global g_MenuPerfSummaryIntervalMs, g_MenuPerfTopN, g_MenuPerfMinSamples
-
-    if (!g_LogEnabled) {
-        return
-    }
-
-    nowTick := A_TickCount
-    if (!force && g_MenuPerfLastSummaryTick != 0
-        && (nowTick - g_MenuPerfLastSummaryTick) < g_MenuPerfSummaryIntervalMs) {
-        return
-    }
-
-    summary := BuildMenuPerfSummaryText(g_MenuPerfMinSamples, g_MenuPerfTopN)
-    if (summary = "") {
-        g_MenuPerfLastSummaryTick := nowTick
-        return
-    }
-
-    LogPerfSummary(summary, "INFO")
-    g_MenuPerfLastSummaryTick := nowTick
-}
-
-TryAcquireMenuLock(owner := "") {
-    global g_MenuActive, g_MenuLockToken, g_MenuLockOwner, g_LastMenuOpenTick
-    static nextToken := 0
-
-    if (g_MenuActive) {
-        ReportMenuLockReject("active:" . g_MenuLockOwner, owner)
-        return 0
-    }
-
-    if (IsMenuRequestThrottled()) {
-        ReportMenuLockReject("throttled", owner)
-        return 0
-    }
-
-    nextToken += 1
-    if (nextToken > 0x7FFFFFFF) {
-        nextToken := 1
-    }
-
-    g_MenuActive := true
-    g_MenuLockToken := nextToken
-    g_MenuLockOwner := owner
-    g_LastMenuOpenTick := A_TickCount
-    LogMessage("菜单锁获取: owner=" . owner . ", token=" . nextToken, "DEBUG")
-    return nextToken
-}
-
-ReleaseMenuLock(lockToken := 0) {
-    global g_MenuActive, g_MenuLockToken, g_MenuLockOwner
-
-    if (lockToken != 0 && lockToken != g_MenuLockToken) {
-        LogMessage("忽略过期菜单解锁: token=" . lockToken . ", current=" . g_MenuLockToken, "DEBUG")
-        return
-    }
-
-    if (g_MenuActive) {
-        LogMessage("菜单锁释放: owner=" . g_MenuLockOwner . ", token=" . g_MenuLockToken, "DEBUG")
-    }
-
-    g_MenuActive := false
-    g_MenuLockToken := 0
-    g_MenuLockOwner := ""
-}
-
-ScheduleMenuUnlock(lockToken, delayMs := 150) {
-    if (delayMs <= 0) {
-        ReleaseMenuLock(lockToken)
-        return
-    }
-    SetTimer(ReleaseMenuLock.Bind(lockToken), -delayMs)
-}
-
-IsMenuRequestThrottled() {
-    global g_LastMenuOpenTick, g_MenuCooldownMs
-    if (g_LastMenuOpenTick = 0) {
-        return false
-    }
-    return (A_TickCount - g_LastMenuOpenTick) < g_MenuCooldownMs
-}
-
-ReportMenuLockReject(reason, owner := "") {
-    global g_LastMenuLockRejectTick, g_LastMenuLockRejectReason
-
-    nowTick := A_TickCount
-    if (reason = g_LastMenuLockRejectReason && (nowTick - g_LastMenuLockRejectTick) < 500) {
-        return
-    }
-
-    g_LastMenuLockRejectReason := reason
-    g_LastMenuLockRejectTick := nowTick
-    LogMessage("菜单锁拒绝: reason=" . reason . ", owner=" . owner, "DEBUG")
 }
 
 ; ============================================================================
@@ -861,7 +492,7 @@ ReportMenuLockReject(reason, owner := "") {
 
 ShowSmartMenu(*) {
     ; 如果菜单已经激活，则不重复显示
-    if (g_MenuActive || IsMenuRequestThrottled()) {
+    if (g_MenuActive || RuntimeMenu.IsRequestThrottled()) {
         return
     }
 
@@ -1119,7 +750,7 @@ UpdateLastTwoWindows(currentWindow) {
 
 ShowWindowSwitchMenu(*) {
     global g_MenuItems
-    lockToken := TryAcquireMenuLock("WindowSwitch")
+    lockToken := RuntimeMenu.TryAcquire("WindowSwitch")
     if (!lockToken) {
         return
     }
@@ -1129,11 +760,11 @@ ShowWindowSwitchMenu(*) {
 
     try {
         windowSnapshot := CollectWindowSnapshot()
-        LogMenuStageElapsed("WindowSwitch", "collect_windows", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("WindowSwitch", "collect_windows", &stageTick, startTick, g_MenuItems.Length)
         PrewarmProcessIconCacheFromWindows(windowSnapshot.AllWindowIds)
-        LogMenuStageElapsed("WindowSwitch", "prewarm_icon_cache", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("WindowSwitch", "prewarm_icon_cache", &stageTick, startTick, g_MenuItems.Length)
         contextMenu := RenderWindowSwitchMenu(windowSnapshot, &stageTick, startTick)
-        LogMenuStageElapsed("WindowSwitch", "render_menu", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("WindowSwitch", "render_menu", &stageTick, startTick, g_MenuItems.Length)
 
         ; 根据配置显示菜单 - 程序切换菜单
         if (g_Config.WindowSwitchPosition = "mouse") {
@@ -1152,10 +783,10 @@ ShowWindowSwitchMenu(*) {
                 contextMenu.Show(100, 100)
             }
         }
-        LogMenuStageElapsed("WindowSwitch", "menu_show", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("WindowSwitch", "menu_show", &stageTick, startTick, g_MenuItems.Length)
     } finally {
-        LogMenuBuildElapsed("WindowSwitch", startTick, g_MenuItems.Length)
-        ScheduleMenuUnlock(lockToken, 150)
+        RuntimeLog.LogMenuBuildElapsed("WindowSwitch", startTick, g_MenuItems.Length)
+        RuntimeMenu.ScheduleUnlock(lockToken, 150)
     }
 }
 
@@ -1170,28 +801,28 @@ RenderWindowSwitchMenu(windowSnapshot, &stageTick, startTick) {
     historyMenuItems := CollectHistoryWindowMenuItems()
 
     hasMenuItems := AddPinnedWindows(contextMenu, pinnedMenuItems, windowSnapshot.AllWindowIds) || hasMenuItems
-    LogMenuStageElapsed("WindowSwitch", "add_pinned", &stageTick, startTick, g_MenuItems.Length)
+    RuntimeLog.LogMenuStageElapsed("WindowSwitch", "add_pinned", &stageTick, startTick, g_MenuItems.Length)
 
     if (hasMenuItems) {
         contextMenu.Add()
     }
 
     hasMenuItems := AddHistoryWindows(contextMenu, historyMenuItems, windowSnapshot.AllWindowIds) || hasMenuItems
-    LogMenuStageElapsed("WindowSwitch", "add_history", &stageTick, startTick, g_MenuItems.Length)
+    RuntimeLog.LogMenuStageElapsed("WindowSwitch", "add_history", &stageTick, startTick, g_MenuItems.Length)
 
     if (hasMenuItems) {
         contextMenu.Add()
     }
 
     quickLaunchAdded := AddQuickLaunchApps(contextMenu)
-    LogMenuStageElapsed("WindowSwitch", "add_quick_launch", &stageTick, startTick, g_MenuItems.Length)
+    RuntimeLog.LogMenuStageElapsed("WindowSwitch", "add_quick_launch", &stageTick, startTick, g_MenuItems.Length)
 
     if (quickLaunchAdded) {
         contextMenu.Add()
     }
     settingsMenuData := CollectWindowSettingsMenuData(windowSnapshot.AllWindowIds)
     AddWindowSettingsMenu(contextMenu, settingsMenuData, windowSnapshot.AllWindowIds)
-    LogMenuStageElapsed("WindowSwitch", "add_settings", &stageTick, startTick, g_MenuItems.Length)
+    RuntimeLog.LogMenuStageElapsed("WindowSwitch", "add_settings", &stageTick, startTick, g_MenuItems.Length)
 
     contextMenu.Color := g_Config.MenuColor
     return contextMenu
@@ -1972,7 +1603,7 @@ QuickSwitchLastTwo(*) {
 }
 
 WindowChoiceHandler(winID, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     try {
         WinActivate("ahk_id " . winID)
@@ -1988,7 +1619,7 @@ WindowChoiceHandler(winID, *) {
 }
 
 CloseAppHandler(processName, winID, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     try {
         WinClose("ahk_id " . winID)
@@ -2110,20 +1741,11 @@ ShowFileDialogMenu(winID) {
 
     ; 如果不是当前监控的对话框，需要重新设置信息
     if (winID != g_CurrentDialog.WinID) {
-        g_CurrentDialog.WinID := winID
-        g_CurrentDialog.Type := GetFileDialogType(winID)
-
-        if (!g_CurrentDialog.Type) {
+        if (!RuntimeFileDialog.Sync(winID)) {
             ; 如果不是有效的文件对话框，显示程序切换菜单
             ShowWindowSwitchMenu()
             return
         }
-
-        ; 获取对话框指纹
-        ahk_exe := WinGetProcessName("ahk_id " . winID)
-        window_title := WinGetTitle("ahk_id " . winID)
-        g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
-        g_CurrentDialog.Action := UTF8IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
     }
 
     ; 当用户手动按快捷键时，总是显示菜单（不执行自动切换）
@@ -2139,7 +1761,7 @@ ShowFileDialogMenuInternal() {
         return
     }
 
-    lockToken := TryAcquireMenuLock("FileDialog")
+    lockToken := RuntimeMenu.TryAcquire("FileDialog")
     if (!lockToken) {
         return
     }
@@ -2149,7 +1771,7 @@ ShowFileDialogMenuInternal() {
 
     try {
         fileManagerWindows := WinGetList()
-        LogMenuStageElapsed("FileDialog", "snapshot", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("FileDialog", "snapshot", &stageTick, startTick, g_MenuItems.Length)
 
         contextMenu := Menu()
         contextMenu.Add("QuickSwitch - 路径切换", (*) => "")
@@ -2161,40 +1783,40 @@ ShowFileDialogMenuInternal() {
         ; 扫描文件管理器窗口
         if g_Config.SupportTC = "1" {
             hasMenuItems := AddTotalCommanderFolders(contextMenu, fileManagerWindows) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "scan_tc", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "scan_tc", &stageTick, startTick, g_MenuItems.Length)
         }
         if g_Config.SupportExplorer = "1" {
             hasMenuItems := AddExplorerFolders(contextMenu, fileManagerWindows) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "scan_explorer", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "scan_explorer", &stageTick, startTick, g_MenuItems.Length)
         }
         if g_Config.SupportXY = "1" {
             hasMenuItems := AddXYplorerFolders(contextMenu, fileManagerWindows) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "scan_xyplorer", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "scan_xyplorer", &stageTick, startTick, g_MenuItems.Length)
         }
         if g_Config.SupportOpus = "1" {
             hasMenuItems := AddOpusFolders(contextMenu, fileManagerWindows) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "scan_opus", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "scan_opus", &stageTick, startTick, g_MenuItems.Length)
         }
 
         ; 添加自定义路径
         if g_Config.EnableCustomPaths = "1" {
             hasMenuItems := AddCustomPaths(contextMenu) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "add_custom_paths", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "add_custom_paths", &stageTick, startTick, g_MenuItems.Length)
         }
 
         ; 添加最近路径
         if g_Config.EnableRecentPaths = "1" {
             hasMenuItems := AddRecentPaths(contextMenu) || hasMenuItems
-            LogMenuStageElapsed("FileDialog", "add_recent_paths", &stageTick, startTick, g_MenuItems.Length)
+            RuntimeLog.LogMenuStageElapsed("FileDialog", "add_recent_paths", &stageTick, startTick, g_MenuItems.Length)
         }
 
         ; 添加发送到文件管理器选项
         AddSendToFileManagerMenu(contextMenu)
-        LogMenuStageElapsed("FileDialog", "add_send_to", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("FileDialog", "add_send_to", &stageTick, startTick, g_MenuItems.Length)
 
         ; 添加设置菜单
         AddFileDialogSettingsMenu(contextMenu)
-        LogMenuStageElapsed("FileDialog", "add_settings", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("FileDialog", "add_settings", &stageTick, startTick, g_MenuItems.Length)
 
         ; 配置菜单外观
         contextMenu.Color := g_Config.MenuColor
@@ -2216,10 +1838,10 @@ ShowFileDialogMenuInternal() {
                 contextMenu.Show(200, 200)
             }
         }
-        LogMenuStageElapsed("FileDialog", "menu_show", &stageTick, startTick, g_MenuItems.Length)
+        RuntimeLog.LogMenuStageElapsed("FileDialog", "menu_show", &stageTick, startTick, g_MenuItems.Length)
     } finally {
-        LogMenuBuildElapsed("FileDialog", startTick, g_MenuItems.Length)
-        ScheduleMenuUnlock(lockToken, 150)
+        RuntimeLog.LogMenuBuildElapsed("FileDialog", startTick, g_MenuItems.Length)
+        RuntimeMenu.ScheduleUnlock(lockToken, 150)
     }
 }
 
@@ -2371,14 +1993,14 @@ GetExplorerPathEnhanced(winID) {
     ; 方法1：优先使用Windows API（最稳定）
     apiPath := GetExplorerPathByAPI(winID)
     if (apiPath != "" && IsValidFolder(apiPath)) {
-        LogPathExtraction(winID, "Windows API", apiPath, true)
+        RuntimeLog.LogPathExtraction(winID, "Windows API", apiPath, true)
         return apiPath
     }
 
     ; 方法2：备用方法 - 从窗口标题提取
     titlePath := GetExplorerPathByTitle(winID)
     if (titlePath != "" && IsValidFolder(titlePath)) {
-        LogPathExtraction(winID, "窗口标题", titlePath, true)
+        RuntimeLog.LogPathExtraction(winID, "窗口标题", titlePath, true)
         return titlePath
     }
 
@@ -2389,7 +2011,7 @@ GetExplorerPathEnhanced(winID) {
                 if (explorerWindow.hwnd = winID) {
                     explorerPath := explorerWindow.Document.Folder.Self.Path
                     if (IsValidFolder(explorerPath)) {
-                        LogPathExtraction(winID, "COM对象", explorerPath, true)
+                        RuntimeLog.LogPathExtraction(winID, "COM对象", explorerPath, true)
                         return explorerPath
                     }
                 }
@@ -2402,7 +2024,7 @@ GetExplorerPathEnhanced(winID) {
     }
 
     ; 所有方法都失败
-    LogPathExtraction(winID, "所有方法", "", false)
+    RuntimeLog.LogPathExtraction(winID, "所有方法", "", false)
     return ""
 }
 
@@ -2780,7 +2402,7 @@ AddFileMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconInde
 }
 
 FolderChoiceHandler(folderPath, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
@@ -2789,7 +2411,7 @@ FolderChoiceHandler(folderPath, *) {
 }
 
 RecentPathChoiceHandler(folderPath, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     if IsValidFolder(folderPath) && g_CurrentDialog.WinID != "" {
         RecordRecentPath(folderPath)
@@ -2798,10 +2420,9 @@ RecentPathChoiceHandler(folderPath, *) {
 }
 
 AutoSwitchHandler(*) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
-    UTF8IniWrite("1", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
-    g_CurrentDialog.Action := "1"
+    RuntimeFileDialog.SetAction("1")
 
     folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
 
@@ -2819,14 +2440,9 @@ GetWindowsFolderActivePath(*) {
         ; 如果是文件对话框，执行路径切换功能
 
         ; 如果当前对话框信息未设置或已过期，重新设置
-        if (currentWinID != g_CurrentDialog.WinID) {
-            g_CurrentDialog.WinID := currentWinID
-            g_CurrentDialog.Type := GetFileDialogType(currentWinID)
-
-            if (!g_CurrentDialog.Type) {
-                ; 如果检测失败，直接返回
-                return
-            }
+        if (!RuntimeFileDialog.EnsureCurrent(currentWinID)) {
+            ; 如果检测失败，直接返回
+            return
         }
 
         ; 获取文件管理器的当前路径
@@ -2849,31 +2465,27 @@ GetWindowsFolderActivePath(*) {
 }
 
 NotNowHandler(*) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
-    try UTF8IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
-    g_CurrentDialog.Action := ""
+    RuntimeFileDialog.SetAction("")
 }
 
 AutoMenuHandler(*) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
-    UTF8IniWrite("2", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
-    g_CurrentDialog.Action := "2"
+    RuntimeFileDialog.SetAction("2")
 }
 
 ManualHandler(*) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
-    try UTF8IniDelete(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
-    g_CurrentDialog.Action := ""
+    RuntimeFileDialog.SetAction("")
 }
 
 NeverHandler(*) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
-    UTF8IniWrite("0", g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint)
-    g_CurrentDialog.Action := "0"
+    RuntimeFileDialog.SetAction("0")
 }
 
 GetCurrentDialogPath() {
@@ -2922,7 +2534,7 @@ GetCurrentDialogPath() {
 }
 
 SendToTCHandler(dialogPath, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     try {
         tcWindow := WinExist("ahk_class TTOTAL_CMD")
@@ -2948,7 +2560,7 @@ SendToTCHandler(dialogPath, *) {
 }
 
 SendToExplorerHandler(dialogPath, *) {
-    ReleaseMenuLock()
+    RuntimeMenu.Release()
 
     try {
         Run("explorer.exe `"" . dialogPath . "`"")
@@ -3416,7 +3028,7 @@ MonitorFileDialogs() {
     static dialogProcessed := false
 
     ; 如果菜单正在显示，暂停监控
-    if (g_MenuActive || IsMenuRequestThrottled()) {
+    if (g_MenuActive || RuntimeMenu.IsRequestThrottled()) {
         return
     }
 
@@ -3436,10 +3048,7 @@ MonitorFileDialogs() {
             dialogProcessed := true
 
             ; 设置当前对话框信息
-            g_CurrentDialog.WinID := currentWinID
-            g_CurrentDialog.Type := dialogType
-
-            if (g_CurrentDialog.Type) {
+            if (RuntimeFileDialog.Sync(currentWinID)) {
                 ProcessFileDialog()
             }
         }
@@ -3454,27 +3063,7 @@ MonitorFileDialogs() {
 }
 
 ProcessFileDialog() {
-    ; 获取对话框指纹
-    ahk_exe := WinGetProcessName("ahk_id " . g_CurrentDialog.WinID)
-    window_title := WinGetTitle("ahk_id " . g_CurrentDialog.WinID)
-    g_CurrentDialog.FingerPrint := ahk_exe . "___" . window_title
-
-    ; 检查对话框动作设置（优先使用特定对话框的设置）
-    g_CurrentDialog.Action := UTF8IniRead(g_Config.IniFile, "Dialogs", g_CurrentDialog.FingerPrint, "")
-
-    ; 如果没有特定设置，使用默认行为
-    if (g_CurrentDialog.Action = "") {
-        switch g_Config.FileDialogDefaultAction {
-            case "auto_switch":
-                g_CurrentDialog.Action := "1"
-            case "never":
-                g_CurrentDialog.Action := "0"
-            case "auto_menu":
-                g_CurrentDialog.Action := "2"
-            default: ; "manual"
-                g_CurrentDialog.Action := ""
-        }
-    }
+    RuntimeFileDialog.ResolveAndStoreAction()
 
     if (g_CurrentDialog.Action = "1") {
         ; 自动切换模式
@@ -3498,24 +3087,13 @@ ProcessFileDialog() {
 }
 
 DelayedShowMenu(expectedWinID) {
-    if (expectedWinID != g_CurrentDialog.WinID) {
-        return
-    }
-    if (g_CurrentDialog.WinID != "" && WinExist("ahk_id " . g_CurrentDialog.WinID)) {
+    if (RuntimeFileDialog.CanShowDelayed(expectedWinID)) {
         ShowFileDialogMenuInternal()
     }
 }
 
 CleanupFileDialogGlobals() {
-    global g_CurrentDialog, g_MenuItems
-
-    ; 重置全局变量
-    g_CurrentDialog.WinID := ""
-    g_CurrentDialog.Type := ""
-    g_CurrentDialog.FingerPrint := ""
-    g_CurrentDialog.Action := ""
-    g_MenuItems := []
-    ReleaseMenuLock()
+    RuntimeFileDialog.Clear()
 }
 
 ; 使用Accessibility API获取鼠标下的对象名称
