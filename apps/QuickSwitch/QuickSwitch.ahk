@@ -154,8 +154,13 @@ DetectFileDialogBlankAreaByUIA(x, y, WinID, WinClass) {
         return false
     }
 }
-; 当标准文件对话框激活时，按下 Alt+W 调用 GetWindowsFolderActivePath 函数
-#HotIf WinActive("ahk_class #32770")
+
+IsActiveRecognizedFileDialog() {
+    return GetFileDialogType(WinExist("A")) != ""
+}
+
+; 当文件对话框激活时，允许双击触发路径跳转辅助逻辑
+#HotIf IsActiveRecognizedFileDialog()
 {
 
     ; 添加双击直接执行 GetWindowsFolderActivePath 函数
@@ -1211,26 +1216,21 @@ ShowSmartMenu(*) {
     }
 }
 
-IsFileDialog(winID) {
-    try {
-        winClass := WinGetClass("ahk_id " . winID)
-        exeName := WinGetProcessName("ahk_id " . winID)
-        winTitle := WinGetTitle("ahk_id " . winID)
-
-        ; 检查是否为标准文件对话框
-        if (winClass = "#32770") {
-            return true
-        }
-
-        ; 检查是否为Blender文件视图窗口
-        if (winClass = "GHOST_WindowClass" and exeName = "blender.exe" and InStr(winTitle, "Blender File View")) {
-            return true
-        }
-
-        return false
-    } catch {
-        return false
+GetFileDialogType(winID) {
+    if (!winID) {
+        return ""
     }
+
+    try {
+        dialogType := DetectFileDialog(winID)
+        return dialogType ? dialogType : ""
+    } catch {
+        return ""
+    }
+}
+
+IsFileDialog(winID) {
+    return GetFileDialogType(winID) != ""
 }
 
 ; ============================================================================
@@ -2342,7 +2342,7 @@ ShowFileDialogMenu(winID) {
     ; 如果不是当前监控的对话框，需要重新设置信息
     if (winID != g_CurrentDialog.WinID) {
         g_CurrentDialog.WinID := winID
-        g_CurrentDialog.Type := DetectFileDialog(winID)
+        g_CurrentDialog.Type := GetFileDialogType(winID)
 
         if (!g_CurrentDialog.Type) {
             ; 如果不是有效的文件对话框，显示程序切换菜单
@@ -2454,50 +2454,64 @@ ShowFileDialogMenuInternal() {
     }
 }
 
-DetectFileDialog(winID) {
-    winClass := WinGetClass("ahk_id " . winID)
-
-    ; 直接识别Blender窗口
-    if (winClass = "GHOST_WindowClass") {
-        return "GENERAL"
-    }
-
-    ; 如果是#32770窗口（标准文件对话框），直接返回GENERAL类型
-    if (winClass = "#32770") {
-        ; 检查是否有Edit1控件，确保是文件对话框
-        controlList := WinGetControls("ahk_id " . winID)
-        for control in controlList {
-            if (control = "Edit1") {
-                return "GENERAL"
-            }
-        }
-    }
-
+GetFileDialogControlFlags(winID) {
     controlList := WinGetControls("ahk_id " . winID)
-
-    hasSysListView := false
-    hasToolbar := false
-    hasDirectUI := false
-    hasEdit := false
+    flags := {
+        hasSysListView: false,
+        hasToolbar: false,
+        hasDirectUI: false,
+        hasEdit: false
+    }
 
     for control in controlList {
         switch control {
             case "SysListView321":
-                hasSysListView := true
+                flags.hasSysListView := true
             case "ToolbarWindow321":
-                hasToolbar := true
+                flags.hasToolbar := true
             case "DirectUIHWND1":
-                hasDirectUI := true
+                flags.hasDirectUI := true
             case "Edit1":
-                hasEdit := true
+                flags.hasEdit := true
         }
     }
 
-    if (hasDirectUI && hasToolbar && hasEdit) {
+    return flags
+}
+
+DetectFileDialog(winID) {
+    winClass := WinGetClass("ahk_id " . winID)
+
+    if (winClass = "GHOST_WindowClass") {
+        try {
+            exeName := WinGetProcessName("ahk_id " . winID)
+            winTitle := WinGetTitle("ahk_id " . winID)
+            if (exeName = "blender.exe" && InStr(winTitle, "Blender File View")) {
+                return "GENERAL"
+            }
+        } catch {
+        }
+        return false
+    }
+
+    if (winClass != "#32770") {
+        return false
+    }
+
+    flags := GetFileDialogControlFlags(winID)
+
+    if (!flags.hasEdit || !flags.hasToolbar) {
+        return false
+    }
+
+    if (flags.hasDirectUI) {
         return "GENERAL"
-    } else if (hasSysListView && hasToolbar && hasEdit) {
+    }
+
+    if (flags.hasSysListView) {
         return "SYSLISTVIEW"
     }
+
     return false
 }
 
@@ -3038,7 +3052,7 @@ GetWindowsFolderActivePath(*) {
         ; 如果当前对话框信息未设置或已过期，重新设置
         if (currentWinID != g_CurrentDialog.WinID) {
             g_CurrentDialog.WinID := currentWinID
-            g_CurrentDialog.Type := DetectFileDialog(currentWinID)
+            g_CurrentDialog.Type := GetFileDialogType(currentWinID)
 
             if (!g_CurrentDialog.Type) {
                 ; 如果检测失败，直接返回
@@ -3645,20 +3659,8 @@ MonitorFileDialogs() {
         return
     }
 
-    try {
-        winClass := WinGetClass("ahk_id " . currentWinID)
-        exeName := WinGetProcessName("ahk_id " . currentWinID)
-        winTitle := WinGetTitle("ahk_id " . currentWinID)
-    } catch {
-        return
-    }
-
-    ; 检查是否为标准文件对话框或Blender文件视图窗口
-    isStandardDialog := (winClass = "#32770")
-    isBlenderFileView := (winClass = "GHOST_WindowClass" and exeName = "blender.exe" and InStr(winTitle,
-        "Blender File View"))
-
-    if (isStandardDialog || isBlenderFileView) {
+    dialogType := GetFileDialogType(currentWinID)
+    if (dialogType != "") {
         ; 如果是新的对话框或者之前没有处理过
         if (currentWinID != lastDialogID || !dialogProcessed) {
             lastDialogID := currentWinID
@@ -3666,7 +3668,7 @@ MonitorFileDialogs() {
 
             ; 设置当前对话框信息
             g_CurrentDialog.WinID := currentWinID
-            g_CurrentDialog.Type := DetectFileDialog(currentWinID)
+            g_CurrentDialog.Type := dialogType
 
             if (g_CurrentDialog.Type) {
                 ProcessFileDialog()
