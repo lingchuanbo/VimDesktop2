@@ -13,6 +13,7 @@
 #Include "Lib/RuntimeMenu.ahk"
 #Include "Lib/RuntimeFileDialog.ahk"
 #Include "Lib/RuntimeFileDialogMenu.ahk"
+#Include "Lib/RuntimePathSwitch.ahk"
 #Include "Lib/RuntimeWindowState.ahk"
 #Include "Lib/RuntimeWindowMenu.ahk"
 #Include "Lib/RuntimeApp.ahk"
@@ -1219,379 +1220,43 @@ DetectFileDialog(winID) {
 ; ============================================================================
 
 GetExplorerPathByAPI(winID) {
-    ; 方法1：使用Windows API获取路径（最稳定）
-    try {
-        ; 获取窗口的进程ID
-        thisPID := WinGetPID("ahk_id " . winID)
-
-        ; 使用IShellWindows接口获取路径
-        shell := ComObject("Shell.Application")
-
-        for window in shell.Windows {
-            try {
-                if (window.hwnd = winID) {
-                    ; 方法1A：直接获取路径（最稳定）
-                    try {
-                        folder := window.Document
-                        if (folder) {
-                            return folder.Folder.Self.Path
-                        }
-                    } catch {
-                        ; 方法1B：备用方法 - 获取LocationURL
-                        try {
-                            url := window.LocationURL
-                            if (InStr(url, "file:///")) {
-                                path := StrReplace(url, "file:///", "")
-                                path := StrReplace(path, "/", "\\")
-                                return path
-                            }
-                        }
-                    }
-                }
-            } catch {
-                continue
-            }
-        }
-    } catch {
-        ; API方法失败
-    }
-
-    return ""
+    return RuntimePathSwitch.GetExplorerPathByAPI(winID)
 }
 
 GetExplorerPathByTitle(winID) {
-    ; 方法2：从窗口标题中提取路径（备用方法）
-    try {
-        title := WinGetTitle("ahk_id " . winID)
-
-        ; 常见资源管理器标题格式
-        if (RegExMatch(title, "(.+)\\s*-\\s*文件资源管理器", &match)) {
-            potentialPath := Trim(match[1])
-            if (IsValidFolder(potentialPath)) {
-                return potentialPath
-            }
-        }
-
-        ; 英文系统格式
-        if (RegExMatch(title, "(.+)\\s*-\\s*File Explorer", &match)) {
-            potentialPath := Trim(match[1])
-            if (IsValidFolder(potentialPath)) {
-                return potentialPath
-            }
-        }
-
-        ; 其他可能的格式
-        if (InStr(title, ":\\") && !InStr(title, " - ")) {
-            ; 如果标题直接包含路径且没有分隔符
-            potentialPath := Trim(title)
-            if (IsValidFolder(potentialPath)) {
-                return potentialPath
-            }
-        }
-    } catch {
-        ; 标题解析失败
-    }
-
-    return ""
+    return RuntimePathSwitch.GetExplorerPathByTitle(winID)
 }
 
 GetExplorerPathEnhanced(winID) {
-    ; 增强的路径获取函数，使用多种方法确保稳定性
-
-    ; 方法1：优先使用Windows API（最稳定）
-    apiPath := GetExplorerPathByAPI(winID)
-    if (apiPath != "" && IsValidFolder(apiPath)) {
-        RuntimeLog.LogPathExtraction(winID, "Windows API", apiPath, true)
-        return apiPath
-    }
-
-    ; 方法2：备用方法 - 从窗口标题提取
-    titlePath := GetExplorerPathByTitle(winID)
-    if (titlePath != "" && IsValidFolder(titlePath)) {
-        RuntimeLog.LogPathExtraction(winID, "窗口标题", titlePath, true)
-        return titlePath
-    }
-
-    ; 方法3：最后尝试原始COM方法（兼容性）
-    try {
-        for explorerWindow in ComObject("Shell.Application").Windows {
-            try {
-                if (explorerWindow.hwnd = winID) {
-                    explorerPath := explorerWindow.Document.Folder.Self.Path
-                    if (IsValidFolder(explorerPath)) {
-                        RuntimeLog.LogPathExtraction(winID, "COM对象", explorerPath, true)
-                        return explorerPath
-                    }
-                }
-            } catch {
-                continue
-            }
-        }
-    } catch {
-        ; COM方法失败
-    }
-
-    ; 所有方法都失败
-    RuntimeLog.LogPathExtraction(winID, "所有方法", "", false)
-    return ""
+    return RuntimePathSwitch.GetExplorerPathEnhanced(winID)
 }
 
 GetActiveFileManagerFolder(winID) {
-    allWindows := WinGetList()
-    fileManagerCandidates := []
-
-    for id in allWindows {
-        try {
-            winClass := WinGetClass("ahk_id " . id)
-
-            if (g_Config.SupportTC = "1" && winClass = "TTOTAL_CMD") {
-                folderPath := GetTCActiveFolder(id)
-                if IsValidFolder(folderPath) {
-                    fileManagerCandidates.Push({ id: id, path: folderPath, type: "TC" })
-                }
-            }
-            else if (g_Config.SupportExplorer = "1" && winClass = "CabinetWClass") {
-                ; 使用增强的路径获取函数
-                explorerPath := GetExplorerPathEnhanced(id)
-                if IsValidFolder(explorerPath) {
-                    fileManagerCandidates.Push({ id: id, path: explorerPath, type: "Explorer" })
-                }
-            }
-            else if (g_Config.SupportXY = "1" && winClass = "ThunderRT6FormDC") {
-                folderPath := GetXYActiveFolder(id)
-                if IsValidFolder(folderPath) {
-                    fileManagerCandidates.Push({ id: id, path: folderPath, type: "XY" })
-                }
-            }
-            else if (g_Config.SupportOpus = "1" && winClass = "dopus.lister") {
-                folderPath := GetOpusActiveFolder(id)
-                if IsValidFolder(folderPath) {
-                    fileManagerCandidates.Push({ id: id, path: folderPath, type: "Opus" })
-                }
-            }
-        } catch {
-            continue
-        }
-    }
-
-    if (fileManagerCandidates.Length = 0) {
-        return ""
-    }
-
-    if (fileManagerCandidates.Length = 1) {
-        return fileManagerCandidates[1].path
-    }
-
-    return fileManagerCandidates[1].path
+    return RuntimePathSwitch.GetActiveFileManagerFolder(winID)
 }
 
 GetTCActiveFolder(winID) {
-    clipSaved := ClipboardAll()
-    A_Clipboard := ""
-
-    ; 方法1：使用PostMessage + ClipWait (基于V1代码修复)
-    try {
-        PostMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
-
-        if ClipWait(1) {
-            if (A_Clipboard != "") {
-                folderPath := A_Clipboard
-                A_Clipboard := clipSaved
-                return folderPath
-            }
-        }
-    } catch {
-        ; 忽略错误，继续尝试其他方法
-    }
-
-    ; 方法2：尝试目标路径 (右窗格)
-    A_Clipboard := ""
-    try {
-        PostMessage(1075, g_Config.TC_CopyTrgPath, 0, , "ahk_id " . winID)
-
-        if ClipWait(1) {
-            if (A_Clipboard != "") {
-                folderPath := A_Clipboard
-                A_Clipboard := clipSaved
-                return folderPath
-            }
-        }
-    } catch {
-        ; 忽略错误，继续尝试其他方法
-    }
-
-    ; 方法3：备选方案 - 使用SendMessage
-    A_Clipboard := ""
-    try {
-        result := SendMessage(1075, g_Config.TC_CopySrcPath, 0, , "ahk_id " . winID)
-        Sleep(100)
-
-        if (result != 0 && A_Clipboard != "") {
-            folderPath := A_Clipboard
-            A_Clipboard := clipSaved
-            return folderPath
-        }
-    } catch {
-        ; 忽略错误
-    }
-
-    A_Clipboard := clipSaved
-    return ""
+    return RuntimePathSwitch.GetTCActiveFolder(winID)
 }
 
 GetXYActiveFolder(winID) {
-    clipSaved := ClipboardAll()
-    A_Clipboard := ""
-
-    SendXYplorerMessage(winID, "::copytext get('path', a);")
-    ClipWait(0)
-
-    result := A_Clipboard
-    A_Clipboard := clipSaved
-    return result
+    return RuntimePathSwitch.GetXYActiveFolder(winID)
 }
 
 GetOpusActiveFolder(winID) {
-    thisPID := WinGetPID("ahk_id " . winID)
-    dopusExe := GetModuleFileName(thisPID)
-
-    RunWait('"' . dopusExe . '\..\dopusrt.exe" /info "' . g_Config.TempFile . '",paths', , , &dummy)
-    Sleep(100)
-
-    try {
-        opusInfo := FileRead(g_Config.TempFile)
-        FileDelete(g_Config.TempFile)
-
-        if RegExMatch(opusInfo, 'lister="' . winID . '".*tab_state="1".*>(.*)</path>', &match) {
-            return match[1]
-        }
-    }
-
-    return ""
+    return RuntimePathSwitch.GetOpusActiveFolder(winID)
 }
 
 FeedDialog(winID, folderPath, dialogType) {
-    try {
-        exeName := WinGetProcessName("ahk_id " . winID)
-        winTitle := WinGetTitle("ahk_id " . winID)
-        if (exeName = "blender.exe" && InStr(winTitle, "Blender File View")) {
-            FeedDialogGeneral(winID, folderPath)
-            return
-        }
-    } catch {
-        ; 如果检测失败，继续使用通用方法
-    }
-
-    switch dialogType {
-        case "GENERAL":
-            FeedDialogGeneral(winID, folderPath)
-        case "SYSLISTVIEW":
-            FeedDialogSysListView(winID, folderPath)
-    }
+    RuntimePathSwitch.FeedDialog(winID, folderPath, dialogType)
 }
 
 FeedDialogGeneral(winID, folderPath) {
-    WinActivate("ahk_id " . winID)
-    Sleep(200)
-
-    ; 方法1：优先尝试直接设置Edit1控件文本
-    try {
-        ; 确保路径格式正确
-        folderWithSlash := RTrim(folderPath, "\") . "\"
-
-        ; 先尝试获取Edit1控件的焦点
-        ControlFocus("Edit1", "ahk_id " . winID)
-        Sleep(50)
-
-        ; 清空Edit1内容并设置新路径
-        ControlSetText("", "Edit1", "ahk_id " . winID)
-        Sleep(50)
-        ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
-        Sleep(100)
-        ; 发送Enter键确认路径
-        ; ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
-        Send("{Enter}")
-        return  ; 如果成功，直接返回
-    } catch {
-        ; 方法1失败，继续尝试方法2
-    }
-
-    ; 方法2：使用剪贴板方式（备用方案）
-    try {
-        oldClipboard := A_Clipboard
-        A_Clipboard := folderPath
-        ClipWait(1, 0)
-
-        ; 尝试多种焦点获取方式
-        try ControlFocus("Edit1", "ahk_id " . winID)
-        Sleep(100)
-
-        ; 使用Ctrl+A全选然后粘贴
-        ControlSend("Edit1", "^a", "ahk_id " . winID)
-        Sleep(50)
-        ControlSend("Edit1", "^v", "ahk_id " . winID)
-        Sleep(100)
-        ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
-        Sleep(200)
-
-        A_Clipboard := oldClipboard
-        return
-    } catch {
-        ; 方法2失败，继续尝试方法3
-    }
-
-    ; 方法3：使用SendInput直接发送（最后备选）
-    try {
-        oldClipboard := A_Clipboard
-        A_Clipboard := folderPath
-        ClipWait(1, 0)
-
-        ; 激活窗口并发送快捷键
-        WinActivate("ahk_id " . winID)
-        Sleep(100)
-        SendInput("^l")  ; Ctrl+L定位到地址栏
-        Sleep(200)
-        SendInput("^v")  ; Ctrl+V粘贴
-        Sleep(100)
-        SendInput("{Enter}")  ; 确认
-        Sleep(200)
-
-        A_Clipboard := oldClipboard
-
-        ; 最后尝试将焦点设置回Edit1
-        try ControlFocus("Edit1", "ahk_id " . winID)
-        return
-    } catch {
-        ; 所有方法都失败，记录错误但不中断程序
-        ; MsgBox("路径设置失败，请手动输入路径: " . folderPath, "提示", "T2")
-    }
+    RuntimePathSwitch.FeedDialogGeneral(winID, folderPath)
 }
 
 FeedDialogSysListView(winID, folderPath) {
-    WinActivate("ahk_id " . winID)
-    Sleep(50)
-
-    try {
-        originalText := ControlGetText("Edit1", "ahk_id " . winID)
-        folderWithSlash := RTrim(folderPath, "\") . "\"
-
-        ControlSetText(folderWithSlash, "Edit1", "ahk_id " . winID)
-        Sleep(100)
-        ControlFocus("Edit1", "ahk_id " . winID)
-        ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
-        Sleep(200)
-
-        if (originalText != "" && !InStr(originalText, "\") && !InStr(originalText, "/")) {
-            ControlSetText(originalText, "Edit1", "ahk_id " . winID)
-        } else {
-            ControlSetText("", "Edit1", "ahk_id " . winID)
-        }
-    } catch {
-        try {
-            ControlSetText(folderPath, "Edit1", "ahk_id " . winID)
-            ControlSend("Edit1", "{Enter}", "ahk_id " . winID)
-        }
-    }
+    RuntimePathSwitch.FeedDialogSysListView(winID, folderPath)
 }
 
 AddFileMenuItemWithQuickAccess(contextMenu, folderPath, iconPath := "", iconIndex := 0) {
@@ -1641,36 +1306,7 @@ AutoSwitchHandler(*) {
 }
 
 GetWindowsFolderActivePath(*) {
-    ; 获取当前活动窗口
-    currentWinID := WinExist("A")
-
-    ; 检查当前窗口是否为文件对话框
-    if (IsFileDialog(currentWinID)) {
-        ; 如果是文件对话框，执行路径切换功能
-
-        ; 如果当前对话框信息未设置或已过期，重新设置
-        if (!RuntimeFileDialog.EnsureCurrent(currentWinID)) {
-            ; 如果检测失败，直接返回
-            return
-        }
-
-        ; 获取文件管理器的当前路径
-        folderPath := GetActiveFileManagerFolder(currentWinID)
-
-        if IsValidFolder(folderPath) {
-            ; 记录到最近路径并切换到该路径
-            RecordRecentPath(folderPath)
-            FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
-        } else {
-            ; 如果没有找到有效的文件管理器路径，显示路径切换菜单
-            ShowFileDialogMenu(currentWinID)
-        }
-    } else {
-        ; 如果不是文件对话框，什么都不做（或者可以显示提示信息）
-        ; 可选：显示提示信息
-        ; MsgBox("此功能仅在文件对话框中可用", "提示", "T2")
-        return
-    }
+    RuntimePathSwitch.GetWindowsFolderActivePath()
 }
 
 NotNowHandler(*) {
@@ -1698,40 +1334,11 @@ NeverHandler(*) {
 }
 
 SendToTCHandler(dialogPath, *) {
-    RuntimeMenu.Release()
-
-    try {
-        tcWindow := WinExist("ahk_class TTOTAL_CMD")
-
-        if (tcWindow) {
-            WinActivate("ahk_class TTOTAL_CMD")
-            Sleep(100)
-
-            PostMessage(1075, 3001, 0, , "ahk_class TTOTAL_CMD")
-            Sleep(100)
-
-            ControlSetText("cd " . dialogPath, "Edit1", "ahk_class TTOTAL_CMD")
-            Sleep(400)
-            ControlSend("Edit1", "{Enter}", "ahk_class TTOTAL_CMD")
-
-            RecordRecentPath(dialogPath)
-        } else {
-            MsgBox("未找到 Total Commander 窗口", "发送路径", "T3")
-        }
-    } catch as e {
-        MsgBox("发送路径到 Total Commander 失败: " . e.message, "错误", "T5")
-    }
+    RuntimePathSwitch.SendToTCHandler(dialogPath)
 }
 
 SendToExplorerHandler(dialogPath, *) {
-    RuntimeMenu.Release()
-
-    try {
-        Run("explorer.exe `"" . dialogPath . "`"")
-        RecordRecentPath(dialogPath)
-    } catch as e {
-        MsgBox("发送路径到资源管理器失败: " . e.message, "错误", "T5")
-    }
+    RuntimePathSwitch.SendToExplorerHandler(dialogPath)
 }
 
 RecordRecentPath(folderPath) {
