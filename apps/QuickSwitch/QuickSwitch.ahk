@@ -8,6 +8,7 @@
 #Include "Lib/TrayIcon.ahk"
 #Include "Lib/UTF8Ini.ahk"
 #Include "Lib/ConfigSchema.ahk"
+#Include "Lib/RuntimeConfig.ahk"
 ; 引入 UIA.ahk 库用于UI自动化检测
 #Include "Lib/UIA.ahk"
 
@@ -189,7 +190,7 @@ InitializeConfig() {
     }
 
     ; 加载配置
-    LoadConfiguration()
+    RuntimeConfig.Load()
 
     ; 清理临时文件
     try FileDelete(g_Config.TempFile)
@@ -293,319 +294,6 @@ CreateDefaultIniFile() {
     }
 }
 
-ReadConfigValue(section, key, fallback := "") {
-    global g_Config
-    defaultValue := GetConfigDefault(section, key, fallback)
-    return UTF8IniRead(g_Config.IniFile, section, key, defaultValue)
-}
-
-LoadConfiguration() {
-    global g_DarkMode, g_MenuCooldownMs, g_LogRetentionDays
-    ; 加载基本设置
-    g_Config.MainHotkey := ReadConfigValue("Settings", "MainHotkey")
-    g_Config.QuickSwitchHotkey := ReadConfigValue("Settings", "QuickSwitchHotkey")
-    g_Config.GetWindowsFolderActivePathKey := ReadConfigValue("Settings", "GetWindowsFolderActivePathKey")
-    g_Config.EnableGetWindowsFolderActivePath := ReadConfigValue("Settings", "EnableGetWindowsFolderActivePath")
-    g_Config.MaxHistoryCount := Integer(ReadConfigValue("Settings", "MaxHistoryCount"))
-    g_Config.EnableQuickAccess := ReadConfigValue("Settings", "EnableQuickAccess")
-    g_Config.QuickAccessKeys := ReadConfigValue("Settings", "QuickAccessKeys")
-    g_Config.RunMode := Integer(ReadConfigValue("Settings", "RunMode"))
-    try {
-        g_Config.MenuCooldownMs := Integer(ReadConfigValue("Settings", "MenuCooldownMs"))
-    } catch {
-        g_Config.MenuCooldownMs := Integer(GetConfigDefault("Settings", "MenuCooldownMs", "150"))
-    }
-
-    ; 加载显示设置
-    g_Config.MenuColor := ReadConfigValue("Display", "MenuColor")
-    g_Config.IconSize := Integer(ReadConfigValue("Display", "IconSize"))
-    g_Config.ShowWindowTitle := ReadConfigValue("Display", "ShowWindowTitle")
-    g_Config.ShowProcessName := ReadConfigValue("Display", "ShowProcessName")
-
-    ; 加载程序切换菜单位置设置
-    g_Config.WindowSwitchPosition := ReadConfigValue("WindowSwitchMenu", "Position")
-    g_Config.WindowSwitchPosX := Integer(ReadConfigValue("WindowSwitchMenu", "FixedPosX"))
-    g_Config.WindowSwitchPosY := Integer(ReadConfigValue("WindowSwitchMenu", "FixedPosY"))
-
-    ; 加载路径切换菜单位置设置
-    g_Config.PathSwitchPosition := ReadConfigValue("PathSwitchMenu", "Position")
-    g_Config.PathSwitchPosX := Integer(ReadConfigValue("PathSwitchMenu", "FixedPosX"))
-    g_Config.PathSwitchPosY := Integer(ReadConfigValue("PathSwitchMenu", "FixedPosY"))
-
-    ; 加载文件管理器设置
-    g_Config.SupportTC := ReadConfigValue("FileManagers", "TotalCommander")
-    g_Config.SupportExplorer := ReadConfigValue("FileManagers", "Explorer")
-    g_Config.SupportXY := ReadConfigValue("FileManagers", "XYplorer")
-    g_Config.SupportOpus := ReadConfigValue("FileManagers", "DirectoryOpus")
-
-    ; 加载自定义路径设置
-    g_Config.EnableCustomPaths := ReadConfigValue("CustomPaths", "EnableCustomPaths")
-    g_Config.CustomPathsTitle := ReadConfigValue("CustomPaths", "MenuTitle")
-    g_Config.ShowCustomName := ReadConfigValue("CustomPaths", "ShowCustomName")
-
-    ; 加载最近路径设置
-    g_Config.EnableRecentPaths := ReadConfigValue("RecentPaths", "EnableRecentPaths")
-    g_Config.RecentPathsTitle := ReadConfigValue("RecentPaths", "MenuTitle")
-    g_Config.MaxRecentPaths := ReadConfigValue("RecentPaths", "MaxRecentPaths")
-
-    ; Total Commander 消息代码
-    g_Config.TC_CopySrcPath := Integer(ReadConfigValue("TotalCommander", "CopySrcPath"))
-    g_Config.TC_CopyTrgPath := Integer(ReadConfigValue("TotalCommander", "CopyTrgPath"))
-
-    ; 加载主题设置
-    g_DarkMode := ReadConfigValue("Theme", "DarkMode") = "1"
-
-    ; 加载文件对话框默认行为设置
-    g_Config.FileDialogDefaultAction := ReadConfigValue("FileDialog", "DefaultAction")
-
-    ; 加载日志设置
-    g_Config.EnableLog := ReadConfigValue("Settings", "EnableLog")
-    global g_LogEnabled := g_Config.EnableLog = "1"
-    try {
-        g_Config.LogRetentionDays := Integer(ReadConfigValue("Settings", "LogRetentionDays"))
-    } catch {
-        g_Config.LogRetentionDays := Integer(GetConfigDefault("Settings", "LogRetentionDays", "7"))
-    }
-
-    ; 应用主题设置
-    WindowsTheme.SetAppMode(g_DarkMode)
-
-    ; 清空并重新加载排除的程序列表
-    g_ExcludedApps.Length := 0
-    loop 50 {  ; 支持最多50个排除程序
-        appKey := "App" . A_Index
-        appValue := UTF8IniRead(g_Config.IniFile, "ExcludedApps", appKey, "")
-        if (appValue != "") {
-            g_ExcludedApps.Push(StrLower(appValue))
-        }
-    }
-
-    ; 清空并重新加载置顶程序列表
-    g_PinnedWindows.Length := 0
-    loop 20 {  ; 支持最多20个置顶程序
-        appKey := "App" . A_Index
-        appValue := UTF8IniRead(g_Config.IniFile, "PinnedApps", appKey, "")
-        if (appValue != "") {
-            g_PinnedWindows.Push(StrLower(appValue))
-        }
-    }
-
-    ; 验证关键配置是否正确加载
-    ValidateConfiguration()
-    g_LogRetentionDays := g_Config.LogRetentionDays
-    ResetRuntimeLookupCaches()
-    RefreshMenuCaches()
-}
-
-; 验证配置是否正确加载
-ValidateConfiguration() {
-    global g_MenuCooldownMs, g_LogRetentionDays
-    ; 检查关键配置项是否正确加载
-    configErrors := []
-
-    ; 检查热键配置
-    if (g_Config.MainHotkey = "") {
-        configErrors.Push("主快捷键配置缺失")
-    }
-
-    if (g_Config.QuickSwitchHotkey = "") {
-        configErrors.Push("快速切换热键配置缺失")
-    }
-
-    if (g_Config.GetWindowsFolderActivePathKey = "") {
-        configErrors.Push("GetWindowsFolderActivePath热键配置缺失")
-    }
-
-    ; 检查数值配置
-    if (g_Config.MaxHistoryCount <= 0) {
-        configErrors.Push("历史记录数量配置错误")
-        g_Config.MaxHistoryCount := 10  ; 使用默认值
-    }
-
-    if (g_Config.IconSize <= 0) {
-        configErrors.Push("图标大小配置错误")
-        g_Config.IconSize := 16  ; 使用默认值
-    }
-
-    if (g_Config.MenuCooldownMs < 50 || g_Config.MenuCooldownMs > 1000) {
-        configErrors.Push("MenuCooldownMs配置错误（允许范围: 50-1000）")
-        g_Config.MenuCooldownMs := Integer(GetConfigDefault("Settings", "MenuCooldownMs", "150"))
-    }
-
-    if (g_Config.LogRetentionDays < 1 || g_Config.LogRetentionDays > 365) {
-        configErrors.Push("LogRetentionDays配置错误（允许范围: 1-365）")
-        g_Config.LogRetentionDays := Integer(GetConfigDefault("Settings", "LogRetentionDays", "7"))
-    }
-
-    ; 检查开关配置
-    if (g_Config.EnableGetWindowsFolderActivePath != "0" && g_Config.EnableGetWindowsFolderActivePath != "1") {
-        configErrors.Push("EnableGetWindowsFolderActivePath开关配置错误")
-        g_Config.EnableGetWindowsFolderActivePath := GetConfigDefault("Settings", "EnableGetWindowsFolderActivePath",
-            "0")
-    }
-
-    ; 如果有配置错误，显示警告
-    if (configErrors.Length > 0) {
-        errorMsg := "发现配置错误：`n"
-        for errorItem in configErrors {
-            errorMsg .= "- " . errorItem . "`n"
-        }
-        errorMsg .= "`n已使用默认值修复。建议检查配置文件。"
-        MsgBox(errorMsg, "配置验证警告", "Icon! T10")
-    }
-
-    g_MenuCooldownMs := g_Config.MenuCooldownMs
-    g_LogRetentionDays := g_Config.LogRetentionDays
-}
-
-RefreshMenuCaches() {
-    LoadQuickLaunchCache()
-    LoadCustomPathsCache()
-    LoadRecentPathsCache()
-}
-
-ResetRuntimeLookupCaches() {
-    global g_AppExecutableCache, g_ProcessIconCache, g_RuntimeLookupMissCache
-
-    g_AppExecutableCache := Map()
-    g_ProcessIconCache := Map()
-    g_RuntimeLookupMissCache := { appExe: Map(), processIcon: Map() }
-}
-
-LoadQuickLaunchCache() {
-    global g_QuickLaunchCache
-
-    section := "QuickLaunchApps"
-    enabled := true
-    maxDisplayCount := 2
-    appList := []
-
-    try {
-        enabled := Integer(UTF8IniRead(g_Config.IniFile, section, "EnableQuickLaunchApps", "1")) = 1
-    } catch {
-        enabled := true
-    }
-
-    try {
-        maxDisplayCount := Integer(UTF8IniRead(g_Config.IniFile, section, "MaxDisplayCount", "2"))
-    } catch {
-        maxDisplayCount := 2
-    }
-    if (maxDisplayCount < 0) {
-        maxDisplayCount := 0
-    }
-
-    loop {
-        appIndex := A_Index
-        appConfig := UTF8IniRead(g_Config.IniFile, section, "App" . appIndex, "")
-        if (appConfig = "") {
-            break
-        }
-
-        parts := StrSplit(appConfig, "|")
-        if (parts.Length >= 2) {
-            appList.Push({
-                displayName: parts[1],
-                processName: parts[2],
-                exePath: parts.Length >= 3 ? parts[3] : "",
-                hotkey: parts.Length >= 4 ? parts[4] : ""
-            })
-        }
-    }
-
-    g_QuickLaunchCache := {
-        enabled: enabled,
-        maxDisplayCount: maxDisplayCount,
-        apps: appList
-    }
-}
-
-LoadCustomPathsCache() {
-    global g_CustomPathsCache
-
-    showCustomName := g_Config.ShowCustomName = "1"
-    pinnedPaths := []
-    normalPaths := []
-
-    loop 20 {
-        pathKey := "Path" . A_Index
-        pathValue := UTF8IniRead(g_Config.IniFile, "CustomPaths", pathKey, "")
-        if (pathValue = "") {
-            continue
-        }
-
-        displayName := ""
-        actualPath := ""
-        isPinned := false
-
-        if InStr(pathValue, "|") {
-            parts := StrSplit(pathValue, "|", " `t")
-            if (parts.Length >= 2) {
-                displayName := parts[1]
-                actualPath := parts[2]
-                if (parts.Length >= 3 && Trim(parts[3]) = "1") {
-                    isPinned := true
-                }
-            } else {
-                displayName := pathValue
-                actualPath := pathValue
-            }
-        } else {
-            SplitPath(pathValue, &folderName)
-            displayName := folderName != "" ? folderName : pathValue
-            actualPath := pathValue
-        }
-
-        expandedPath := ExpandEnvironmentVariables(actualPath)
-        if !IsValidFolder(expandedPath) {
-            continue
-        }
-
-        finalDisplayText := showCustomName ? displayName : expandedPath
-        pathObj := { display: finalDisplayText, path: expandedPath, isPinned: isPinned }
-
-        if (isPinned) {
-            pinnedPaths.Push(pathObj)
-        } else {
-            normalPaths.Push(pathObj)
-        }
-    }
-
-    g_CustomPathsCache := {
-        pinnedPaths: pinnedPaths,
-        normalPaths: normalPaths
-    }
-}
-
-LoadRecentPathsCache() {
-    global g_RecentPathsCache
-
-    recentPaths := []
-    maxPaths := Integer(g_Config.MaxRecentPaths)
-    if (maxPaths <= 0) {
-        maxPaths := 1
-    }
-
-    loop maxPaths {
-        recentValue := UTF8IniRead(g_Config.IniFile, "RecentPaths", "Recent" . A_Index, "")
-        if (recentValue = "") {
-            continue
-        }
-
-        if InStr(recentValue, "|") {
-            parts := StrSplit(recentValue, "|", " `t")
-            pathValue := parts.Length >= 2 ? parts[2] : recentValue
-        } else {
-            pathValue := recentValue
-        }
-
-        if IsValidFolder(pathValue) {
-            recentPaths.Push(pathValue)
-        }
-    }
-
-    g_RecentPathsCache := recentPaths
-}
 ;============================================================================
 ; 热键注册
 ; ============================================================================
@@ -1239,38 +927,8 @@ IsFileDialog(winID) {
 
 InitializeCurrentWindows() {
     try {
-        ; 获取所有可见窗口
-        allWindows := WinGetList()
-        windowsInfo := []
-
-        for winID in allWindows {
-            try {
-                if (!WinExist("ahk_id " . winID)) {
-                    continue
-                }
-
-                winTitle := WinGetTitle("ahk_id " . winID)
-                processName := WinGetProcessName("ahk_id " . winID)
-
-                if (ShouldExcludeWindow(processName, winTitle)) {
-                    continue
-                }
-
-                if (!IsWindowVisible(winID)) {
-                    continue
-                }
-
-                windowsInfo.Push({
-                    ID: winID,
-                    Title: winTitle,
-                    ProcessName: processName,
-                    Timestamp: A_Now
-                })
-
-            } catch {
-                continue
-            }
-        }
+        windowSnapshot := CollectWindowSnapshot()
+        windowsInfo := windowSnapshot.VisibleWindows
 
         ; 按Z-order顺序添加到历史记录
         loop windowsInfo.Length {
@@ -1293,6 +951,44 @@ InitializeCurrentWindows() {
     } catch {
         ; 如果初始化失败，继续运行程序
     }
+}
+
+CollectWindowSnapshot() {
+    snapshot := {
+        AllWindowIds: WinGetList(),
+        VisibleWindows: []
+    }
+
+    ; TODO: If Ctrl+Q profiling still shows pressure here, add a short-lived snapshot cache.
+    for winID in snapshot.AllWindowIds {
+        try {
+            if (!WinExist("ahk_id " . winID)) {
+                continue
+            }
+
+            winTitle := WinGetTitle("ahk_id " . winID)
+            processName := WinGetProcessName("ahk_id " . winID)
+
+            if (ShouldExcludeWindow(processName, winTitle)) {
+                continue
+            }
+
+            if (!IsWindowVisible(winID)) {
+                continue
+            }
+
+            snapshot.VisibleWindows.Push({
+                ID: winID,
+                Title: winTitle,
+                ProcessName: processName,
+                Timestamp: A_Now
+            })
+        } catch {
+            continue
+        }
+    }
+
+    return snapshot
 }
 
 StartWindowMonitoring() {
@@ -1432,50 +1128,12 @@ ShowWindowSwitchMenu(*) {
     stageTick := startTick
 
     try {
-        windowSnapshot := WinGetList()
-        LogMenuStageElapsed("WindowSwitch", "snapshot", &stageTick, startTick, g_MenuItems.Length)
-        PrewarmProcessIconCacheFromWindows(windowSnapshot)
+        windowSnapshot := CollectWindowSnapshot()
+        LogMenuStageElapsed("WindowSwitch", "collect_windows", &stageTick, startTick, g_MenuItems.Length)
+        PrewarmProcessIconCacheFromWindows(windowSnapshot.AllWindowIds)
         LogMenuStageElapsed("WindowSwitch", "prewarm_icon_cache", &stageTick, startTick, g_MenuItems.Length)
-
-        ; 创建上下文菜单
-        contextMenu := Menu()
-        contextMenu.Add("QuickSwitch - 程序切换", (*) => "")
-        contextMenu.Default := "QuickSwitch - 程序切换"
-        contextMenu.Disable("QuickSwitch - 程序切换")
-
-        hasMenuItems := false
-
-        ; 添加置顶程序
-        hasMenuItems := AddPinnedWindows(contextMenu, windowSnapshot) || hasMenuItems
-        LogMenuStageElapsed("WindowSwitch", "add_pinned", &stageTick, startTick, g_MenuItems.Length)
-
-        ; 添加分隔符
-        if (hasMenuItems) {
-            contextMenu.Add()
-        }
-
-        ; 添加历史窗口
-        hasMenuItems := AddHistoryWindows(contextMenu, windowSnapshot) || hasMenuItems
-        LogMenuStageElapsed("WindowSwitch", "add_history", &stageTick, startTick, g_MenuItems.Length)
-
-        ; 添加分隔符
-        if (hasMenuItems) {
-            contextMenu.Add()
-        }
-
-        ; 添加快速启动应用程序按钮
-        quickLaunchAdded := AddQuickLaunchApps(contextMenu)
-        LogMenuStageElapsed("WindowSwitch", "add_quick_launch", &stageTick, startTick, g_MenuItems.Length)
-
-        ; 添加设置菜单
-        if (quickLaunchAdded) {
-            contextMenu.Add()
-        }
-        AddWindowSettingsMenu(contextMenu, windowSnapshot)
-        LogMenuStageElapsed("WindowSwitch", "add_settings", &stageTick, startTick, g_MenuItems.Length)
-
-        ; 配置菜单外观
-        contextMenu.Color := g_Config.MenuColor
+        contextMenu := RenderWindowSwitchMenu(windowSnapshot, &stageTick, startTick)
+        LogMenuStageElapsed("WindowSwitch", "render_menu", &stageTick, startTick, g_MenuItems.Length)
 
         ; 根据配置显示菜单 - 程序切换菜单
         if (g_Config.WindowSwitchPosition = "mouse") {
@@ -1499,6 +1157,155 @@ ShowWindowSwitchMenu(*) {
         LogMenuBuildElapsed("WindowSwitch", startTick, g_MenuItems.Length)
         ScheduleMenuUnlock(lockToken, 150)
     }
+}
+
+RenderWindowSwitchMenu(windowSnapshot, &stageTick, startTick) {
+    contextMenu := Menu()
+    contextMenu.Add("QuickSwitch - 程序切换", (*) => "")
+    contextMenu.Default := "QuickSwitch - 程序切换"
+    contextMenu.Disable("QuickSwitch - 程序切换")
+
+    hasMenuItems := false
+    pinnedMenuItems := CollectPinnedWindowMenuItems(windowSnapshot)
+    historyMenuItems := CollectHistoryWindowMenuItems()
+
+    hasMenuItems := AddPinnedWindows(contextMenu, pinnedMenuItems, windowSnapshot.AllWindowIds) || hasMenuItems
+    LogMenuStageElapsed("WindowSwitch", "add_pinned", &stageTick, startTick, g_MenuItems.Length)
+
+    if (hasMenuItems) {
+        contextMenu.Add()
+    }
+
+    hasMenuItems := AddHistoryWindows(contextMenu, historyMenuItems, windowSnapshot.AllWindowIds) || hasMenuItems
+    LogMenuStageElapsed("WindowSwitch", "add_history", &stageTick, startTick, g_MenuItems.Length)
+
+    if (hasMenuItems) {
+        contextMenu.Add()
+    }
+
+    quickLaunchAdded := AddQuickLaunchApps(contextMenu)
+    LogMenuStageElapsed("WindowSwitch", "add_quick_launch", &stageTick, startTick, g_MenuItems.Length)
+
+    if (quickLaunchAdded) {
+        contextMenu.Add()
+    }
+    settingsMenuData := CollectWindowSettingsMenuData(windowSnapshot.AllWindowIds)
+    AddWindowSettingsMenu(contextMenu, settingsMenuData, windowSnapshot.AllWindowIds)
+    LogMenuStageElapsed("WindowSwitch", "add_settings", &stageTick, startTick, g_MenuItems.Length)
+
+    contextMenu.Color := g_Config.MenuColor
+    return contextMenu
+}
+
+CollectPinnedWindowMenuItems(windowSnapshot := "") {
+    pinnedMenuItems := []
+
+    if !IsObject(windowSnapshot) {
+        windowSnapshot := CollectWindowSnapshot()
+    }
+
+    ; TODO: Later we can merge pinned/history menu item creation behind a shared window-menu-item builder.
+    for windowInfo in windowSnapshot.VisibleWindows {
+        try {
+            if (!IsPinnedApp(windowInfo.ProcessName)) {
+                continue
+            }
+
+            pinnedMenuItems.Push({
+                WindowId: windowInfo.ID,
+                ProcessName: windowInfo.ProcessName,
+                DisplayText: CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
+            })
+        } catch {
+            continue
+        }
+    }
+
+    return pinnedMenuItems
+}
+
+CollectHistoryWindowMenuItems() {
+    historyMenuItems := []
+
+    ; TODO: Later we can enrich this with ordering/debug metadata for Ctrl+Q diagnostics.
+    for windowInfo in g_WindowHistory {
+        try {
+            if (!WinExist("ahk_id " . windowInfo.ID)) {
+                continue
+            }
+
+            if (IsPinnedApp(windowInfo.ProcessName)) {
+                continue
+            }
+
+            historyMenuItems.Push({
+                WindowId: windowInfo.ID,
+                ProcessName: windowInfo.ProcessName,
+                DisplayText: CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
+            })
+        } catch {
+            continue
+        }
+    }
+
+    return historyMenuItems
+}
+
+CollectWindowSettingsMenuData(allWindows := "") {
+    if !IsObject(allWindows) {
+        allWindows := WinGetList()
+    }
+
+    settingsMenuData := {
+        CloseItems: [],
+        PinItems: [],
+        UnpinItems: []
+    }
+
+    ; TODO: If the settings menu keeps growing, split each submenu collector into its own function.
+    for windowInfo in g_WindowHistory {
+        try {
+            if (!WinExist("ahk_id " . windowInfo.ID)) {
+                continue
+            }
+
+            settingsMenuData.CloseItems.Push({
+                DisplayText: CreateDisplayText(windowInfo.Title, windowInfo.ProcessName),
+                ProcessName: windowInfo.ProcessName,
+                WindowId: windowInfo.ID
+            })
+
+            if (!IsPinnedApp(windowInfo.ProcessName)) {
+                settingsMenuData.PinItems.Push({
+                    DisplayText: CreateDisplayText(windowInfo.Title, windowInfo.ProcessName),
+                    ProcessName: windowInfo.ProcessName
+                })
+            }
+        } catch {
+            continue
+        }
+    }
+
+    for winID in allWindows {
+        try {
+            if (!WinExist("ahk_id " . winID)) {
+                continue
+            }
+
+            processName := WinGetProcessName("ahk_id " . winID)
+            winTitle := WinGetTitle("ahk_id " . winID)
+            if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
+                settingsMenuData.UnpinItems.Push({
+                    DisplayText: CreateDisplayText(winTitle, processName),
+                    ProcessName: processName
+                })
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return settingsMenuData
 }
 
 AddQuickLaunchApps(contextMenu) {
@@ -1872,23 +1679,20 @@ GetRegistryAppPaths(processName) {
     return registryPaths
 }
 
-AddPinnedWindows(contextMenu, allWindows := "") {
+AddPinnedWindows(contextMenu, pinnedMenuItems, allWindows := "") {
     added := false
-    if !IsObject(allWindows) {
-        allWindows := WinGetList()
-    }
 
-    for winID in allWindows {
+    for item in pinnedMenuItems {
         try {
-            processName := WinGetProcessName("ahk_id " . winID)
-            winTitle := WinGetTitle("ahk_id " . winID)
-
-            if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
-                displayText := CreateDisplayText(winTitle, processName)
-                AddWindowMenuItemWithQuickAccess(contextMenu, displayText, WindowChoiceHandler.Bind(winID), processName,
-                true, allWindows)
-                added := true
-            }
+            AddWindowMenuItemWithQuickAccess(
+                contextMenu,
+                item.DisplayText,
+                WindowChoiceHandler.Bind(item.WindowId),
+                item.ProcessName,
+                true,
+                allWindows
+            )
+            added := true
         } catch {
             continue
         }
@@ -1897,22 +1701,19 @@ AddPinnedWindows(contextMenu, allWindows := "") {
     return added
 }
 
-AddHistoryWindows(contextMenu, allWindows := "") {
+AddHistoryWindows(contextMenu, historyMenuItems, allWindows := "") {
     added := false
 
-    for windowInfo in g_WindowHistory {
+    for item in historyMenuItems {
         try {
-            if (!WinExist("ahk_id " . windowInfo.ID)) {
-                continue
-            }
-
-            if (IsPinnedApp(windowInfo.ProcessName)) {
-                continue
-            }
-
-            displayText := CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
-            AddWindowMenuItemWithQuickAccess(contextMenu, displayText, WindowChoiceHandler.Bind(windowInfo.ID),
-            windowInfo.ProcessName, false, allWindows)
+            AddWindowMenuItemWithQuickAccess(
+                contextMenu,
+                item.DisplayText,
+                WindowChoiceHandler.Bind(item.WindowId),
+                item.ProcessName,
+                false,
+                allWindows
+            )
             added := true
 
         } catch {
@@ -1923,11 +1724,7 @@ AddHistoryWindows(contextMenu, allWindows := "") {
     return added
 }
 
-AddWindowSettingsMenu(contextMenu, allWindows := "") {
-    if !IsObject(allWindows) {
-        allWindows := WinGetList()
-    }
-
+AddWindowSettingsMenu(contextMenu, settingsMenuData, allWindows := "") {
     settingsMenu := Menu()
 
     ; 添加运行模式子菜单
@@ -1951,72 +1748,44 @@ AddWindowSettingsMenu(contextMenu, allWindows := "") {
     ; settingsMenu.Add("GetWindowsFolderActivePath功能", ToggleGetWindowsFolderActivePath)
     ; settingsMenu.Add()
 
-    ; 添加窗口操作子菜单（关闭程序、添加置顶、取消置顶）
-    ; 创建关闭程序子菜单
     closeMenu := Menu()
-    closeMenuAdded := false
-
-    ; 创建置顶程序子菜单
     pinnedMenu := Menu()
-    pinnedMenuAdded := false
-
-    ; 创建取消置顶程序子菜单
     unpinnedMenu := Menu()
-    unpinnedMenuAdded := false
 
-    ; 首先从历史窗口中添加（用于关闭程序和添加置顶）
-    for windowInfo in g_WindowHistory {
+    closeMenuAdded := false
+    for item in settingsMenuData.CloseItems {
         try {
-            if (!WinExist("ahk_id " . windowInfo.ID)) {
-                continue
-            }
-
-            displayText := CreateDisplayText(windowInfo.Title, windowInfo.ProcessName)
-
-            ; 添加到关闭菜单
-            closeMenu.Add(displayText, CloseAppHandler.Bind(windowInfo.ProcessName, windowInfo.ID))
+            closeMenu.Add(item.DisplayText, CloseAppHandler.Bind(item.ProcessName, item.WindowId))
             try {
-                closeMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize)
+                closeMenu.SetIcon(item.DisplayText, GetProcessIcon(item.ProcessName, allWindows), , g_Config.IconSize)
             }
             closeMenuAdded := true
-
-            ; 如果不是置顶程序，添加到置顶菜单
-            if (!IsPinnedApp(windowInfo.ProcessName)) {
-                pinnedMenu.Add(displayText, AddToPinnedHandler.Bind(windowInfo.ProcessName))
-                try {
-                    pinnedMenu.SetIcon(displayText, GetProcessIcon(windowInfo.ProcessName, allWindows), , g_Config.IconSize
-                    )
-                }
-                pinnedMenuAdded := true
-            }
-
         } catch {
             continue
         }
     }
 
-    ; 然后遍历所有窗口查找置顶的程序（用于取消置顶）
-    for winID in allWindows {
+    pinnedMenuAdded := false
+    for item in settingsMenuData.PinItems {
         try {
-            if (!WinExist("ahk_id " . winID)) {
-                continue
+            pinnedMenu.Add(item.DisplayText, AddToPinnedHandler.Bind(item.ProcessName))
+            try {
+                pinnedMenu.SetIcon(item.DisplayText, GetProcessIcon(item.ProcessName, allWindows), , g_Config.IconSize)
             }
+            pinnedMenuAdded := true
+        } catch {
+            continue
+        }
+    }
 
-            processName := WinGetProcessName("ahk_id " . winID)
-            winTitle := WinGetTitle("ahk_id " . winID)
-
-            ; 只处理置顶的程序
-            if (IsPinnedApp(processName) && !ShouldExcludeWindow(processName, winTitle)) {
-                displayText := CreateDisplayText(winTitle, processName)
-
-                ; 添加到取消置顶菜单
-                unpinnedMenu.Add(displayText, RemoveFromPinnedHandler.Bind(processName))
-                try {
-                    unpinnedMenu.SetIcon(displayText, GetProcessIcon(processName, allWindows), , g_Config.IconSize)
-                }
-                unpinnedMenuAdded := true
+    unpinnedMenuAdded := false
+    for item in settingsMenuData.UnpinItems {
+        try {
+            unpinnedMenu.Add(item.DisplayText, RemoveFromPinnedHandler.Bind(item.ProcessName))
+            try {
+                unpinnedMenu.SetIcon(item.DisplayText, GetProcessIcon(item.ProcessName, allWindows), , g_Config.IconSize)
             }
-
+            unpinnedMenuAdded := true
         } catch {
             continue
         }
@@ -3237,7 +3006,7 @@ RecordRecentPath(folderPath) {
         entryIndex++
     }
 
-    LoadRecentPathsCache()
+    RuntimeConfig.LoadRecentPathsCache()
 }
 ; ============================================================================
 ; 文件对话框菜单功能
@@ -3439,7 +3208,7 @@ EditConfigFile(*) {
 
 ReloadConfig(*) {
     try {
-        LoadConfiguration()
+        RuntimeConfig.Load()
 
         ; 重新注册所有热键
         try Hotkey(g_Config.MainHotkey, "Off")
