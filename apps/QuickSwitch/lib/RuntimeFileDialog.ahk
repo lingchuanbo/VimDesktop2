@@ -1,4 +1,34 @@
 class RuntimeFileDialog {
+    static MonitorDialogs() {
+        static lastDialogID := ""
+        static dialogProcessed := false
+
+        if (g_MenuActive || RuntimeMenu.IsRequestThrottled()) {
+            return
+        }
+
+        currentWinID := WinExist("A")
+        if (!currentWinID) {
+            return
+        }
+
+        dialogType := GetFileDialogType(currentWinID)
+        if (dialogType != "") {
+            if (currentWinID != lastDialogID || !dialogProcessed) {
+                lastDialogID := currentWinID
+                dialogProcessed := true
+
+                if (this.Sync(currentWinID)) {
+                    this.ProcessCurrentDialog()
+                }
+            }
+        } else if (currentWinID != lastDialogID) {
+            lastDialogID := ""
+            dialogProcessed := false
+            this.Clear()
+        }
+    }
+
     static Sync(winID) {
         global g_CurrentDialog
 
@@ -74,6 +104,20 @@ class RuntimeFileDialog {
         return g_CurrentDialog.Action
     }
 
+    static ProcessCurrentDialog() {
+        this.ResolveAndStoreAction()
+
+        if (g_CurrentDialog.Action = "1") {
+            folderPath := GetActiveFileManagerFolder(g_CurrentDialog.WinID)
+            if IsValidFolder(folderPath) {
+                RecordRecentPath(folderPath)
+                FeedDialog(g_CurrentDialog.WinID, folderPath, g_CurrentDialog.Type)
+            }
+        } else if (g_CurrentDialog.Action = "2") {
+            SetTimer(ObjBindMethod(this, "ShowDelayedMenu", g_CurrentDialog.WinID), -200)
+        }
+    }
+
     static SetAction(action) {
         global g_Config, g_CurrentDialog
 
@@ -112,5 +156,11 @@ class RuntimeFileDialog {
         return expectedWinID = g_CurrentDialog.WinID
             && g_CurrentDialog.WinID != ""
             && WinExist("ahk_id " . g_CurrentDialog.WinID)
+    }
+
+    static ShowDelayedMenu(expectedWinID) {
+        if (this.CanShowDelayed(expectedWinID)) {
+            ShowFileDialogMenuInternal()
+        }
     }
 }
