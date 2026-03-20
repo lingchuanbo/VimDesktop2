@@ -1,7 +1,7 @@
 ﻿VimDesktop 配置校验报告
-时间: 2026-03-06 09:37:03
+时间: 2026-03-20 21:44:59
 主配置: D:\BoBO\VimDesktop2\src\..\config\vimd.ini
 插件配置文件数: 4
-问题数: 0
+问题数: 1
 ----------------------------------------
-未发现配置问题。
+1. D:\BoBO\VimDesktop2\src\..\plugins\Blender\Blender.ini | [Blender].python_path - 路径不存在 (value: C:\Program Files\Blender Foundation\Blender 4.5\4.5\python\bin\python.exe)
