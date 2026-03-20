@@ -1158,21 +1158,29 @@ GetFileDialogControlFlags(winID) {
     controlList := WinGetControls("ahk_id " . winID)
     flags := {
         hasSysListView: false,
+        hasTreeView: false,
         hasToolbar: false,
         hasDirectUI: false,
-        hasEdit: false
+        hasEdit: false,
+        buttonCount: 0
     }
 
     for control in controlList {
         switch control {
             case "SysListView321":
                 flags.hasSysListView := true
+            case "SysTreeView321":
+                flags.hasTreeView := true
             case "ToolbarWindow321":
                 flags.hasToolbar := true
             case "DirectUIHWND1":
                 flags.hasDirectUI := true
             case "Edit1":
                 flags.hasEdit := true
+        }
+
+        if RegExMatch(control, "^Button\d+$") {
+            flags.buttonCount += 1
         }
     }
 
@@ -1201,6 +1209,11 @@ DetectFileDialog(winID) {
     flags := GetFileDialogControlFlags(winID)
 
     if (!flags.hasEdit || !flags.hasToolbar) {
+        ; 兼容“选择文件夹 / Browse for Folder”这类旧式目录选择对话框：
+        ; 通常只有 TreeView + Edit + OK/Cancel，没有地址栏 Toolbar。
+        if (flags.hasEdit && flags.hasTreeView && flags.buttonCount >= 2) {
+            return "GENERAL"
+        }
         return false
     }
 
