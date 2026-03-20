@@ -195,6 +195,8 @@ Everything_3() {
 LTickCount := 0
 RTickCount := 0
 DblClickTime := DllCall("GetDoubleClickTime", "UInt") ; 从系统获取双击时间间隔
+DblClickWidth := DllCall("GetSystemMetrics", "Int", 36, "Int") ; SM_CXDOUBLECLK
+DblClickHeight := DllCall("GetSystemMetrics", "Int", 37, "Int") ; SM_CYDOUBLECLK
 
 ; 获取资源管理器背景颜色作为基准
 GetExplorerBackgroundColor(WinID) {
@@ -354,7 +356,56 @@ DetectBlankAreaByUIA(x, y, WinID, WinClass) {
     }
 }
 
-; 桌面双击启动Everything - 使用UIA检测空白区域
+GetListViewSelectedCount(listViewHwnd) {
+    if (!listViewHwnd) {
+        return -1
+    }
+
+    ; LVM_GETSELECTEDCOUNT = LVM_FIRST + 50
+    return DllCall("SendMessage", "Ptr", listViewHwnd, "UInt", 0x1032, "Ptr", 0, "Ptr", 0, "Int")
+}
+
+IsDesktopBlankArea(WinClass, controlHwnd) {
+    if !(WinClass = "Progman" || WinClass = "WorkerW") {
+        return false
+    }
+
+    if (!controlHwnd) {
+        return false
+    }
+
+    try controlClass := WinGetClass("ahk_id " . controlHwnd)
+    catch {
+        return false
+    }
+
+    if (controlClass != "SysListView32") {
+        return false
+    }
+
+    selectedCount := GetListViewSelectedCount(controlHwnd)
+    return (selectedCount = 0)
+}
+
+ToggleEverythingWindow(*) {
+    if !WinExist("ahk_class EVERYTHING") {
+        Run_Everything()
+        return
+    }
+
+    try {
+        minMax := WinGetMinMax("ahk_class EVERYTHING")
+        if (minMax = -1) {
+            WinActivate("ahk_class EVERYTHING")
+        } else {
+            WinMinimize("ahk_class EVERYTHING")
+        }
+    } catch {
+        Run_Everything()
+    }
+}
+
+; 桌面空白处双击切换 Everything
 ~LButton::
 {
     ; 确保EverythingConfig已初始化并且有必要的属性
@@ -372,37 +423,52 @@ DetectBlankAreaByUIA(x, y, WinID, WinClass) {
         return
     }
 
-    global LTickCount, RTickCount, DblClickTime
-    static LastClickTime := 0
-    static LastClickPos := ""
+    global LTickCount, RTickCount, DblClickTime, DblClickWidth, DblClickHeight
+    static LastClickX := ""
+    static LastClickY := ""
+    static LastClickWinID := 0
+    static LastClickControlHwnd := 0
+    static LastLaunchTick := 0
 
-    MouseGetPos(&x, &y, &WinID, &Control)
+    MouseGetPos(&x, &y, &WinID, &ControlHwnd, 2)
     WinClass := WinGetClass("ahk_id " . WinID)
+    ControlClass := ControlHwnd ? WinGetClass("ahk_id " . ControlHwnd) : ""
 
     ; 获取当前时间和位置
     CurrentTime := A_TickCount
-    CurrentPos := x . "," . y
+    deltaX := (LastClickX = "" ? "" : Abs(x - LastClickX))
+    deltaY := (LastClickY = "" ? "" : Abs(y - LastClickY))
+    sameTarget := (WinID = LastClickWinID && ControlHwnd = LastClickControlHwnd)
+    withinDoubleClickArea := (deltaX != "" && deltaY != "" &&
+        deltaX <= Max(4, DblClickWidth) &&
+        deltaY <= Max(4, DblClickHeight))
 
-    ; 更严格的双击检测：时间间隔、位置相近、且是连续的LButton事件
+    ; 按系统双击阈值判断，允许轻微手抖，不再要求像素级完全重合
     IsDoubleClick := (A_PriorHotKey = "~LButton" &&
         A_TimeSincePriorHotkey < DblClickTime &&
         A_TimeSincePriorHotkey > 50 &&  ; 避免过快的重复触发
-        CurrentPos = LastClickPos)      ; 位置必须相同
+        sameTarget &&
+        withinDoubleClickArea)
 
     ; 更新记录
-    LastClickTime := CurrentTime
-    LastClickPos := CurrentPos
+    LastClickX := x
+    LastClickY := y
+    LastClickWinID := WinID
+    LastClickControlHwnd := ControlHwnd
     LTickCount := CurrentTime
 
     ; 详细的调试信息（如果启用）
     if (EverythingConfig.show_debug_info) {
         debugInfo := "双击检测调试:`n"
         debugInfo .= "窗口类: " . WinClass . "`n"
-        debugInfo .= "控件: " . Control . "`n"
+        debugInfo .= "控件类: " . ControlClass . "`n"
         debugInfo .= "位置: " . x . "," . y . "`n"
         debugInfo .= "是双击: " . (IsDoubleClick ? "是" : "否") . "`n"
         debugInfo .= "时间间隔: " . A_TimeSincePriorHotkey . "ms`n"
         debugInfo .= "双击时间限制: " . DblClickTime . "ms`n"
+        debugInfo .= "位移: " . (deltaX = "" ? "-" : deltaX) . "," . (deltaY = "" ? "-" : deltaY) . "`n"
+        debugInfo .= "位移限制: " . Max(4, DblClickWidth) . "," . Max(4, DblClickHeight) . "`n"
+        debugInfo .= "同一目标: " . (sameTarget ? "是" : "否") . "`n"
         debugInfo .= "前一个热键: " . A_PriorHotKey . "`n"
 
         ToolTip(debugInfo, x + 10, y - 100)
@@ -411,41 +477,26 @@ DetectBlankAreaByUIA(x, y, WinID, WinClass) {
 
     ; 只有真正的双击才处理
     if (IsDoubleClick && LTickCount > RTickCount) {
-        ShouldLaunch := false
-
-        ; 使用统一的 UIA 检测所有目标窗口类型
-        if (WinClass = "Progman" || WinClass = "WorkerW") {
-            ; 桌面：使用 UIA 检测
-            ShouldLaunch := DetectBlankAreaByUIA(x, y, WinID, WinClass)
-        }
-        else if (WinClass = "Shell_TrayWnd") {
-            ; 任务栏：排除系统托盘和时钟区域，使用 UIA 检测
-            if (!InStr(Control, "TrayNotifyWnd") && !InStr(Control, "TrayClockWClass")) {
-                ShouldLaunch := DetectBlankAreaByUIA(x, y, WinID, WinClass)
-            }
-        }
-        else if (WinClass = "CabinetWClass" || WinClass = "ExploreWClass") {
-            ; 资源管理器：使用 UIA 检测是否点击了空白区域
-            if (InStr(Control, "DirectUIHWND") || InStr(Control, "SHELLDLL_DefView")) {
-                ShouldLaunch := DetectBlankAreaByUIA(x, y, WinID, WinClass)
-            }
-        }
+        selectedCount := (ControlClass = "SysListView32") ? GetListViewSelectedCount(ControlHwnd) : -1
+        ShouldToggle := IsDesktopBlankArea(WinClass, ControlHwnd)
 
         ; 最终调试信息（根据配置显示）
         if (EverythingConfig.show_debug_info) {
             finalDebug := "最终检测结果:`n"
             finalDebug .= "窗口类: " . WinClass . "`n"
-            finalDebug .= "控件: " . Control . "`n"
-            finalDebug .= "应启动: " . (ShouldLaunch ? "是" : "否") . "`n"
-            finalDebug .= "实际启动: " . (ShouldLaunch ? "是" : "否")
+            finalDebug .= "控件类: " . ControlClass . "`n"
+            finalDebug .= "选中图标数: " . selectedCount . "`n"
+            finalDebug .= "应切换: " . (ShouldToggle ? "是" : "否") . "`n"
+            finalDebug .= "实际切换: " . (ShouldToggle ? "是" : "否")
 
             ToolTip(finalDebug, x + 10, y + 10)
             SetTimer(() => ToolTip(), -4000)
         }
 
-        ; 启动Everything
-        if (ShouldLaunch) {
-            Run_Everything()
+        ; 只在桌面空白处双击时切换 Everything
+        if (ShouldToggle && (CurrentTime - LastLaunchTick > 350)) {
+            LastLaunchTick := CurrentTime
+            ToggleEverythingWindow()
         }
     }
 
