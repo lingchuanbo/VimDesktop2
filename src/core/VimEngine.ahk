@@ -579,6 +579,7 @@ class __vim {
             SaveKeyName .= thisKey
 
             key := this.Convert2AHK(thisKey)
+            normalizedKey := this.NormalizeHotkeyName(key)
 
             ; if INIObject.config.enable_debug{
             ;     if INIObject.config.enable_debug
@@ -605,8 +606,8 @@ class __vim {
                 this.ErrorCode := "MAP_KEY_ERROR"
                 return
             } else {
-                winObj.SuperKeyList[key] := bSuper
-                winObj.KeyList[key] := true
+                winObj.SuperKeyList[normalizedKey] := bSuper
+                winObj.KeyList[normalizedKey] := true
             }
 
         }
@@ -817,8 +818,9 @@ class __vim {
         ; 获取winName
         winName := this.CheckWin()
         ; 获取当前的热键
-        k := this.CheckCapsLock(this.Convert2VIM(A_ThisHotkey))
-        This.HotKeyStr .= This.CheckCapsLock(This.Convert2VIM(A_ThisHotkey))
+        ahkHotkey := this.NormalizeHotkeyName(A_ThisHotkey)
+        k := this.CheckCapsLock(this.Convert2VIM(ahkHotkey))
+        This.HotKeyStr .= This.CheckCapsLock(This.Convert2VIM(ahkHotkey))
         This.HotKeyStr := this.ShiftUpper(This.HotKeyStr)
 
         ; 如果winName在排除窗口中，直接发送热键
@@ -840,9 +842,9 @@ class __vim {
         }
 
         ; 如果当前热键在当前winName无效，判断全局热键中是否有效？
-        if Not winObj.KeyList.has(A_thisHotkey) {
+        if Not winObj.KeyList.has(ahkHotkey) {
             winObj := this.GetWin("global")
-            if Not winObj.KeyList.has(A_thisHotkey) || (!winObj.status) {   ;如果没有当前热键，或全局status=0不启用时，按普通键输出
+            if Not winObj.KeyList.has(ahkHotkey) || (!winObj.status) {   ;如果没有当前热键，或全局status=0不启用时，按普通键输出
                 ; 无效热键，按普通键输出
                 Send this.Convert2AHK(k, ToSend := true)
                 This.HotKeyStr := ""
@@ -1091,19 +1093,19 @@ class __vim {
             return "<Shift>"
         if RegExMatch(key, "i)^lwin$")
             return "<Win>"
-        if RegExMatch(key, "i)^~LButton\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?LButton\s&\s(.*)", &m)
             return "<LB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~MButton\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?MButton\s&\s(.*)", &m)
             return "<MB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~RButton\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?RButton\s&\s(.*)", &m)
             return "<RB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~XButton1\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?XButton1\s&\s(.*)", &m)
             return "<XB1-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~XButton2\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?XButton2\s&\s(.*)", &m)
             return "<XB2-" StrUpper(m[1]) ">"
         if RegExMatch(key, "i)^CapsLock\s&\s(.*)", &m)
             return "<Caps-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~Tab\s&\s(.*)", &m)
+        if RegExMatch(key, "i)^~?Tab\s&\s(.*)", &m)
             return "<Tab-" StrUpper(m[1]) ">"
         ;特殊键
         if RegExMatch(key, "i)^AppsKey$")
@@ -1287,6 +1289,12 @@ class __vim {
     */
     Convert2MapKey(key) {
         return this.ShiftUpper(this.CheckCapsLock(this.Convert2VIM(key)))
+    }
+
+    NormalizeHotkeyName(key) {
+        if RegExMatch(key, "i)^~?(LButton|MButton|RButton|XButton1|XButton2|Tab)\s&\s(.*)$", &m)
+            return "~" m[1] " & " m[2]
+        return key
     }
 
     /* CheckToSend【转换发送键 】

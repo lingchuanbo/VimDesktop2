@@ -60,6 +60,20 @@ if RegExMatch(TC_Global.TcPath, "i)totalcmd64\.exe$") {
     TC_Global.TcPathPanelRight := "TPathPanel2"
 }
 
+#HotIf WinActive("ahk_class TTOTAL_CMD")
+; 切换到TC窗口
+!w:: TC_JumpToExplorer()
+; 点击收藏夹
+; *Alt up::TC_SendPos("526")
+; 新建标签页
+MButton::TC_SendPos(3001)
+
+#HotIf TC_IsExplorerActive()
+; 切换到Explorer窗口
+!w:: Explorer_JumpToTC()
+
+#HotIf
+
 TTOTAL_CMD() {
     KeyArray := Array()
     ; 模式选择=========================================================
@@ -69,18 +83,21 @@ TTOTAL_CMD() {
     KeyArray.push({ Key: "<c-1>", Mode: "VIM模式", Group: "模式", Func: "MsgBoxTest", Param: "12345", Comment: "清除输入键及提示" })
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "模式", Func: "ShowAllKeys", Param: "TTOTAL_CMD", Comment: "清除输入键及提示" })
     ; 控制===========================================================
-    KeyArray.push({ Key: "w", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{up}", Comment: "向上" })
-    KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{down}", Comment: "向下" })
-    KeyArray.push({ Key: "*h", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{left}", Comment: "向左" })
-    KeyArray.push({ Key: "*l", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{right}", Comment: "向右" })
-    KeyArray.push({ Key: "z", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{Enter}", Comment: "确认（Enter）" })
-    KeyArray.push({ Key: "gg", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: 1, Comment: "VIM_移动第一行" })
-    KeyArray.push({ Key: "G", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: 0, Comment: "VIM_移动到最后一行" })
-    KeyArray.push({ Key: "gd", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: "", Comment: "VIM_移动到[ 输入 ]行" })
-    ;KeyArray.push({Key:"*``", Mode: "VIM模式", Group: "提示", Func: "TC_ToggleShowInfo", Param: "", Comment: "VIM_显示/隐藏按键提示"})
-    ; 注释===========================================================
-    KeyArray.push({ Key: "m", Mode: "VIM模式", Group: "注释", Func: "TC_MarkFile", Param: "", Comment: "注释_文件添加注释" })
-    KeyArray.push({ Key: "M", Mode: "VIM模式", Group: "注释", Func: "TC_UnMarkFile", Param: "", Comment: "注释_文件删除注释" })
+    ; KeyArray.push({ Key: "w", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{up}", Comment: "向上" })
+    ; KeyArray.push({ Key: "s", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{down}", Comment: "向下" })
+    ; KeyArray.push({ Key: "*h", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{left}", Comment: "向左" })
+    ; KeyArray.push({ Key: "*l", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{right}", Comment: "向右" })
+    ; KeyArray.push({ Key: "z", Mode: "VIM模式", Group: "控制", Func: "SendKeyInput", Param: "{Enter}", Comment: "确认（Enter）" })
+    ; KeyArray.push({ Key: "gg", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: 1, Comment: "VIM_移动第一行" })
+    ; KeyArray.push({ Key: "G", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: 0, Comment: "VIM_移动到最后一行" })
+    ; KeyArray.push({ Key: "gd", Mode: "VIM模式", Group: "控制", Func: "TC_GotoLine", Param: "", Comment: "VIM_移动到[ 输入 ]行" })
+    ; ;KeyArray.push({Key:"*``", Mode: "VIM模式", Group: "提示", Func: "TC_ToggleShowInfo", Param: "", Comment: "VIM_显示/隐藏按键提示"})
+    ; ; 注释===========================================================
+    ; KeyArray.push({ Key: "m", Mode: "VIM模式", Group: "注释", Func: "TC_MarkFile", Param: "", Comment: "注释_文件添加注释" })
+    ; KeyArray.push({ Key: "M", Mode: "VIM模式", Group: "注释", Func: "TC_UnMarkFile", Param: "", Comment: "注释_文件删除注释" })
+    ; <Tab-1> 由下方原生 AHK 热键处理。
+    ; vim.map() 当前会注册成 ~Tab & 1，在 TC 里会放行 Tab 原生行为，导致组合键不稳定。
+    ; KeyArray.push({ Key: "<a-1>", Mode: "VIM模式", Group: "控制", Func: "TotalCMD", Param: "cm_Exchange", Comment: "交换窗口" })
 
     vim.SetWin("TTOTAL_CMD", "TTOTAL_CMD", "TOTALCMD.exe")
 
@@ -89,6 +106,120 @@ TTOTAL_CMD() {
         if (v.Key != "")
             vim.map(v.Key, "TTOTAL_CMD", v.Mode, v.Func, v.Param, v.Group, v.Comment)
     }
+}
+
+
+
+TC_IsExplorerActive() {
+    try {
+        activeClass := WinGetClass("A")
+        return (activeClass = "CabinetWClass" || activeClass = "ExploreWClass")
+    } catch {
+        return false
+    }
+}
+
+TC_IsVimModeActive() {
+    try
+        return WinActive("ahk_class TTOTAL_CMD") && (vim.GetCurMode("TTOTAL_CMD") = "VIM模式")
+    catch
+        return false
+}
+
+#HotIf TC_IsVimModeActive()
+;切换窗口
+Tab & 1:: {
+    TotalCMD("cm_Exchange")
+}
+
+Tab:: {
+    Send "{Blind}{Tab}"
+}
+
+压缩/解压
+/::SingleDoubleFullHandlers("/|TC_UnpackFilesToCurrentDir|TC_PackFilesToCurrentDir")
+
+#HotIf
+
+TC_JumpToExplorer() {
+    tcHwnd := WinGetID("A")
+    targetPath := ""
+
+    try targetPath := GetTCActiveFolder(tcHwnd)
+
+    if !TC_IsValidFolder(targetPath) {
+        Run "explorer.exe"
+        return
+    }
+
+    explorerHwnd := TC_FindExplorerWindowByPath(targetPath)
+    if explorerHwnd {
+        WinActivate "ahk_id " explorerHwnd
+        return
+    }
+
+    Run Format('explorer.exe "{1}"', targetPath)
+}
+
+Explorer_JumpToTC() {
+    explorerHwnd := WinGetID("A")
+    targetPath := TC_GetExplorerFolder(explorerHwnd)
+
+    if !TC_IsValidFolder(targetPath) {
+        TC_FocusTC()
+        return
+    }
+
+    Run Format('"{1}" /O /S /L="{2}"', TC_Global.TcPath, targetPath)
+    if WinExist("ahk_class TTOTAL_CMD")
+        WinActivate "ahk_class TTOTAL_CMD"
+}
+
+TC_GetExplorerFolder(explorerHwnd) {
+    for explorerWindow in ComObject("Shell.Application").Windows {
+        try {
+            if (explorerWindow.hwnd != explorerHwnd)
+                continue
+
+            folderPath := explorerWindow.Document.Folder.Self.Path
+            if TC_IsValidFolder(folderPath)
+                return folderPath
+        } catch {
+            continue
+        }
+    }
+
+    return ""
+}
+
+TC_FindExplorerWindowByPath(targetPath) {
+    normalizedTargetPath := TC_NormalizePath(targetPath)
+
+    for explorerWindow in ComObject("Shell.Application").Windows {
+        try {
+            folderPath := explorerWindow.Document.Folder.Self.Path
+            if (TC_NormalizePath(folderPath) = normalizedTargetPath)
+                return explorerWindow.hwnd
+        } catch {
+            continue
+        }
+    }
+
+    return 0
+}
+
+TC_NormalizePath(path) {
+    if (path = "")
+        return ""
+
+    normalizedPath := StrLower(Trim(path))
+    while (SubStr(normalizedPath, -1) = "\")
+        normalizedPath := SubStr(normalizedPath, 1, -1)
+    return normalizedPath
+}
+
+TC_IsValidFolder(path) {
+    return (path != "" && InStr(FileExist(path), "D"))
 }
 
 TTOTAL_CMD_Before() {   ;未使用
@@ -1486,7 +1617,7 @@ TotalCMD_Menu.Add("SPINE导出", Spine_Menu)
 }
 #HotIf  ; 结束条件限制
 
-; 用法 TC_Command("tem(`cm_MkDir`)")
+; 用法 TC_Command("cm_MkDir")
 
 TotalCMD(CommandName) {
     ; 使用TC_Global中的配置路径
