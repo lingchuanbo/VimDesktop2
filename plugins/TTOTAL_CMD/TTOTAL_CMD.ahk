@@ -98,6 +98,9 @@ TTOTAL_CMD() {
     ; <Tab-1> 由下方原生 AHK 热键处理。
     ; vim.map() 当前会注册成 ~Tab & 1，在 TC 里会放行 Tab 原生行为，导致组合键不稳定。
     ; KeyArray.push({ Key: "<a-1>", Mode: "VIM模式", Group: "控制", Func: "TotalCMD", Param: "cm_Exchange", Comment: "交换窗口" })
+    KeyArray.push({ Key: "<SP-y>", Mode: "VIM模式", Group: "控制", Func: "TotalCMD", Param: "cm_CopyFullNamesToClip", Comment: "复制文件路径" })
+    KeyArray.push({ Key: "<SP-n>", Mode: "VIM模式", Group: "控制", Func: "TotalCMD", Param: "em_Eztcahk_CopyNameWithoutExt", Comment: "只复制文件" })
+    KeyArray.push({ Key: "<F9>", Mode: "VIM模式", Group: "控制", Func: "TC_Everyting", Param: "", Comment: "Eveything搜索当前路径" })
 
     vim.SetWin("TTOTAL_CMD", "TTOTAL_CMD", "TOTALCMD.exe")
 
@@ -119,6 +122,17 @@ TC_IsExplorerActive() {
     }
 }
 
+
+TC_Everyting(){
+    TotalCMD('cm_CopySrcPathToClip')
+    sleep 100
+    folder := A_Clipboard
+    ;  -p带"""  -search不带""
+    EverytingExe := EverythingConfig.everything_path
+    Run EverytingExe . ' -p "' . folder . '"'
+    return
+}
+
 TC_IsVimModeActive() {
     try
         return WinActive("ahk_class TTOTAL_CMD") && (vim.GetCurMode("TTOTAL_CMD") = "VIM模式")
@@ -136,8 +150,9 @@ Tab:: {
     Send "{Blind}{Tab}"
 }
 
-压缩/解压
-/::SingleDoubleFullHandlers("/|TC_UnpackFilesToCurrentDir|TC_PackFilesToCurrentDir")
+; 压缩/解压
+
+/::SingleDoubleFullHandlers("/|TC_UnpackFilesAndEnterDir|TC_UniZipFiles")
 
 #HotIf
 
@@ -1149,7 +1164,15 @@ TC_UnpackFilesToCurrentDir(aFolder := 1) {
     sleep 100
     SendInput "{enter}"
 }
+TC_UnpackFilesAndEnterDir(){
+    TotalCMD('em_ExtractAndEnterDir')
+return
+}
 
+TC_UniZipFiles(){
+    TotalCMD('em_BZUniZip_B')
+return
+}
 /* TC_PackFilesToCurrentDir【压缩文件到当前文件夹】
     函数:  TC_PackFilesToCurrentDir
     作用:  压缩文件到当前文件夹
