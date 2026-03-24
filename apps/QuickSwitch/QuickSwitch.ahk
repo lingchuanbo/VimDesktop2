@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetName QuickSwitch
+;@Ahk2Exe-SetMainIcon icon\fast-forward-1.ico
 ;@Ahk2Exe-SetDescription 快速切换工具 - 程序窗口切换 + 文件对话框路径切换
 ;@Ahk2Exe-SetCopyright BoBO
 

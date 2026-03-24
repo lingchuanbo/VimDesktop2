@@ -36,13 +36,71 @@ class RuntimeApp {
     }
 
     static InitializeTrayIcon() {
-        iconPath := A_ScriptDir . "\icon\fast-forward-1.ico"
-        if (FileExist(iconPath)) {
-            TraySetIcon(iconPath)
+        iconApplied := false
+        for iconCandidate in this.GetTrayIconCandidates() {
+            if (this.TrySetTrayIcon(iconCandidate.path, iconCandidate.index, iconCandidate.label)) {
+                iconApplied := true
+                break
+            }
+        }
+
+        if (!iconApplied) {
+            this.LogTrayIconStatus("托盘图标加载失败，将继续使用 AutoHotkey 默认图标。A_AhkVersion=" . A_AhkVersion . ", A_AhkPath=" . A_AhkPath, "WARN")
         }
 
         A_IconTip := "QuickSwitch - 快速切换工具"
         this.CreateTrayMenu()
+    }
+
+    static GetTrayIconCandidates() {
+        candidates := []
+        candidates.Push({
+            path: A_ScriptDir . "\icon\fast-forward-1.ico",
+            index: 1,
+            label: "primary_external_icon"
+        })
+        candidates.Push({
+            path: A_ScriptDir . "\icon\fast-forward-2.ico",
+            index: 1,
+            label: "fallback_external_icon"
+        })
+
+        if (A_IsCompiled) {
+            candidates.Push({
+                path: A_ScriptFullPath,
+                index: 1,
+                label: "compiled_main_icon"
+            })
+        }
+
+        return candidates
+    }
+
+    static TrySetTrayIcon(iconPath, iconIndex := 1, iconLabel := "") {
+        if (iconPath = "") {
+            return false
+        }
+
+        if (!A_IsCompiled || iconPath != A_ScriptFullPath) {
+            if (!FileExist(iconPath)) {
+                this.LogTrayIconStatus("托盘图标文件不存在: " . iconPath . " (" . iconLabel . ")", "WARN")
+                return false
+            }
+        }
+
+        try {
+            TraySetIcon(iconPath, iconIndex, true)
+            this.LogTrayIconStatus("托盘图标加载成功: " . iconPath . " (" . iconLabel . ")", "DEBUG")
+            return true
+        } catch as e {
+            this.LogTrayIconStatus("托盘图标加载失败: " . iconPath . " (" . iconLabel . "), error=" . e.Message, "WARN")
+            return false
+        }
+    }
+
+    static LogTrayIconStatus(message, level := "INFO") {
+        RuntimeLog.LogStartupDiagnostic(message, level)
+        RuntimeLog.LogMessage(message, level)
     }
 
     static CreateTrayMenu() {

@@ -1,4 +1,11 @@
 class RuntimeLog {
+    static LogStartupDiagnostic(message, level := "INFO") {
+        try {
+            this.AppendDailyLog("QuickSwitchStartup", level, message)
+        } catch {
+        }
+    }
+
     static LogMessage(message, level := "INFO") {
         global g_LogEnabled
 
