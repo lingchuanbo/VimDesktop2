@@ -17,7 +17,7 @@ class RuntimeApp {
                 Hotkey(g_Config.GetWindowsFolderActivePathKey, GetWindowsFolderActivePath, "On")
             }
 
-            Hotkey("^!w", ObjBindMethod(this, "ActivateWeChatHotkey"), "On")
+            ; Hotkey("^!w", ObjBindMethod(this, "ActivateWeChatHotkey"), "On")
         } catch as e {
             MsgBox("注册热键失败: " . e.message . "`n使用默认热键 Ctrl+Q 和 Ctrl+Tab", "警告", "T5")
             try {
@@ -26,7 +26,7 @@ class RuntimeApp {
                 if (g_Config.EnableGetWindowsFolderActivePath = "1") {
                     Hotkey("!w", GetWindowsFolderActivePath, "On")
                 }
-                Hotkey("^!w", ObjBindMethod(this, "ActivateWeChatHotkey"), "On")
+                ; Hotkey("^!w", ObjBindMethod(this, "ActivateWeChatHotkey"), "On")
             }
         }
     }
