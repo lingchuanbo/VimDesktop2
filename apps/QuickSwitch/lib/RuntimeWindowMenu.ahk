@@ -196,14 +196,6 @@ class RuntimeWindowMenu {
             settingsMenu.Add("取消置顶", unpinnedMenu)
         }
 
-        if (g_DarkMode) {
-            settingsMenu.Check("切换主题")
-        }
-
-        if (g_Config.EnableGetWindowsFolderActivePath = "1") {
-            settingsMenu.Check("GetWindowsFolderActivePath功能")
-        }
-
         contextMenu.Add("设置", settingsMenu)
     }
 

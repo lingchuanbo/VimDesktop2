@@ -298,4 +298,4 @@ TrayIcon_Clean(bVerbose := false)
 }
 
 ; Run trayicon_clean
-TrayIcon_Clean()
+; TrayIcon_Clean()
