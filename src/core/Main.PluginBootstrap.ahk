@@ -4,6 +4,7 @@ class MainPluginBootstrap {
         static pluginDirs := []
         static lastScanTime := 0
         static metaTimes := Map()
+        static fileTimes := Map()   ; 跟踪 .ahk 文件修改时间
         static metaInitialized := false
 
         currentTime := A_TickCount
@@ -13,7 +14,7 @@ class MainPluginBootstrap {
         }
 
         hasNewPlugin := false
-        metaChanged := false
+        anyChange := false
         newPlugins := []
 
         for _, pluginName in pluginDirs {
@@ -25,6 +26,7 @@ class MainPluginBootstrap {
                 hasNewPlugin := true
             }
 
+            ; 检测 plugin.meta.ini 修改
             metaPath := PluginCatalog.GetMetaPath(pluginName)
             if (FileExist(metaPath)) {
                 try {
@@ -33,20 +35,36 @@ class MainPluginBootstrap {
                         metaTimes[pluginName] := metaTime
                     } else if (!metaTimes.Has(pluginName) || metaTimes[pluginName] != metaTime) {
                         metaTimes[pluginName] := metaTime
-                        metaChanged := true
+                        anyChange := true
                     }
                 } catch {
-                    ; Ignore meta timestamp read errors.
                 }
             } else if (metaInitialized && metaTimes.Has(pluginName)) {
                 metaTimes.Delete(pluginName)
-                metaChanged := true
+                anyChange := true
+            }
+
+            ; 检测 .ahk 文件修改
+            if (FileExist(pluginFile)) {
+                try {
+                    fileTime := FileGetTime(pluginFile, "M")
+                    if (!metaInitialized) {
+                        fileTimes[pluginName] := fileTime
+                    } else if (!fileTimes.Has(pluginName) || fileTimes[pluginName] != fileTime) {
+                        fileTimes[pluginName] := fileTime
+                        anyChange := true
+                    }
+                } catch {
+                }
+            } else if (metaInitialized && fileTimes.Has(pluginName)) {
+                fileTimes.Delete(pluginName)
+                anyChange := true
             }
         }
 
         if (!metaInitialized) {
             metaInitialized := true
-            metaChanged := false
+            anyChange := false
         }
 
         if (hasNewPlugin) {
@@ -56,7 +74,7 @@ class MainPluginBootstrap {
             return
         }
 
-        if (metaChanged) {
+        if (anyChange) {
             this.RebuildPluginIncludes()
             Reload()
             return

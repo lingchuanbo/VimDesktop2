@@ -96,8 +96,7 @@ VimDesktop_ExitHandler(*) {
         }
 
     } catch Error as e {
-        if (INIObject.config.enable_debug)
-            MsgBox("清理扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
+        VimD_Error("TRAY_CLEANUP", "清理扩展功能时出错", e)
     }
 
     ExitApp()

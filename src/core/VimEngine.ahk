@@ -60,7 +60,7 @@ class __vim {
         this.ActionFromPluginName := PluginName
         p.CheckFunc()
         if (p.Error) {
-            MsgBox Format(Lang["General"]["Plugin_Load"], PluginName), Lang["General"]["Error"], "4112"
+            VimD_Error("VIM_PLUGIN_LOAD", Format(Lang["General"]["Plugin_Load"], PluginName), "", true)
             this.ActionFromPluginName := back
         }
     }
@@ -602,7 +602,7 @@ class __vim {
             }
 
             if A_LastError {
-                MsgBox Format(Lang["General"]["Key_MapError2"], KeyName, key), Lang["General"]["Error"], "4112"
+                VimD_Error("VIM_KEY_MAP", Format(Lang["General"]["Key_MapError2"], KeyName, key), "", true)
                 this.ErrorCode := "MAP_KEY_ERROR"
                 return
             } else {
@@ -611,6 +611,15 @@ class __vim {
             }
 
         }
+
+        ; 键冲突检测：同一模式内重复绑定
+        existingAction := modeObj.GetKeyMap(SaveKeyName)
+        if (existingAction && existingAction != Action) {
+            VimD_Log("WARN", "VIM_KEY_CONFLICT",
+                "键冲突: [" winName "][" Mode "] " SaveKeyName
+                . " 从 " existingAction " 覆盖为 " Action)
+        }
+
         modeObj.SetKeyMap(SaveKeyName, Action)
         modeObj.SetNoWait(SaveKeyName, bnoWait)
         return false

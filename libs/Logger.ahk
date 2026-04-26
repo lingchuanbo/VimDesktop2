@@ -81,6 +81,22 @@ VimD_Log(level, code, message, err := "")
     }
 }
 
+; 统一错误入口：总是记录日志，仅在调试模式下弹窗
+VimD_Error(code, message, err := "", showAlways := false) {
+    VimD_Log("ERROR", code, message, err)
+    try {
+        global INIObject
+        if (showAlways || (IsSet(INIObject) && INIObject.HasOwnProp("config") && INIObject.config.enable_debug = 1)) {
+            errMsg := message
+            if IsObject(err) && Type(err) = "Error"
+                errMsg .= "`n" err.Message
+            else if (err != "")
+                errMsg .= "`n" err
+            MsgBox(errMsg, "VimDesktop 错误", "OK Icon!")
+        }
+    }
+}
+
 VimD_LogOnce(level, code, message, err := "")
 {
     static logged := Map()

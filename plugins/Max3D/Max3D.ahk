@@ -147,7 +147,7 @@ Max3D_RenderDirtoTC() {
         Sleep(500)
         FileDelete(setPreset) ;避免重复删除文件
     } catch Error as e {
-        MsgBox Format("写入文件时出错: {1}", e.Message)
+        VimD_Error("MAX3D_RENDER_TC", "写入渲染脚本失败", e, true)
         return
     }
 }
@@ -206,10 +206,10 @@ Max3D_Menu() {
                 MsgBox("没有在指定目录中找到匹配的文件")
             }
         } catch as err {
-            MsgBox("显示菜单时出错: " err.Message) 
+            VimD_Error("MAX3D_MENU_SHOW", "显示菜单时出错", err, true)
         }
     } catch as err {
-        MsgBox("创建多目录菜单时出错: " err.Message)
+        VimD_Error("MAX3D_MENU_CREATE", "创建多目录菜单时出错", err, true)
     }
 }
 

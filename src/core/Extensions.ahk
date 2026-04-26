@@ -32,8 +32,7 @@ VimDesktop_AutoStartExtensions() {
             }
         }
     } catch Error as e {
-        if (INIObject.config.enable_debug)
-            MsgBox("自动启动扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
+        VimD_Error("EXT_AUTOSTART", "自动启动扩展功能时出错", e)
     }
 }
 
@@ -121,8 +120,7 @@ VimDesktop_RefreshExtensions() {
         } catch {
         }
     } catch Error as e {
-        if (INIObject.config.enable_debug)
-            MsgBox("刷新扩展功能时出错：" e.Message, "调试信息", "OK Icon!")
+        VimD_Error("EXT_REFRESH", "刷新扩展功能时出错", e)
     }
 }
 
@@ -164,8 +162,7 @@ VimDesktop_StartExtension(name, info) {
         }
         return processId
     } catch Error as runError {
-        if (INIObject.config.enable_debug)
-            MsgBox("启动扩展功能失败：" name " - " runError.Message, "调试信息", "OK Icon!")
+        VimD_Error("EXT_START", "启动扩展功能失败: " name, runError)
     }
     return 0
 }
@@ -250,6 +247,6 @@ VimDesktop_ExtensionHandler(ItemName, *) {
             }
         }
     } catch Error as e {
-        MsgBox("执行扩展功能时出错：" e.Message, "错误", "OK Icon!")
+        VimD_Error("EXT_EXECUTE", "执行扩展功能时出错", e)
     }
 }
