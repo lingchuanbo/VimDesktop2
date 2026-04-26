@@ -13,13 +13,18 @@ SendMode "Input"
 
 global App := AppContext.Create()
 global VimDesktop_Global := App.Runtime
-global Vim := App.Vim
 global INIObject := App.INIObject
 global PluginConfigs := App.PluginConfigs
 global Lang := App.Lang
 global VimDesktop_ExtensionPIDs := App.ExtensionPIDs ; 存储扩展功能的进程ID
 global VimDesktop_ExtensionAutoStartPaths := App.ExtensionAutoStartPaths ; 存储自动启动扩展的路径
 global VimDesktop_ConfigHotReloadIntervalMs := App.ConfigHotReloadIntervalMs
+
+global MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
+global MAIN_MEMORY_OPT_INTERVAL_MS := 300000
+global MAIN_CMD_CACHE_MAX := 100
+global MAIN_PLUGIN_SKIP_REGEX := "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
+global MAIN_PLUGIN_SETTING_REGEX := "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
 
 INIObject := EasyINI(VimDesktop_Global.ConfigPath)
 ; 从配置文件读取 default_enable_show_info 设置
@@ -42,7 +47,6 @@ VimDesktop_StartConfigHotReload()
 #Include .\core\Main.ahk
 #Include .\core\Main.PluginBootstrap.ahk
 #Include .\core\Main.RuntimeConfig.ahk
-#Include .\core\class_vim.ahk
 #Include .\core\VimDConfig.ahk
 #Include .\core\Tray.ahk
 #Include .\core\Extensions.ahk

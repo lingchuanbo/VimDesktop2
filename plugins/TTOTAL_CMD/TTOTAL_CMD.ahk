@@ -77,8 +77,7 @@ MButton::TC_SendPos(3001)
 TTOTAL_CMD() {
     KeyArray := Array()
     ; 模式选择=========================================================
-    KeyArray.push({ Key: "<insert>", Mode: "普通模式", Group: "模式", Func: "ModeChange", Param: "VIM模式", Comment: "切换到【VIM模式】" })
-    KeyArray.push({ Key: "<insert>", Mode: "VIM模式", Group: "模式", Func: "ModeChange", Param: "普通模式", Comment: "切换到【普通模式】" })
+    RegisterStandardModeKeys(KeyArray)
     KeyArray.push({ Key: "<capslock>", Mode: "VIM模式", Group: "模式", Func: "VIMD_清除输入键", Param: "", Comment: "清除输入键及提示" })
     KeyArray.push({ Key: "<c-1>", Mode: "VIM模式", Group: "模式", Func: "MsgBoxTest", Param: "12345", Comment: "清除输入键及提示" })
     KeyArray.push({ Key: "?", Mode: "VIM模式", Group: "模式", Func: "ShowAllKeys", Param: "TTOTAL_CMD", Comment: "清除输入键及提示" })

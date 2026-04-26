@@ -1,15 +1,29 @@
 #Requires AutoHotkey v2.0
 
 class PluginCatalog {
+    static _PluginNamesCache := []
+    static _PluginNamesCacheTick := 0
+    static _PluginNamesCacheTtl := 30000
+
     static ListPluginNames() {
+        tick := A_TickCount
+        if (this._PluginNamesCache.Length > 0
+            && tick - this._PluginNamesCacheTick < this._PluginNamesCacheTtl)
+            return this._PluginNamesCache
+
         pluginNames := []
         pluginsDir := PathResolver.PluginsDir()
-        if !DirExist(pluginsDir)
+        if !DirExist(pluginsDir) {
+            this._PluginNamesCache := pluginNames
+            this._PluginNamesCacheTick := tick
             return pluginNames
+        }
 
         loop files, pluginsDir "\*", "D" {
             pluginNames.Push(A_LoopFileName)
         }
+        this._PluginNamesCache := pluginNames
+        this._PluginNamesCacheTick := tick
         return pluginNames
     }
 
@@ -47,7 +61,12 @@ class PluginCatalog {
         return this.GetLegacyResourcePath(pluginName, relativePath)
     }
 
+    static _MetaCache := Map()
+
     static ReadMeta(pluginName) {
+        if this._MetaCache.Has(pluginName)
+            return this._MetaCache[pluginName]
+
         meta := Map(
             "name", pluginName,
             "author", "",
@@ -57,8 +76,10 @@ class PluginCatalog {
         )
 
         metaPath := this.GetMetaPath(pluginName)
-        if !FileExist(metaPath)
+        if !FileExist(metaPath) {
+            this._MetaCache[pluginName] := meta
             return meta
+        }
 
         try {
             content := FileRead(metaPath, "UTF-8")
@@ -71,9 +92,11 @@ class PluginCatalog {
                 this._TryReadMetaKey(content, "main", meta, "entry")
             if (meta["entry"] != "" && (SubStr(meta["entry"], 1, 1) = "\" || SubStr(meta["entry"], 1, 1) = "/"))
                 meta["entry"] := SubStr(meta["entry"], 2)
-        } catch {
+        } catch Error as e {
+            VimD_Log("WARN", "PLUGIN_READ_META", "Failed to read plugin meta: " pluginName, e)
         }
 
+        this._MetaCache[pluginName] := meta
         return meta
     }
 

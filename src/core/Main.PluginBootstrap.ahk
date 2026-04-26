@@ -1,6 +1,5 @@
 class MainPluginBootstrap {
     static CheckPlugin(LoadAll := 0) {
-        _InitMainConstants()
         global MAIN_PLUGIN_SCAN_INTERVAL_MS
         static pluginDirs := []
         static lastScanTime := 0

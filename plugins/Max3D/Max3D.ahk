@@ -38,9 +38,7 @@ Max3D() {
 Max3D_BuildKeymap() {
     keyArray := []
 
-    ; 模式切换
-    Max3D_AddKey(keyArray, "<insert>", "普通模式", "模式", "ModeChange", "VIM模式", "切换到【VIM模式】")
-    Max3D_AddKey(keyArray, "<insert>", "VIM模式", "模式", "ModeChange", "普通模式", "切换到【普通模式】")
+    RegisterStandardModeKeys(keyArray)
     Max3D_AddKey(keyArray, "<esc>", "VIM模式", "模式", "VIMD_清除输入键", "", "清除输入键及提示")
 
     ; 搜索功能

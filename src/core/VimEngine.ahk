@@ -36,10 +36,10 @@ class __vim {
         this.ErrorCode := 0                ;错误代码
         this.ActionFromPluginName := ""     ;动作来源插件名称
         this.LastFoundWin := ""             ;最后发现窗体
-        This.HotKeyStr := ""                  ;用于记录全部的热键字符串
-        This.HelpStr := ""                    ;用于记录热键功能说明
-        This.LastHotKey := ""                 ;记录最后一次的命令
-        This._Debug := ""
+        this.HotKeyStr := ""                  ;用于记录全部的热键字符串
+        this.HelpStr := ""                    ;用于记录热键功能说明
+        this.LastHotKey := ""                 ;记录最后一次的命令
+        this._Debug := ""
     }
 
     /* LoadPlugin【加载插件】
@@ -121,7 +121,7 @@ class __vim {
             ra := this.ActionList[winName][Mode][KeyName]
         else
             ra := this.ActionList[winName][Mode][KeyName] := __Action(KeyName, Action, Param, Group, Comment, OriKey)
-        This.ActionFromPlugin[KeyName] := this.ActionFromPluginName
+        this.ActionFromPlugin[KeyName] := this.ActionFromPluginName
         return ra
     }
 
@@ -310,7 +310,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     SetMode(modeName, winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.ChangeMode(modeName)
     }
 
@@ -326,7 +326,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     SetModeFunction(func, modeName, winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         modeObj := winObj.modeList[modeName]
         modeObj.modeFunction := func
     }
@@ -341,7 +341,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     getMode(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.modeList[winObj.ExistMode()]
     }
 
@@ -355,7 +355,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     GetCurMode(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.ExistMode()
     }
 
@@ -426,7 +426,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     SetMaxCount(Int, winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         winObj.MaxCount := int
     }
 
@@ -440,7 +440,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     GetMaxCount(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.MaxCount
     }
 
@@ -455,7 +455,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     SetCount(int, winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         winObj.Count := int
     }
 
@@ -469,7 +469,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     GetCount(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.Count
     }
 
@@ -484,7 +484,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     SetTimeOut(Int, winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         winObj.TimeOut := int
     }
 
@@ -498,7 +498,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     GetTimeOut(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         return winObj.TimeOut
     }
 
@@ -541,7 +541,7 @@ class __vim {
             this.SetAction(keyName, winName, Mode, Action, Param, Group, Comment, OriKey)
         }
 
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         modeObj := this.getMode(winName)
         Class := winObj.class
         filepath := winObj.filepath
@@ -698,7 +698,7 @@ class __vim {
     Copy(winName1, winName2, class, filepath := "", title := "") {
         ; if INIObject.config.enable_debug
         ;     this._Debug.Add("Copy>> " winName1 "`t"  winName2 "`t" class)
-        win1 := This.GetWin(winName1)
+        win1 := this.GetWin(winName1)
         win2 := this.SetWin(winName2, class, filepath, title)
         win2.class := class
         win2.filepath := filepath
@@ -731,15 +731,19 @@ class __vim {
         AHK版本: 2.0.18
     */
     CopyMode(winName, fromMode, toMode) {
-        winObj := This.GetWin(winName)
-        ; winObj.mode := modeName
+        winObj := this.GetWin(winName)
         winObj.mode := this.GetCurMode(winName)
         winObj.KeyTemp := ""
         winObj.Count := 0
         from := winObj.modeList[fromMode]
-        from.name := toMode
-        winObj.modeList[toMode] := from
-        return from
+        ; Create a new mode object instead of aliasing the source
+        to := __Mode(toMode)
+        to.keyMapList := from.keyMapList.Clone()
+        to.keyMoreList := from.keyMoreList.Clone()
+        to.noWaitList := from.noWaitList.Clone()
+        to.modeFunction := from.modeFunction
+        winObj.modeList[toMode] := to
+        return to
     }
 
     /* Delete【删除win对象】
@@ -800,7 +804,7 @@ class __vim {
         AHK版本: 2.0.18
     */
     Clear(winName := "") {
-        winObj := This.GetWin(winName)
+        winObj := this.GetWin(winName)
         winObj.KeyTemp := ""
         winObj.Count := 0
     }
@@ -820,14 +824,14 @@ class __vim {
         ; 获取当前的热键
         ahkHotkey := this.NormalizeHotkeyName(A_ThisHotkey)
         k := this.CheckCapsLock(this.Convert2VIM(ahkHotkey))
-        This.HotKeyStr .= This.CheckCapsLock(This.Convert2VIM(ahkHotkey))
-        This.HotKeyStr := this.ShiftUpper(This.HotKeyStr)
+        this.HotKeyStr .= k
+        this.HotKeyStr := this.ShiftUpper(this.HotKeyStr)
 
         ; 如果winName在排除窗口中，直接发送热键
         if this.ExcludeWinList.Has(winName) {
             Send this.Convert2AHK(k, ToSend := true)
-            This.HotKeyStr := ""
-            This.LastHotKey := ""
+            this.HotKeyStr := ""
+            this.LastHotKey := ""
             return
         }
 
@@ -836,8 +840,8 @@ class __vim {
         if (!winObj.status) {
             ; 不启用，按普通键输出
             Send this.Convert2AHK(k, ToSend := true)
-            This.HotKeyStr := ""
-            This.LastHotKey := ""
+            this.HotKeyStr := ""
+            this.LastHotKey := ""
             return
         }
 
@@ -847,8 +851,8 @@ class __vim {
             if Not winObj.KeyList.has(ahkHotkey) || (!winObj.status) {   ;如果没有当前热键，或全局status=0不启用时，按普通键输出
                 ; 无效热键，按普通键输出
                 Send this.Convert2AHK(k, ToSend := true)
-                This.HotKeyStr := ""
-                This.LastHotKey := ""
+                this.HotKeyStr := ""
+                this.LastHotKey := ""
                 return
             } else
                 winName := "global"
@@ -865,8 +869,8 @@ class __vim {
             _Rst_Before := 0
         if _Rst_Before {
             Send this.Convert2AHK(k, ToSend := true)
-            This.HotKeyStr := ""
-            This.LastHotKey := ""
+            this.HotKeyStr := ""
+            this.LastHotKey := ""
             return
         }
 
@@ -930,7 +934,7 @@ class __vim {
                 ;this._Debug.Add("act: " actionName "`tLK: " winObj.KeyTemp)
                 SetTimer Vim_TimeOut, 0
                 actObj.Do(winObj.Count)
-                This.HotKeyStr := ""
+                this.HotKeyStr := ""
                 winObj.Count := 0
             }
         } else {
@@ -942,12 +946,12 @@ class __vim {
                     Send this.Convert2AHK(k, ToSend := true)
                 else
                     actObj.Do(winObj.Count)
-                This.HotKeyStr := ""
+                this.HotKeyStr := ""
                 winObj.Count := 0
             } else {
                 Send this.Convert2AHK(k, ToSend := true)
                 winObj.Count := 0
-                This.HotKeyStr := ""
+                this.HotKeyStr := ""
             }
         }
 
@@ -964,7 +968,7 @@ class __vim {
             _Rst_After := 0
         if _Rst_After
             Send this.Convert2AHK(k, ToSend := true)
-        This.HotKeyStWr := ""
+        this.HotKeyStr := ""
     }
 
     ; IsTimeOut() {{{2
@@ -1026,6 +1030,114 @@ class __vim {
         }
     }
 
+    ; ============================================================
+    ; Key-name database — lazy-initialized, shared by all conversion functions.
+    ; Replaces ~200 lines of duplicated RegExMatch chains with a single data source.
+    ; ============================================================
+    _EnsureKeyDB() {
+        if this.HasOwnProp("_KeyDB")
+            return
+
+        ; Category 1: Simple special keys — canonical name → true
+        ; These wrap in <> for VIM format and {} for Send format.
+        simple := "F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12"
+            . ",LButton,RButton,MButton,XButton1,XButton2"
+            . ",WheelDown,WheelUp,WheelLeft,WheelRight"
+            . ",CapsLock,Space,Tab,Enter"
+            . ",ScrollLock,Home,End,Up,Down,Left,Right,PgUp,PgDn"
+            . ",AppsKey,NumpadEnter"
+            . ",Numpad0,Numpad1,Numpad2,Numpad3,Numpad4,Numpad5,Numpad6,Numpad7,Numpad8,Numpad9"
+            . ",NumpadAdd,NumpadSub,NumpadMult,NumpadDiv,NumpadDot"
+            . ",BS,Esc,Insert,Delete,PrtSc,controlBreak"
+        this._SimpleKeys := Map()
+        this._SimpleKeysLower := Map()
+        for k in StrSplit(simple, ",") {
+            this._SimpleKeys[k] := true
+            this._SimpleKeysLower[StrLower(k)] := k
+        }
+
+        ; Category 2: Aliases — lowercase alias → canonical name
+        this._KeyAliases := Map()
+        this._KeyAliases["backspace"] := "BS"
+        this._KeyAliases["escape"] := "Esc"
+        this._KeyAliases["ins"] := "Insert"
+        this._KeyAliases["del"] := "Delete"
+        this._KeyAliases["printscreen"] := "PrtSc"
+
+        ; Category 3: AHK modifier pattern → VIM prefix (Convert2VIM)
+        this._ModToVim := [
+            ["i)^shift\s&\s(.*)", "<S-"],
+            ["^\+(.*)", "<S-"],
+            ["i)^lshift\s&\s(.*)", "<LS-"],
+            ["^<\+(.*)", "<LS-"],
+            ["i)^rshift\s&\s(.*)", "<RS-"],
+            ["^>\+(.*)", "<RS-"],
+            ["i)^Ctrl\s&\s(.*)", "<C-"],
+            ["^\^(.*)", "<C-"],
+            ["i)^lctrl\s&\s(.*)", "<LC-"],
+            ["^<\^(.*)", "<LC-"],
+            ["i)^rctrl\s&\s(.*)", "<RC-"],
+            ["^>\^(.*)", "<RC-"],
+            ["i)^alt\s&\s(.*)", "<A-"],
+            ["^\!(.*)", "<A-"],
+            ["i)^lalt\s&\s(.*)", "<LA-"],
+            ["^<\!(.*)", "<LA-"],
+            ["i)^ralt\s&\s(.*)", "<RA-"],
+            ["^>\!(.*)", "<RA-"],
+            ["i)^lwin\s&\s(.*)", "<W-"],
+            ["^#(.*)", "<W-"],
+            ["i)^space\s&\s(.*)", "<SP-"],
+            ["i)^~?LButton\s&\s(.*)", "<LB-"],
+            ["i)^~?MButton\s&\s(.*)", "<MB-"],
+            ["i)^~?RButton\s&\s(.*)", "<RB-"],
+            ["i)^~?XButton1\s&\s(.*)", "<XB1-"],
+            ["i)^~?XButton2\s&\s(.*)", "<XB2-"],
+            ["i)^CapsLock\s&\s(.*)", "<Caps-"],
+            ["i)^~?Tab\s&\s(.*)", "<Tab-"],
+        ]
+
+        ; Category 4: VIM modifier prefix → [toSendPrefix, rawPrefix] (Convert2AHK)
+        this._ModFromVim := [
+            ["S-",  "+", "+"],
+            ["LS-", "<+", "<+"],
+            ["RS-", ">+", ">+"],
+            ["C-",  "^", "^"],
+            ["LC-", "<^", "<^"],
+            ["RC-", ">^", ">^"],
+            ["A-",  "!", "!"],
+            ["LA-", "<!", "<!"],
+            ["RA-", ">!", ">!"],
+            ["W-",  "#", "#"],
+            ["SP-", "{space}", "space & "],
+            ["LB-", "{~LButton}", "~LButton & "],
+            ["MB-", "{~MButton}", "~MButton & "],
+            ["RB-", "{~RButton}", "~RButton & "],
+            ["XB1-", "{~XButton1}", "~XButton1 & "],
+            ["XB2-", "{~XButton2}", "~XButton2 & "],
+            ["Caps-", "{Caps}", "CapsLock & "],
+            ["Tab-", "{~Tab}", "~Tab & "],
+        ]
+
+        ; Category 5: Standalone modifier → send format
+        this._ModSend := Map()
+        this._ModSend["alt"] := "{!}"
+        this._ModSend["ctrl"] := "{^}"
+        this._ModSend["shift"] := "{+}"
+        this._ModSend["win"] := "{#}"
+
+        this._KeyDB := true
+    }
+
+    ; Resolve a key name to its canonical form. Returns [canonicalName, isSimple].
+    _CanonicalKey(key) {
+        lower := StrLower(key)
+        if this._KeyAliases.Has(lower)
+            return [this._KeyAliases[lower], true]
+        if this._SimpleKeysLower.Has(lower)
+            return [this._SimpleKeysLower[lower], true]
+        return ["", false]
+    }
+
     /* Convert2VIM【将AHK热键名转换为类VIM的热键名 】
         函数: Convert2VIM
         作用: 将AHK热键名转换为类VIM的热键名
@@ -1038,94 +1150,40 @@ class __vim {
         例 Convert2VIM("f1")
     */
     Convert2VIM(key) {
-        ;大写字母
+        this._EnsureKeyDB()
+
+        ; Uppercase single letter → <S-X>
         if RegExMatch(key, "^[A-Z]$")
             return "<S-" StrUpper(key) ">"
-        ;Fn功能键
-        if RegExMatch(key, "i)^((F1)|(F2)|(F3)|(F4)|(F5)|(F6)|(F7)|(F8)|(F9)|(F10)|(F11)|(F12))$")
-            return "<" key ">"
-        ;鼠标键
-        if RegExMatch(key,
-            "i)^((LButton)|(RButton)|(MButton)|(XButton1)|(XButton2)|(WheelDown)|(WheelUp)|(WheelLeft)|(WheelRight))$")
-            return "<" key ">"
-        ;键盘控制
-        if RegExMatch(key, "i)^((CapsLock)|(Space)|(Tab)|(Enter))$")
-            return "<" key ">"
-        if RegExMatch(key, "i)^((BS)|(BackSpace))$")
-            return "<BS>"
-        if RegExMatch(key, "i)^((Esc)|(Escape))$")
-            return "<Esc>"
-        ;光标控制
-        if RegExMatch(key, "i)^((ScrollLock)|(Home)|(End)|(Up)|(Down)|(Left)|(Right)|(PgUp)|(PgDn))$")
-            return "<" key ">"
-        if RegExMatch(key, "i)^((Ins)|(Insert))$")
-            return "<Insert>"
-        if RegExMatch(key, "i)^((Del)|(Delete))$")
-            return "<Delete>"
-        ;修饰键
-        if RegExMatch(key, "i)^shift\s&\s(.*)", &m) or RegExMatch(key, "^\+(.*)", &m)
-            return "<S-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^lshift\s&\s(.*)", &m) or RegExMatch(key, "^<\+(.*)", &m)
-            return "<LS-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^rshift\s&\s(.*)", &m) or RegExMatch(key, "^>\+(.*)", &m)
-            return "<RS-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^Ctrl\s&\s(.*)", &m) or RegExMatch(key, "^\^(.*)", &m)
-            return "<C-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^lctrl\s&\s(.*)", &m) or RegExMatch(key, "^<\^(.*)", &m)
-            return "<LC-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^rctrl\s&\s(.*)", &m) or RegExMatch(key, "^>\^(.*)", &m)
-            return "<RC-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^alt\s&\s(.*)", &m) or RegExMatch(key, "^\!(.*)", &m)
-            return "<A-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^lalt\s&\s(.*)", &m) or RegExMatch(key, "^<\!(.*)", &m)
-            return "<LA-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^ralt\s&\s(.*)", &m) or RegExMatch(key, "^>\!(.*)", &m)
-            return "<RA-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^lwin\s&\s(.*)", &m) or RegExMatch(key, "^#(.*)", &m)
-            return "<W-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^space\s&\s(.*)", &m)
-            return "<SP-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^alt$")
+
+        ; Modifier + key combinations
+        for entry in this._ModToVim {
+            if RegExMatch(key, entry[1], &m)
+                return entry[2] StrUpper(m[1]) ">"
+        }
+
+        ; Standalone modifier keys
+        lower := StrLower(key)
+        if lower = "alt"
             return "<Alt>"
-        if RegExMatch(key, "i)^ctrl$")
+        if lower = "ctrl"
             return "<Ctrl>"
-        if RegExMatch(key, "i)^shift$")
+        if lower = "shift"
             return "<Shift>"
-        if RegExMatch(key, "i)^lwin$")
+        if lower = "lwin"
             return "<Win>"
-        if RegExMatch(key, "i)^~?LButton\s&\s(.*)", &m)
-            return "<LB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~?MButton\s&\s(.*)", &m)
-            return "<MB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~?RButton\s&\s(.*)", &m)
-            return "<RB-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~?XButton1\s&\s(.*)", &m)
-            return "<XB1-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~?XButton2\s&\s(.*)", &m)
-            return "<XB2-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^CapsLock\s&\s(.*)", &m)
-            return "<Caps-" StrUpper(m[1]) ">"
-        if RegExMatch(key, "i)^~?Tab\s&\s(.*)", &m)
-            return "<Tab-" StrUpper(m[1]) ">"
-        ;特殊键
-        if RegExMatch(key, "i)^AppsKey$")
-            return "<" key ">"
-        if RegExMatch(key, "i)^PrintScreen$")
-            return "<PrtSc>"
-        if RegExMatch(key, "i)^controlBreak$")
-            return "<controlBreak>"
-        if RegExMatch(key, "i)^LT$")
+
+        ; LT/RT
+        if lower = "lt"
             return "<LT>"
-        if RegExMatch(key, "i)^RT$")
+        if lower = "rt"
             return "<RT>"
-        ; 数字小键盘
-        if RegExMatch(key, "i)^NumpadEnter$")
-            return "<" key ">"
-        ; 数字键区
-        if RegExMatch(key,
-            "i)^((Numpad0)|(Numpad1)|(Numpad2)|(Numpad3)|(Numpad4)|(Numpad5)|(Numpad6)|(Numpad7)|(Numpad8)|(Numpad9)|(NumpadAdd)|(NumpadSub)|(NumpadMult)|(NumpadDiv)|(NumpadDot))$"
-        )
-            return "<" key ">"
+
+        ; Simple special keys
+        resolved := this._CanonicalKey(key)
+        if resolved[2]
+            return "<" resolved[1] ">"
+
         return key
     }
 
@@ -1141,29 +1199,17 @@ class __vim {
         例 Convert2VIM_Title("f1")
     */
     Convert2VIM_Title(key) {
-        ;大写字母
+        this._EnsureKeyDB()
+
         arr := MyFun_RegExMatchAll(key, "<(.*)>")
         if (arr.length) {
             for k, v in arr {
-                if RegExMatch(v, "i)^((BS)|(BackSpace))$")
-                    key := RegExReplace(key, v, "BS")
-                if RegExMatch(v, "i)^((Esc)|(Escape))$")
-                    key := RegExReplace(key, v, "Esc")
-                ;光标控制
-                if RegExMatch(v, "i)^((Ins)|(Insert))$")
-                    key := RegExReplace(key, v, "Insert")
-                if RegExMatch(v, "i)^((Del)|(Delete))$")
-                    key := RegExReplace(key, v, "Delete")
-                ;特殊键
-                if RegExMatch(key, "i)^PrintScreen$")
-                    key := RegExReplace(key, v, "PrtSc")
-                if RegExMatch(key, "i)^controlBreak$")
-                    key := RegExReplace(key, v, "controlBreak")
-                if RegExMatch(key, "i)^LT$")
-                    key := RegExReplace(key, v, "LT")
-                if RegExMatch(key, "i)^RT$")
-                    key := RegExReplace(key, v, "RT")
-                if RegExMatch(key, "i)^(.*?\-.*?)$")
+                ; Resolve aliases (BackSpace→BS, Escape→Esc, etc.)
+                resolved := this._CanonicalKey(v)
+                if resolved[2] && resolved[1] != v
+                    key := RegExReplace(key, v, resolved[1])
+                ; Uppercase modifier+key combinations (<s-a> → <S-A>)
+                else if RegExMatch(v, "\-")
                     key := RegExReplace(key, v, StrUpper(v))
             }
         }
@@ -1183,98 +1229,36 @@ class __vim {
         例 Convert2AHK("<F1>")
     */
     Convert2AHK(key, ToSend := false) {
-        this.CheckCapsLock(key)
-        if RegExMatch(key, "^<.*>$") {
-            key := SubStr(key, 2, strlen(key) - 2)
-            ;Fn功能键
-            if RegExMatch(key, "i)^((F1)|(F2)|(F3)|(F4)|(F5)|(F6)|(F7)|(F8)|(F9)|(F10)|(F11)|(F12))$")
-                return ToSend ? "{" key "}" : key
-            ;鼠标键
-            if RegExMatch(key,
-                "i)^((LButton)|(RButton)|(MButton)|(XButton1)|(XButton2)|(WheelDown)|(WheelUp)|(WheelLeft)|(WheelRight))$"
-            )
-                return ToSend ? "{" key "}" : key
-            ;键盘控制
-            if RegExMatch(key, "i)^((CapsLock)|(Space)|(Tab)|(Enter))$")
-                return ToSend ? "{" key "}" : key
-            if RegExMatch(key, "i)^BS$")
-                return ToSend ? "{" key "}" : key
-            if RegExMatch(key, "i)^Esc$")
-                return ToSend ? "{" key "}" : key
-            ;光标控制
-            if RegExMatch(key, "i)^((ScrollLock)|(Home)|(End)|(Up)|(Down)|(Left)|(Right)|(PgUp)|(PgDn))$")
-                return ToSend ? "{" key "}" : key
-            if RegExMatch(key, "i)^Insert$")
-                return ToSend ? "{" key "}" : key
-            if RegExMatch(key, "i)^Delete$")
-                return ToSend ? "{" key "}" : key
-            ;修饰键
-            if RegExMatch(key, "i)^alt$")
-                return ToSend ? "{!}" : "alt"
-            if RegExMatch(key, "i)^ctrl$")
-                return ToSend ? "{^}" : "ctrl"
-            if RegExMatch(key, "i)^shift$")
-                return ToSend ? "{+}" : "shift"
-            if RegExMatch(key, "i)^win$")
-                return ToSend ? "{#}" : "lwin"
-            if RegExMatch(key, "i)^S\-(.*)", &m)
-                return ToSend ? "+" this.CheckToSend(m[1]) : "+" m[1]
-            if RegExMatch(key, "i)^LS\-(.*)", &m)
-                return ToSend ? "<+" this.CheckToSend(m[1]) : "<+" m[1]
-            if RegExMatch(key, "i)^RS-(.*)", &m)
-                return ToSend ? ">+" this.CheckToSend(m[1]) : ">+" m[1]
-            if RegExMatch(key, "i)^C\-(.*)", &m)
-                return ToSend ? "^" this.CheckToSend(m[1]) : "^" m[1]
-            if RegExMatch(key, "i)^LC\-(.*)", &m)
-                return ToSend ? "<^" this.CheckToSend(m[1]) : "<^" m[1]
-            if RegExMatch(key, "i)^RC\-(.*)", &m)
-                return ToSend ? ">^" this.CheckToSend(m[1]) : ">^" m[1]
-            if RegExMatch(key, "i)^A\-(.*)", &m)
-                return ToSend ? "!" this.CheckToSend(m[1]) : "!" m[1]
-            if RegExMatch(key, "i)^LA\-(.*)", &m)
-                return ToSend ? "<!" this.CheckToSend(m[1]) : "<!" m[1]
-            if RegExMatch(key, "i)^RA\-(.*)", &m)
-                return ToSend ? ">!" this.CheckToSend(m[1]) : ">!" m[1]
-            if RegExMatch(key, "i)^w\-(.*)", &m)
-                return ToSend ? "#" this.CheckToSend(m[1]) : "#" m[1]
-            if RegExMatch(key, "i)^SP\-(.*)", &m)
-                return ToSend ? "{space}" this.CheckToSend(m[1]) : "space & " m[1]
-            if RegExMatch(key, "i)^LB\-(.*)", &m)
-                return ToSend ? "{~LButton}" this.CheckToSend(m[1]) : "~LButton & " m[1]
-            if RegExMatch(key, "i)^MB\-(.*)", &m)
-                return ToSend ? "{~MButton}" this.CheckToSend(m[1]) : "~MButton & " m[1]
-            if RegExMatch(key, "i)^RB\-(.*)", &m)
-                return ToSend ? "{~RButton}" this.CheckToSend(m[1]) : "~RButton & " m[1]
-            if RegExMatch(key, "i)^RB1\-(.*)", &m)
-                return ToSend ? "{~XButton1}" this.CheckToSend(m[1]) : "~XButton1 & " m[1]
-            if RegExMatch(key, "i)^RB2\-(.*)", &m)
-                return ToSend ? "{~XButton2}" this.CheckToSend(m[1]) : "~XButton2 & " m[1]
-            if RegExMatch(key, "i)^Caps\-(.*)", &m)
-                return ToSend ? "{Caps}" this.CheckToSend(m[1]) : "CapsLock & " m[1]
-            if RegExMatch(key, "i)^Tab\-(.*)", &m)
-                return ToSend ? "{~Tab}" this.CheckToSend(m[1]) : "~Tab & " m[1]
-            ;特殊键
-            if RegExMatch(key, "i)^AppsKey$")
-                return ToSend ? "{AppsKey}" : "AppsKey"
-            if RegExMatch(key, "i)^PrtSc$")
-                return ToSend ? "{PrintScreen}" : "PrintScreen"
-            if RegExMatch(key, "i)^controlBreak$")
-                return ToSend ? "{controlBreak}" : "controlBreak"
-            if RegExMatch(key, "LT")
-                return ToSend ? "{<}" : "<"
-            if RegExMatch(key, "RT")
-                return ToSend ? "{>}" : "<"
-            ; 数字小键盘
-            if RegExMatch(key, "i)^NumpadEnter$")
-                return ToSend ? "{" key "}" : key
-            ; 数字键区
-            if RegExMatch(key,
-                "i)^((Numpad0)|(Numpad1)|(Numpad2)|(Numpad3)|(Numpad4)|(Numpad5)|(Numpad6)|(Numpad7)|(Numpad8)|(Numpad9)|(NumpadAdd)|(NumpadSub)|(NumpadMult)|(NumpadDiv)|(NumpadDot))$"
-            )
-                return ToSend ? "{" key "}" : key
+        this._EnsureKeyDB()
 
-        } else
+        if !RegExMatch(key, "^<.*>$")
             return key
+
+        inner := SubStr(key, 2, StrLen(key) - 2)
+        lower := StrLower(inner)
+
+        ; Modifier combinations
+        for entry in this._ModFromVim {
+            if RegExMatch(inner, "i)^" entry[1] "(.*)", &m)
+                return ToSend ? entry[2] this.CheckToSend(m[1]) : entry[3] m[1]
+        }
+
+        ; Standalone modifier keys
+        if this._ModSend.Has(lower)
+            return ToSend ? this._ModSend[lower] : (lower = "win" ? "lwin" : lower)
+
+        ; LT/RT
+        if lower = "lt"
+            return ToSend ? "{<}" : "<"
+        if lower = "rt"
+            return ToSend ? "{>}" : ">"
+
+        ; Simple special keys
+        resolved := this._CanonicalKey(inner)
+        if resolved[2]
+            return ToSend ? "{" resolved[1] "}" : resolved[1]
+
+        return inner
     }
 
     /* Convert2MapKey【将类VIM的热键名转换为Map热键名】
@@ -1307,56 +1291,25 @@ class __vim {
         AHK版本: 2.0.18
     */
     CheckToSend(key) {
-        ;Fn功能键
-        if RegExMatch(key, "i)^((F1)|(F2)|(F3)|(F4)|(F5)|(F6)|(F7)|(F8)|(F9)|(F10)|(F11)|(F12))$")
-            return "{" key "}"
-        ;鼠标键
-        if RegExMatch(key,
-            "i)^((LButton)|(RButton)|(MButton)|(XButton1)|(XButton2)|(WheelDown)|(WheelUp)|(WheelLeft)|(WheelRight))$")
-            return "{" key "}"
-        ;键盘控制
-        if RegExMatch(key, "i)^((CapsLock)|(Space)|(Tab)|(Enter))$")
-            return "{" key "}"
-        if RegExMatch(key, "i)^BS$")
-            return "{" key "}"
-        if RegExMatch(key, "i)^Esc$")
-            return "{" key "}"
-        ;光标控制
-        if RegExMatch(key, "i)^((ScrollLock)|(Home)|(End)|(Up)|(Down)|(Left)|(Right)|(PgUp)|(PgDn))$")
-            return "{" key "}"
-        if RegExMatch(key, "i)^Insert$")
-            return "{" key "}"
-        if RegExMatch(key, "i)^Delete$")
-            return "{" key "}"
-        ;修饰键
-        if RegExMatch(key, "i)^alt$")
-            return "{!}"
-        if RegExMatch(key, "i)^ctrl$")
-            return "{^}"
-        if RegExMatch(key, "i)^shift$")
-            return "{+}"
-        if RegExMatch(key, "i)^win$")
-            return "{#}"
-        ;特殊键
-        if RegExMatch(key, "i)^AppsKey$")
-            return "{AppsKey}"
-        if RegExMatch(key, "i)^PrtSc$")
-            return "{PrintScreen}"
-        if RegExMatch(key, "i)^controlBreak$")
-            return "{controlBreak}"
-        if RegExMatch(key, "LT")
+        this._EnsureKeyDB()
+        lower := StrLower(key)
+
+        ; Standalone modifier keys
+        if this._ModSend.Has(lower)
+            return this._ModSend[lower]
+
+        ; Simple special keys
+        resolved := this._CanonicalKey(key)
+        if resolved[2]
+            return "{" resolved[1] "}"
+
+        ; LT/RT
+        if lower = "lt"
             return "<LT>"
-        if RegExMatch(key, "RT")
+        if lower = "rt"
             return "{>}"
-        ; 数字小键盘
-        if RegExMatch(key, "i)^NumpadEnter$")
-            return "{" key "}"
-        ; 数字键区
-        if RegExMatch(key,
-            "i)^((Numpad0)|(Numpad1)|(Numpad2)|(Numpad3)|(Numpad4)|(Numpad5)|(Numpad6)|(Numpad7)|(Numpad8)|(Numpad9)|(NumpadAdd)|(NumpadSub)|(NumpadMult)|(NumpadDiv)|(NumpadDot))$"
-        )
-            return "{" key "}"
-        return StrLower(Key)
+
+        return StrLower(key)
     }
 
     /* CheckCapsLock【检测CapsLock是否按下，返回对应的值】

@@ -1,8 +1,8 @@
-﻿#include *i ..\plugins\AfterEffects\runtime\AfterEffects.entry.ahk
-#include *i ..\plugins\Blender\runtime\Blender.entry.ahk
-#include *i ..\plugins\Everything\runtime\Everything.entry.ahk
-#include *i ..\plugins\Max3D\runtime\Max3D.entry.ahk
-#include *i ..\plugins\TTOTAL_CMD\runtime\TTOTAL_CMD.entry.ahk
+#include *i ..\plugins\AfterEffects\AfterEffects.ahk
+#include *i ..\plugins\Blender\Blender.ahk
+#include *i ..\plugins\Everything\Everything.ahk
+#include *i ..\plugins\Max3D\Max3D.ahk
+#include *i ..\plugins\TTOTAL_CMD\TTOTAL_CMD.ahk
 /*
 [ExtensionsTime]
 AfterEffects=20260311201739

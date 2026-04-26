@@ -148,7 +148,6 @@ class MainRuntimeConfig {
             return
         }
 
-        _InitMainConstants()
         global MAIN_PLUGIN_SETTING_REGEX
 
         config := _ReadPluginConfig(keyObj, pluginName)
@@ -277,7 +276,6 @@ class MainRuntimeConfig {
     }
 
     static IsPluginSectionName(sectionName) {
-        _InitMainConstants()
         global MAIN_PLUGIN_SKIP_REGEX
         if (sectionName = "")
             return false

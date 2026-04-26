@@ -5,17 +5,7 @@
 ; 3. 批量处理 - 减少循环开销
 ; 4. 内存清理 - 及时释放不需要的资源
 
-; 主配置常量（运行时通过 _InitMainConstants 保底赋值）
-MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
-MAIN_MEMORY_OPT_INTERVAL_MS := 300000
-MAIN_CMD_CACHE_MAX := 100
-MAIN_PLUGIN_SKIP_REGEX :=
-    "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
-MAIN_PLUGIN_SETTING_REGEX :=
-    "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
-
 VimDesktop_Run() {
-    _InitMainConstants()
     global vim := class_vim()
 
     configCache := _LoadMainConfig()
@@ -69,7 +59,6 @@ _LoadMainConfig() {
 }
 
 _InitMemoryOptimizer() {
-    _InitMainConstants()
     global MAIN_MEMORY_OPT_INTERVAL_MS
     ; 启用内存优化器 - 每 5 分钟清理一次内存
     try {
@@ -129,21 +118,6 @@ CheckPlugin(LoadAll := 0) {
     return MainPluginBootstrap.CheckPlugin(LoadAll)
 }
 
-; 批量处理新插件
-_ProcessNewPlugins(newPlugins) {
-    return MainPluginBootstrap.ProcessNewPlugins(newPlugins)
-}
-
-; 优化的插件加载
-_LoadPlugins(LoadAll) {
-    return MainPluginBootstrap.LoadPlugins(LoadAll)
-}
-
-; 设置默认模式
-_SetDefaultModes() {
-    return MainPluginBootstrap.SetDefaultModes()
-}
-
 CheckHotKey(LoadAll := 0) {
     ; 处理全局热键
     _ProcessGlobalHotKeys()
@@ -157,9 +131,6 @@ CheckHotKey(LoadAll := 0) {
 
 ; 处理全局热键
 _ProcessGlobalHotKeys() {
-    _default_Mode := "normal"
-    _enabled := 0
-
     globalConfig := _ReadGlobalConfig()
     _enabled := globalConfig.Has("enabled") ? globalConfig["enabled"] : 0
     _default_Mode := globalConfig.Has("default_Mode") ? globalConfig["default_Mode"] : "normal"
@@ -213,9 +184,7 @@ _ProcessExcludeWindows() {
 
 ; 处理插件热键
 _ProcessPluginHotKeys(LoadAll) {
-    _InitMainConstants()
     global MAIN_PLUGIN_SKIP_REGEX, MAIN_PLUGIN_SETTING_REGEX
-    ; 预编译正则表达式
     skipRegex := MAIN_PLUGIN_SKIP_REGEX
     settingRegex := MAIN_PLUGIN_SETTING_REGEX
 
@@ -227,6 +196,12 @@ _ProcessPluginHotKeys(LoadAll) {
             continue
         }
 
+        ; Skip explicitly disabled plugins early to avoid the expensive
+        ; _MergePluginIniConfig (7x INI reads). When enabled=0 is in main
+        ; config, plugin INI cannot override it.
+        if (!LoadAll && Key.HasOwnProp("enabled") && !_ParseBoolValue(Key.enabled, 0))
+            continue
+
         ; 批量读取插件配置
         pluginConfig := _ReadPluginConfig(Key, PluginName)
         hasMappings := _HasPluginMappings(Key, settingRegex)
@@ -237,7 +212,7 @@ _ProcessPluginHotKeys(LoadAll) {
             continue
         }
 
-        ; 检查是否启用
+        ; 检查是否启用（二次确认，处理 plugin INI 覆盖的情况）
         if (!LoadAll && !pluginConfig["enabled"])
             continue
 
@@ -348,8 +323,8 @@ _MergePluginIniConfig(config, present, pluginName) {
                 present["default_Mode"] := true
             }
         }
-    } catch {
-        ; 读取插件 ini 失败时忽略，保持现有配置
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_MERGE_INI", "读取插件 INI 失败: " pluginName, e)
     }
 }
 
@@ -470,7 +445,6 @@ _ParseActionString(actionStr) {
 }
 
 VIMD_CMD(Param) {
-    _InitMainConstants()
     global MAIN_CMD_CACHE_MAX
     ; 缓存正则表达式匹配结果
     static cmdCache := Map()
@@ -582,8 +556,8 @@ _ApplyLogSetting(enableLog) {
             if (IsSet(logObject))
                 logObject := ""
         }
-    } catch {
-        ; 忽略日志切换失败
+    } catch Error as e {
+        VimD_Log("WARN", "MAIN_LOG_SWITCH", "日志切换失败", e)
     }
 }
 
@@ -613,35 +587,6 @@ VimDesktop_ResetPluginMappings(pluginName, disable := false) {
 
 VimDesktop_ClearWinMappings(pluginName, winObj := "") {
     return MainRuntimeConfig.ClearWinMappings(pluginName, winObj)
-}
-
-VimDesktop_IsPluginSectionName(sectionName) {
-    return MainRuntimeConfig.IsPluginSectionName(sectionName)
-}
-
-VimDesktop_PushUniqueList(target, items) {
-    return MainRuntimeConfig.PushUniqueList(target, items)
-}
-
-_InitMainConstants() {
-    global MAIN_PLUGIN_SCAN_INTERVAL_MS
-    global MAIN_MEMORY_OPT_INTERVAL_MS
-    global MAIN_CMD_CACHE_MAX
-    global MAIN_PLUGIN_SKIP_REGEX
-    global MAIN_PLUGIN_SETTING_REGEX
-
-    if (!IsSet(MAIN_PLUGIN_SCAN_INTERVAL_MS) || MAIN_PLUGIN_SCAN_INTERVAL_MS = "")
-        MAIN_PLUGIN_SCAN_INTERVAL_MS := 30000
-    if (!IsSet(MAIN_MEMORY_OPT_INTERVAL_MS) || MAIN_MEMORY_OPT_INTERVAL_MS = "")
-        MAIN_MEMORY_OPT_INTERVAL_MS := 300000
-    if (!IsSet(MAIN_CMD_CACHE_MAX) || MAIN_CMD_CACHE_MAX = "")
-        MAIN_CMD_CACHE_MAX := 100
-    if (!IsSet(MAIN_PLUGIN_SKIP_REGEX) || MAIN_PLUGIN_SKIP_REGEX = "")
-        MAIN_PLUGIN_SKIP_REGEX :=
-            "i)^(config|exclude|global|plugins|EasyIni_KeyComment|EasyIni_SectionComment|EasyIni_ReservedFor_m_sFile|EasyIni_TopComments|default_Mode)$"
-    if (!IsSet(MAIN_PLUGIN_SETTING_REGEX) || MAIN_PLUGIN_SETTING_REGEX = "")
-        MAIN_PLUGIN_SETTING_REGEX :=
-            "i)^(set_class|set_file|set_time_out|set_max_count|enable_show_info|enabled|EasyIni_KeyComment)$"
 }
 
 ; 处理目录命令

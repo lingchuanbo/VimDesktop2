@@ -21,15 +21,11 @@ class ConfigService {
         this.MainConfig := mainConfig
         this.PluginConfigs := pluginConfigs
         this.PluginConfigPaths := Map()
-        this._BuildPluginConfigPathIndex()
+        ; LoadPluginConfigs() calls BuildPluginConfigPathIndex internally
         this.LoadPluginConfigs()
         this.GetSchemas()
         this._InitFileMtimes()
         this._InitMainSectionSnapshots()
-    }
-
-    static _BuildPluginConfigPathIndex() {
-        return ConfigServiceChangeTracker.BuildPluginConfigPathIndex(this)
     }
 
     static LoadPluginConfigs() {
@@ -44,30 +40,6 @@ class ConfigService {
         return ConfigServiceChangeTracker.InitMainSectionSnapshots(this)
     }
 
-    static _BuildMainSectionSnapshots() {
-        return ConfigServiceChangeTracker.BuildMainSectionSnapshots(this)
-    }
-
-    static _SnapshotSection(sectionObj) {
-        return ConfigServiceChangeTracker.SnapshotSection(this, sectionObj)
-    }
-
-    static _IsReservedSectionKey(name) {
-        return ConfigServiceChangeTracker.IsReservedSectionKey(name)
-    }
-
-    static _DiffMainSections() {
-        return ConfigServiceChangeTracker.DiffMainSections(this)
-    }
-
-    static _DiffSectionSnapshot(oldSnap, newSnap) {
-        return ConfigServiceChangeTracker.DiffSectionSnapshot(oldSnap, newSnap)
-    }
-
-    static _PushUnique(arr, value) {
-        return ConfigServiceChangeTracker.PushUnique(arr, value)
-    }
-
     static _GetMainConfigPath() {
         if (IsObject(this.MainConfig) && this.MainConfig.HasOwnProp("EasyIni_ReservedFor_m_sFile"))
             return this.MainConfig.EasyIni_ReservedFor_m_sFile
@@ -78,24 +50,8 @@ class ConfigService {
         return ConfigServiceChangeTracker.GetFileMtime(filePath)
     }
 
-    static _HasFileChanged(key, filePath) {
-        return ConfigServiceChangeTracker.HasFileChanged(this, key, filePath)
-    }
-
-    static _MaybeRefreshPluginConfigPathIndex() {
-        return ConfigServiceChangeTracker.MaybeRefreshPluginConfigPathIndex(this)
-    }
-
     static RefreshIfChanged(enableValidation := true, enableDebug := false, logPath := "") {
         return ConfigServiceChangeTracker.RefreshIfChanged(this, enableValidation, enableDebug, logPath)
-    }
-
-    static _ReloadMainConfigIfChanged() {
-        return ConfigServiceChangeTracker.ReloadMainConfigIfChanged(this)
-    }
-
-    static _ReloadPluginConfigsIfChanged() {
-        return ConfigServiceChangeTracker.ReloadPluginConfigsIfChanged(this)
     }
 
     static GetPluginConfigPath(pluginName) {
@@ -146,7 +102,8 @@ class ConfigService {
         if !pluginIni.HasOwnProp(targetSection) {
             try {
                 pluginIni.AddSection(targetSection)
-            } catch {
+            } catch Error as e {
+                VimD_Log("WARN", "CONFIG_SET_VALUE", "AddSection failed: " pluginName, e)
                 return false
             }
         }
@@ -171,7 +128,8 @@ class ConfigService {
             pluginIni.Save(targetPath)
             this.PluginConfigPaths[pluginName] := targetPath
             return true
-        } catch {
+        } catch Error as e {
+            VimD_Log("WARN", "CONFIG_SAVE_PLUGIN", "SavePluginConfig failed: " pluginName, e)
             return false
         }
     }
@@ -239,7 +197,8 @@ class ConfigService {
                 targetSection, 500, 30000)
             cfg.specialHandling := this.GetPluginValue(pluginName, "ime_special_handling", cfg.specialHandling,
                 targetSection)
-        } catch {
+        } catch Error as e {
+            VimD_Log("WARN", "CONFIG_IME_READ", "GetPluginIMEConfig failed: " pluginName, e)
         }
 
         return cfg
@@ -373,7 +332,8 @@ class ConfigService {
                 FileDelete(targetPath)
             FileAppend(content, targetPath, "UTF-8")
             return true
-        } catch {
+        } catch Error as e {
+            VimD_Log("WARN", "CONFIG_WRITE_REPORT", "WriteValidationReport failed", e)
             return false
         }
     }
@@ -413,8 +373,6 @@ class ConfigService {
             return pathValue
         if (SubStr(pathValue, 1, 2) = "\\\\")
             return pathValue
-        if (SubStr(pathValue, 1, 1) = "\")
-            return PathResolver.RootPath(pathValue)
 
         return PathResolver.RootPath(pathValue)
     }
@@ -592,7 +550,8 @@ class ConfigService {
             this.PluginConfigs.%pluginName% := iniObj
             this.PluginConfigPaths[pluginName] := configPath
             return iniObj
-        } catch {
+        } catch Error as e {
+            VimD_Log("WARN", "CONFIG_GET_INI", "Failed to create plugin INI: " pluginName, e)
             return ""
         }
     }

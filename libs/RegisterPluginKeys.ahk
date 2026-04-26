@@ -14,7 +14,7 @@ RegisterPluginKeys(KeyArray, pluginName) {
     global singleDoubleHandlers
     if (!IsSet(singleDoubleHandlers))
         singleDoubleHandlers := Map()
-    
+
     for k, v in KeyArray {
         if (v.Key != "") {  ; 方便类似TC类全功能，仅启用部分热键的情况
             ; 特殊处理 SingleDoubleFullHandlers 函数
@@ -30,4 +30,11 @@ RegisterPluginKeys(KeyArray, pluginName) {
             }
         }
     }
+}
+
+; 注册所有插件通用的模式切换键（<insert> 在普通模式和VIM模式之间切换）
+; normalMode 和 vimMode 的默认值与项目中所有插件一致
+RegisterStandardModeKeys(KeyArray, normalMode := "普通模式", vimMode := "VIM模式") {
+    KeyArray.push({ Key: "<insert>", Mode: normalMode, Group: "模式", Func: "ModeChange", Param: vimMode, Comment: "切换到【" vimMode "】" })
+    KeyArray.push({ Key: "<insert>", Mode: vimMode, Group: "模式", Func: "ModeChange", Param: normalMode, Comment: "切换到【" normalMode "】" })
 }
